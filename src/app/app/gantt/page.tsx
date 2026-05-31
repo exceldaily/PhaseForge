@@ -17,6 +17,7 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
     .select('*, phases(*)')
     .eq('company_id', profile.company_id)
     .eq('is_archived', false)
+    .neq('status', 'closed')
     .order('start_date', { ascending: true })
 
   if (params.project) {

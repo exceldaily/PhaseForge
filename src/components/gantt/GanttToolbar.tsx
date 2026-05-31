@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Target } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Target, Printer } from 'lucide-react'
 import { format, parseISO } from '@/lib/dates'
 import { useGanttStore } from '@/stores/ganttStore'
 import { Button } from '@/components/ui/Button'
+import { GanttPrintModal } from './GanttPrintModal'
 import { ZoomLevel } from '@/types/app'
+import { Project } from '@/types/app'
 
 const ZOOM_LEVELS: { value: ZoomLevel; label: string }[] = [
   { value: 'day', label: 'Day' },
@@ -29,30 +31,41 @@ export function GanttToolbar({
   projectCount,
   canFitTimeline,
   onFitTimeline,
+  projects = [],
 }: {
   projectCount: number
   canFitTimeline: boolean
   onFitTimeline: () => void
+  projects?: Project[]
 }) {
   const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd } = useGanttStore()
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [isPrintMenuOpen, setIsPrintMenuOpen] = useState(false)
+  const [printScope, setPrintScope] = useState<'current' | 'all' | null>(null)
   const datePickerRef = useRef<HTMLDivElement | null>(null)
+  const printMenuRef = useRef<HTMLDivElement | null>(null)
   const rangeLabel = getRangeLabel(viewStart, viewEnd, zoom)
 
-  useEffect(() => {
-    if (!isDatePickerOpen) return
+  const handlePrint = (scope: 'current' | 'all') => {
+    setPrintScope(scope)
+    setIsPrintMenuOpen(false)
+  }
 
+  useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!datePickerRef.current?.contains(event.target as Node)) {
+      if (isDatePickerOpen && !datePickerRef.current?.contains(event.target as Node)) {
         setIsDatePickerOpen(false)
+      }
+      if (isPrintMenuOpen && !printMenuRef.current?.contains(event.target as Node)) {
+        setIsPrintMenuOpen(false)
       }
     }
 
     document.addEventListener('mousedown', handlePointerDown)
     return () => document.removeEventListener('mousedown', handlePointerDown)
-  }, [isDatePickerOpen])
+  }, [isDatePickerOpen, isPrintMenuOpen])
 
   const handleApplyRange = () => {
     if (!fromDate || !toDate) return
@@ -70,10 +83,10 @@ export function GanttToolbar({
   }
 
   return (
-    <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2.5">
+    <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-white via-white to-slate-50/50 px-4 py-3 shadow-sm">
       <div className="flex items-center gap-3">
-        <h1 className="text-base font-semibold text-slate-900">Gantt Chart</h1>
-        <span className="text-sm text-slate-400">{projectCount} project{projectCount !== 1 ? 's' : ''}</span>
+        <h1 className="text-lg font-bold text-slate-900">Gantt Chart</h1>
+        <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">{projectCount} {projectCount !== 1 ? 'projects' : 'project'}</span>
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
@@ -86,7 +99,7 @@ export function GanttToolbar({
               setIsDatePickerOpen((open) => !open)
             }}
             aria-expanded={isDatePickerOpen}
-            className="inline-flex max-w-[18rem] items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white"
+            className="inline-flex max-w-[18rem] items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition-all hover:border-indigo-400 hover:shadow-md"
           >
             <CalendarRange size={14} className="text-slate-400" />
             <span className="truncate">{rangeLabel}</span>
@@ -189,7 +202,50 @@ export function GanttToolbar({
         <Button variant="outline" size="sm" onClick={scrollToToday}>
           <Target size={14} /> Today
         </Button>
+
+        <div ref={printMenuRef} className="relative">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsPrintMenuOpen(!isPrintMenuOpen)}
+          >
+            <Printer size={14} /> Print
+          </Button>
+
+          {isPrintMenuOpen && (
+            <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl">
+              <button
+                onClick={() => handlePrint('current')}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 border-b border-slate-100"
+              >
+                <Printer size={13} className="text-slate-400" />
+                <div className="text-left">
+                  <p className="font-medium">Current View</p>
+                  <p className="text-[11px] text-slate-400">One project</p>
+                </div>
+              </button>
+              <button
+                onClick={() => handlePrint('all')}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <Printer size={13} className="text-slate-400" />
+                <div className="text-left">
+                  <p className="font-medium">All Projects</p>
+                  <p className="text-[11px] text-slate-400">{projectCount} project{projectCount !== 1 ? 's' : ''}</p>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {printScope && (
+        <GanttPrintModal
+          projects={projects}
+          scope={printScope}
+          onClose={() => setPrintScope(null)}
+        />
+      )}
     </div>
   )
 }

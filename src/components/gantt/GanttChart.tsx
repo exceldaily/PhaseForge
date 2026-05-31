@@ -250,9 +250,10 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
         projectCount={projects.length}
         canFitTimeline={Boolean(scheduleBounds)}
         onFitTimeline={handleFitTimeline}
+        projects={projects}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden border-t border-slate-200">
         <GanttSidebar
           projects={projects}
           headerHeight={headerHeight}
@@ -265,7 +266,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
         <div
           ref={timelineScrollRef}
           onScroll={handleTimelineScroll}
-          className="flex-1 overflow-auto bg-slate-50/40"
+          className="flex-1 overflow-auto bg-gradient-to-br from-white via-slate-50 to-slate-100/50"
         >
           <div style={{ width: totalWidth, minWidth: '100%' }}>
             <GanttTimelineHeader
@@ -353,23 +354,27 @@ function GanttTimelineHeader({
   const cellWidth = zoom === 'day' ? pixelsPerDay : zoom === 'week' ? pixelsPerDay * 7 : pixelsPerDay * 30
 
   return (
-    <div className="sticky top-0 z-10 flex border-b-2 border-slate-200 bg-white" style={{ height }}>
+    <div className="sticky top-0 z-10 flex border-b border-slate-200 bg-gradient-to-b from-white to-slate-50 shadow-sm" style={{ height }}>
       {headers.map((header, index) => (
         <div
           key={index}
           className={cn(
-            'flex flex-shrink-0 items-center justify-center border-r border-slate-200 text-xs font-medium',
-            header.isToday ? 'bg-indigo-50 text-indigo-700' : header.isWeekend ? 'bg-slate-50 text-slate-400' : 'text-slate-600'
+            'flex flex-shrink-0 items-center justify-center border-r border-slate-100 text-xs font-semibold transition-colors',
+            header.isToday
+              ? 'bg-gradient-to-b from-indigo-50 to-indigo-25 text-indigo-700 border-r-indigo-200'
+              : header.isWeekend
+                ? 'bg-slate-50/60 text-slate-500'
+                : 'text-slate-700 bg-white'
           )}
           style={{ width: cellWidth, minWidth: cellWidth }}
         >
-          <div className="flex flex-col items-center justify-center leading-tight">
+          <div className="flex flex-col items-center justify-center gap-1 leading-tight">
             {zoom === 'day' && (
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                 {format(header.date, 'MMM')}
               </span>
             )}
-            <span>{header.label}</span>
+            <span className="font-semibold">{header.label}</span>
           </div>
         </div>
       ))}
@@ -390,7 +395,7 @@ function GridLines({ totalDays, pixelsPerDay, zoom }: { totalDays: number; pixel
       {lines.map((day) => (
         <div
           key={day}
-          className="absolute bottom-0 top-0 border-r border-slate-200"
+          className="absolute bottom-0 top-0 border-r border-slate-100"
           style={{ left: day * pixelsPerDay }}
         />
       ))}
@@ -531,25 +536,26 @@ function GanttPhaseRow({
   const barColor = phase.color || PHASE_STATUS_COLORS[phase.status as PhaseStatus]
 
   return (
-    <div className="relative border-b border-slate-100 transition-colors hover:bg-slate-50/60" style={{ height: rowHeight }}>
+    <div className="relative border-b border-slate-100/50 transition-colors hover:bg-indigo-50/20" style={{ height: rowHeight }}>
       <GridLines totalDays={totalDays} pixelsPerDay={pixelsPerDay} zoom={zoom} />
       <TodayLine viewStart={viewStart} pixelsPerDay={pixelsPerDay} />
 
       {width > 0 && (
         <div
           className={cn(
-            'absolute top-1/2 flex -translate-y-1/2 items-center select-none transition-shadow',
-            !clippedStart && 'rounded-l-md',
-            !clippedEnd && 'rounded-r-md',
-            isSelected ? 'ring-2 ring-slate-900 ring-offset-1 shadow-lg' : 'shadow-sm',
-            isDragging ? 'cursor-grabbing opacity-80 shadow-xl' : 'cursor-grab hover:shadow-md',
-            overdue && phase.status !== 'completed' && 'ring-1 ring-rose-400'
+            'absolute top-1/2 flex -translate-y-1/2 items-center select-none transition-all duration-150',
+            !clippedStart && 'rounded-l-lg',
+            !clippedEnd && 'rounded-r-lg',
+            isSelected ? 'ring-2 ring-indigo-600 ring-offset-2 shadow-xl' : 'shadow-md hover:shadow-lg',
+            isDragging ? 'cursor-grabbing opacity-90 shadow-2xl' : 'cursor-grab',
+            overdue && phase.status !== 'completed' && 'ring-1 ring-rose-500'
           )}
           style={{
             left,
             width: visibleWidth,
-            height: rowHeight - 10,
+            height: rowHeight - 8,
             backgroundColor: barColor,
+            opacity: isDragging ? 0.9 : 1,
           }}
           onClick={onSelect}
           onMouseDown={(event) => onMouseDown(event, 'move')}

@@ -33,17 +33,17 @@ export function GanttSidebar({
 
   return (
     <div
-      className="flex flex-shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white"
+      className="flex flex-shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-gradient-to-b from-white to-slate-50/30"
       style={{ width: SIDEBAR_WIDTH }}
     >
       <div
-        className="flex flex-shrink-0 items-center border-b-2 border-slate-200 bg-white px-4"
+        className="flex flex-shrink-0 items-center border-b border-slate-200 bg-gradient-to-r from-white to-slate-50 px-4 shadow-sm"
         style={{ height: headerHeight }}
       >
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Project / Phase</span>
+        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Projects & Phases</span>
       </div>
 
-      <div ref={rowsRef} onScroll={onRowsScroll} className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
+      <div ref={rowsRef} onScroll={onRowsScroll} className="flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-white to-slate-50/40">
         {projects.map((project) => {
           const isCollapsed = collapsedProjects.has(project.id)
           const phases = project.phases || []
@@ -58,7 +58,7 @@ export function GanttSidebar({
           return (
             <div key={project.id}>
               <div
-                className="cursor-pointer border-b border-slate-200 bg-slate-50 px-3 transition-colors hover:bg-slate-100"
+                className="cursor-pointer border-b border-slate-100 bg-gradient-to-r from-slate-50 to-slate-50/30 px-3 transition-all hover:bg-indigo-50/40 hover:border-slate-200"
                 style={{ height: projectRowHeight }}
                 onClick={() => toggleProjectCollapse(project.id)}
               >
