@@ -158,33 +158,40 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                     </tr>
                   )
                 })}
-                {projectsToPrint.flatMap((project) => {
-                  return (project.phases || []).map((phase) => {
-                    try {
-                      const phStart = parseISO(phase.start_date)
-                      const phEnd = parseISO(phase.end_date)
-                      const duration = differenceInDays(phEnd, phStart) + 1
-                      return (
-                        <tr key={phase.id} className="border-b border-black">
-                          <td className="px-3 py-2 text-black border border-black"></td>
-                          <td className="px-3 py-2 text-black border border-black">{phase.name}</td>
-                          <td className="px-3 py-2 text-black text-sm border border-black">{format(phStart, 'MMM d, yyyy')}</td>
-                          <td className="px-3 py-2 text-black text-sm border border-black">{format(phEnd, 'MMM d, yyyy')}</td>
-                          <td className="px-3 py-2 text-black text-sm border border-black">{duration} days</td>
-                        </tr>
-                      )
-                    } catch (error) {
-                      console.error(`Error rendering phase ${phase.name} for project ${project.name}:`, error, phase)
-                      return (
-                        <tr key={phase.id} className="border-b border-black bg-red-200">
-                          <td className="px-3 py-2 text-red-700 border border-black" colSpan={5}>
-                            ERROR: Could not render phase "{phase.name}" - {String(error)}
-                          </td>
-                        </tr>
-                      )
-                    }
+                {(() => {
+                  const phaseRows: JSX.Element[] = []
+                  projectsToPrint.forEach((project, projIdx) => {
+                    const phases = project.phases || []
+                    console.log(`Project ${projIdx} (${project.name}): ${phases.length} phases`)
+                    phases.forEach((phase, phaseIdx) => {
+                      try {
+                        const phStart = parseISO(phase.start_date)
+                        const phEnd = parseISO(phase.end_date)
+                        const duration = differenceInDays(phEnd, phStart) + 1
+                        phaseRows.push(
+                          <tr key={phase.id} className="border-b border-black">
+                            <td className="px-3 py-2 text-black border border-black"></td>
+                            <td className="px-3 py-2 text-black border border-black">{phase.name}</td>
+                            <td className="px-3 py-2 text-black text-sm border border-black">{format(phStart, 'MMM d, yyyy')}</td>
+                            <td className="px-3 py-2 text-black text-sm border border-black">{format(phEnd, 'MMM d, yyyy')}</td>
+                            <td className="px-3 py-2 text-black text-sm border border-black">{duration} days</td>
+                          </tr>
+                        )
+                      } catch (error) {
+                        console.error(`Error rendering phase ${phaseIdx} for project ${project.name}:`, error, phase)
+                        phaseRows.push(
+                          <tr key={phase.id} className="border-b border-black bg-red-200">
+                            <td className="px-3 py-2 text-red-700 border border-black" colSpan={5}>
+                              ERROR: {project.name} phase "{phase.name}" - {String(error)}
+                            </td>
+                          </tr>
+                        )
+                      }
+                    })
                   })
-                })}
+                  console.log(`Total phase rows created: ${phaseRows.length}`)
+                  return phaseRows
+                })()}
               </tbody>
             </table>
           </div>
