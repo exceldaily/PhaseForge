@@ -44,7 +44,7 @@ export function Sidebar() {
           {collapsed ? (
             <GantticLogo variant="icon" width={34} priority alt="Ganttic app icon" />
           ) : (
-            <GantticLogo variant="lockup" width={160} priority alt="Ganttic horizontal logo" />
+            <GantticLogo variant="lockup" width={180} priority alt="Ganttic horizontal logo" />
           )}
         </Link>
       </div>

@@ -34,13 +34,16 @@ export function GantticLogo({
   const resolvedHeight = Math.round((resolvedWidth / asset.width) * asset.height)
 
   return (
-    <Image
-      src={asset.src}
-      alt={alt}
-      width={resolvedWidth}
-      height={resolvedHeight}
-      priority={priority}
-      className={cn('h-auto w-auto max-w-full', className)}
-    />
+    <div className="flex items-center justify-center overflow-visible">
+      <Image
+        src={asset.src}
+        alt={alt}
+        width={resolvedWidth}
+        height={resolvedHeight}
+        priority={priority}
+        className={cn('h-auto w-auto max-w-full object-contain', className)}
+        style={{ width: resolvedWidth, height: resolvedHeight }}
+      />
+    </div>
   )
 }
