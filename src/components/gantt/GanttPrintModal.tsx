@@ -308,12 +308,26 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
           }
           @page {
             size: landscape !important;
-            margin: 0.5in !important;
+            margin: 0.25in !important;
           }
           @supports (size: landscape) {
             @page {
               size: landscape !important;
             }
+          }
+          table {
+            font-size: 11px !important;
+          }
+          th, td {
+            padding: 3px 2px !important;
+          }
+          h1 {
+            font-size: 16px !important;
+            margin: 0.2in 0 !important;
+          }
+          p {
+            font-size: 12px !important;
+            margin: 0.1in 0 !important;
           }
         }
       `}</style>
