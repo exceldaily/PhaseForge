@@ -9,6 +9,7 @@ interface GanttPrintModalProps {
   projects: Project[]
   scope: 'current' | 'all'
   zoom: ZoomLevel
+  collapsedProjects: Set<string>
   onClose: () => void
 }
 
@@ -17,7 +18,7 @@ const HEADER_HEIGHT = 70
 const PROJECT_ROW_HEIGHT = 52
 const PIXELS_PER_DAY = 18
 
-export function GanttPrintModal({ projects, scope, zoom, onClose }: GanttPrintModalProps) {
+export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, onClose }: GanttPrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -124,7 +125,7 @@ export function GanttPrintModal({ projects, scope, zoom, onClose }: GanttPrintMo
                   </div>
 
                   {/* Phase Rows */}
-                  {(project.phases || []).map((phase) => (
+                  {!collapsedProjects.has(project.id) && (project.phases || []).map((phase) => (
                     <div
                       key={phase.id}
                       className="border-b border-slate-200 px-6 flex items-center gap-3 bg-white"
@@ -178,7 +179,7 @@ export function GanttPrintModal({ projects, scope, zoom, onClose }: GanttPrintMo
                   </div>
 
                   {/* Phase Rows */}
-                  {(project.phases || []).map((phase) => {
+                  {!collapsedProjects.has(project.id) && (project.phases || []).map((phase) => {
                     const { left, width } = getBarPosition(phase.start_date, phase.end_date)
                     return (
                       <div

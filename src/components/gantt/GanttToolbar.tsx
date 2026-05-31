@@ -38,7 +38,7 @@ export function GanttToolbar({
   onFitTimeline: () => void
   projects?: Project[]
 }) {
-  const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd } = useGanttStore()
+  const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd, collapsedProjects } = useGanttStore()
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -244,6 +244,7 @@ export function GanttToolbar({
           projects={projects}
           scope={printScope}
           zoom={zoom}
+          collapsedProjects={collapsedProjects}
           onClose={() => setPrintScope(null)}
         />
       )}
