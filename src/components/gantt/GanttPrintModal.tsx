@@ -10,6 +10,7 @@ interface GanttPrintModalProps {
   scope: 'current' | 'all'
   zoom: ZoomLevel
   collapsedProjects: Set<string>
+  style: 'chart' | 'list'
   onClose: () => void
 }
 
@@ -18,7 +19,7 @@ const HEADER_HEIGHT = 70
 const PROJECT_ROW_HEIGHT = 52
 const PIXELS_PER_DAY = 18
 
-export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, onClose }: GanttPrintModalProps) {
+export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, style, onClose }: GanttPrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -83,11 +84,11 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, onCl
         </button>
       </div>
 
-      {/* Main Content - Landscape */}
+      {/* Main Content */}
       <div style={{ width: '100%', minHeight: '100%', background: '#fff' }}>
         {/* Header */}
         <div className="px-8 pt-8 pb-6 border-b-2 border-slate-300 bg-white">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Gantt Chart</h1>
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">{style === 'chart' ? 'Gantt Chart' : 'Project Schedule'}</h1>
           <p className="text-lg text-slate-600 mb-1">
             {scope === 'all' ? 'All Projects' : 'Current Project'}
           </p>
@@ -96,7 +97,47 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, onCl
           </p>
         </div>
 
-        {/* Gantt Container */}
+        {/* List Style */}
+        {style === 'list' && (
+          <div className="px-8 py-6">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b-2 border-slate-300">
+                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Project</th>
+                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Phase</th>
+                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Start Date</th>
+                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">End Date</th>
+                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projectsToPrint.map((project) => (
+                  <tr key={project.id} className="border-b border-slate-200 bg-slate-50">
+                    <td className="px-3 py-2 font-semibold text-slate-900">{project.name}</td>
+                    <td colSpan={4} className="px-3 py-2 text-sm text-slate-500"></td>
+                  </tr>
+                ))}
+                {projectsToPrint.flatMap((project) =>
+                  !collapsedProjects.has(project.id) ? (project.phases || []).map((phase) => {
+                    const duration = differenceInDays(parseISO(phase.end_date), parseISO(phase.start_date)) + 1
+                    return (
+                      <tr key={phase.id} className="border-b border-slate-200">
+                        <td className="px-3 py-2 text-slate-700"></td>
+                        <td className="px-3 py-2 text-slate-700">{phase.name}</td>
+                        <td className="px-3 py-2 text-slate-700 text-sm">{format(parseISO(phase.start_date), 'MMM d, yyyy')}</td>
+                        <td className="px-3 py-2 text-slate-700 text-sm">{format(parseISO(phase.end_date), 'MMM d, yyyy')}</td>
+                        <td className="px-3 py-2 text-slate-700 text-sm">{duration} days</td>
+                      </tr>
+                    )
+                  }) : []
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Gantt Container - Chart Style */}
+        {style === 'chart' && (
         <div className="flex bg-white">
           {/* Sidebar */}
           <div className="w-80 flex-shrink-0 border-r-2 border-slate-300 bg-slate-50">
@@ -218,6 +259,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, onCl
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Print Styles */}

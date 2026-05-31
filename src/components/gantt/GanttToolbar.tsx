@@ -44,6 +44,7 @@ export function GanttToolbar({
   const [toDate, setToDate] = useState('')
   const [isPrintMenuOpen, setIsPrintMenuOpen] = useState(false)
   const [printScope, setPrintScope] = useState<'current' | 'all' | null>(null)
+  const [printStyle, setPrintStyle] = useState<'chart' | 'list'>('chart')
   const datePickerRef = useRef<HTMLDivElement | null>(null)
   const printMenuRef = useRef<HTMLDivElement | null>(null)
   const rangeLabel = getRangeLabel(viewStart, viewEnd, zoom)
@@ -213,7 +214,35 @@ export function GanttToolbar({
           </Button>
 
           {isPrintMenuOpen && (
-            <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-xl">
+            <div className="absolute right-0 top-full z-20 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-xl">
+              {/* Style selection */}
+              <div className="px-4 py-3 border-b border-slate-100">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Print Style</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPrintStyle('chart')}
+                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                      printStyle === 'chart'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Chart
+                  </button>
+                  <button
+                    onClick={() => setPrintStyle('list')}
+                    className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                      printStyle === 'list'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    List
+                  </button>
+                </div>
+              </div>
+
+              {/* Scope selection */}
               <button
                 onClick={() => handlePrint('current')}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 border-b border-slate-100"
@@ -245,6 +274,7 @@ export function GanttToolbar({
           scope={printScope}
           zoom={zoom}
           collapsedProjects={collapsedProjects}
+          style={printStyle}
           onClose={() => setPrintScope(null)}
         />
       )}
