@@ -71,7 +71,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
   return (
     <div
       ref={printRef}
-      className="fixed inset-0 bg-white overflow-auto print:p-0"
+      className="fixed inset-0 bg-white overflow-auto"
       style={{ zIndex: 9999 }}
     >
       <div className="print:hidden absolute top-4 right-4 z-50">
@@ -84,14 +84,14 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
       </div>
 
       {/* Main Content */}
-      <div style={{ width: '100%', minHeight: '100%', background: '#fff' }}>
+      <div className="bg-white text-black">
         {/* Header */}
-        <div className="px-8 pt-8 pb-6 border-b-2 border-slate-300 bg-white">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">{style === 'chart' ? 'Gantt Chart' : 'Project Schedule'}</h1>
-          <p className="text-lg text-slate-600 mb-1">
+        <div className="px-8 pt-8 pb-6 border-b-2 border-slate-300 border-solid">
+          <h1 className="text-3xl font-bold text-black mb-2">{style === 'chart' ? 'Gantt Chart' : 'Project Schedule'}</h1>
+          <p className="text-base text-black mb-1">
             {scope === 'all' ? 'All Projects' : 'Current Project'}
           </p>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-black">
             {format(startDate, 'MMM d, yyyy')} – {format(endDate, 'MMM d, yyyy')}
           </p>
         </div>
@@ -107,31 +107,31 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
           <div className="px-8 py-6">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b-2 border-slate-300">
-                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Project</th>
-                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Phase</th>
-                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Start Date</th>
-                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">End Date</th>
-                  <th className="text-left px-3 py-3 font-semibold text-slate-900 bg-slate-50">Duration</th>
+                <tr className="border-b-2 border-black">
+                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Project</th>
+                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Phase</th>
+                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Start Date</th>
+                  <th className="text-left px-3 py-3 font-bold text-black border border-black">End Date</th>
+                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Duration</th>
                 </tr>
               </thead>
               <tbody>
                 {projectsToPrint.map((project) => (
-                  <tr key={project.id} className="border-b border-slate-200 bg-slate-50">
-                    <td className="px-3 py-2 font-semibold text-slate-900">{project.name}</td>
-                    <td colSpan={4} className="px-3 py-2 text-sm text-slate-500"></td>
+                  <tr key={project.id} className="border-b border-black">
+                    <td className="px-3 py-2 font-bold text-black border border-black">{project.name}</td>
+                    <td colSpan={4} className="px-3 py-2 text-sm text-black border border-black"></td>
                   </tr>
                 ))}
                 {projectsToPrint.flatMap((project) =>
                   !collapsedProjects.has(project.id) ? (project.phases || []).map((phase) => {
                     const duration = differenceInDays(parseISO(phase.end_date), parseISO(phase.start_date)) + 1
                     return (
-                      <tr key={phase.id} className="border-b border-slate-200">
-                        <td className="px-3 py-2 text-slate-700"></td>
-                        <td className="px-3 py-2 text-slate-700">{phase.name}</td>
-                        <td className="px-3 py-2 text-slate-700 text-sm">{format(parseISO(phase.start_date), 'MMM d, yyyy')}</td>
-                        <td className="px-3 py-2 text-slate-700 text-sm">{format(parseISO(phase.end_date), 'MMM d, yyyy')}</td>
-                        <td className="px-3 py-2 text-slate-700 text-sm">{duration} days</td>
+                      <tr key={phase.id} className="border-b border-black">
+                        <td className="px-3 py-2 text-black border border-black"></td>
+                        <td className="px-3 py-2 text-black border border-black">{phase.name}</td>
+                        <td className="px-3 py-2 text-black text-sm border border-black">{format(parseISO(phase.start_date), 'MMM d, yyyy')}</td>
+                        <td className="px-3 py-2 text-black text-sm border border-black">{format(parseISO(phase.end_date), 'MMM d, yyyy')}</td>
+                        <td className="px-3 py-2 text-black text-sm border border-black">{duration} days</td>
                       </tr>
                     )
                   }) : []
