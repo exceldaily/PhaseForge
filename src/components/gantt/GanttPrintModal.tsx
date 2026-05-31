@@ -350,54 +350,60 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
             print-color-adjust: exact !important;
           }
           html, body {
-            margin: 0;
-            padding: 0;
-            background: white;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
             height: auto !important;
             overflow: visible !important;
-            width: 100%;
+            width: 100% !important;
           }
           body {
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          /* Hide sidebar and other UI elements */
+          aside, nav, [class*="sidebar"], [class*="Sidebar"] {
+            display: none !important;
           }
           div[style*="zIndex"] {
             position: static !important;
             inset: auto !important;
             height: auto !important;
             overflow: visible !important;
+            width: 100% !important;
           }
           .print\\:hidden {
             display: none !important;
           }
           @page {
             size: landscape !important;
-            margin: 0.25in !important;
+            margin: 0.15in !important;
           }
           table {
-            font-size: 8px !important;
-            page-break-inside: auto;
-            width: 100%;
-            border-collapse: collapse;
+            font-size: 7px !important;
+            page-break-inside: auto !important;
+            width: 100% !important;
+            border-collapse: collapse !important;
           }
           tr {
-            page-break-inside: avoid;
+            page-break-inside: avoid !important;
             height: auto !important;
           }
           th, td {
-            padding: 1px 1px !important;
-            page-break-inside: avoid;
+            padding: 0.5px 0.5px !important;
+            page-break-inside: avoid !important;
             border-width: 0.5px !important;
+            word-wrap: break-word !important;
           }
           h1 {
-            font-size: 16px !important;
-            margin: 0.2in 0 !important;
-            page-break-after: avoid;
+            font-size: 14px !important;
+            margin: 0.1in 0 !important;
+            page-break-after: avoid !important;
           }
           p {
-            font-size: 12px !important;
-            margin: 0.1in 0 !important;
-            page-break-after: avoid;
+            font-size: 10px !important;
+            margin: 0.05in 0 !important;
+            page-break-after: avoid !important;
           }
         }
       `}</style>
