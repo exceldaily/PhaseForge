@@ -1,0 +1,117 @@
+'use client'
+import { useState } from 'react'
+import { Plus } from 'lucide-react'
+import { Phase, Profile } from '@/types/app'
+import { PhaseRow } from './PhaseRow'
+import { PhaseForm } from './PhaseForm'
+import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import { touchProjectAudit } from '@/lib/projectAudit'
+
+interface PhaseListProps {
+  projectId: string
+  companyId: string
+  phases: Phase[]
+  members: Profile[]
+  currentUserId: string
+  canEdit: boolean
+}
+
+export function PhaseList({ projectId, companyId, phases: initialPhases, members, currentUserId, canEdit }: PhaseListProps) {
+  const router = useRouter()
+  const [phases, setPhases] = useState(initialPhases)
+  const [showForm, setShowForm] = useState(false)
+  const [editingPhase, setEditingPhase] = useState<Phase | null>(null)
+
+  const handleDelete = async (phaseId: string) => {
+    const supabase = createClient()
+    await supabase.from('phases').delete().eq('id', phaseId)
+    await touchProjectAudit(supabase, projectId, currentUserId)
+    setPhases(p => p.filter(ph => ph.id !== phaseId))
+    router.refresh()
+  }
+
+  const handleSave = (phase: Phase) => {
+    if (editingPhase) {
+      setPhases(p => p.map(ph => ph.id === phase.id ? phase : ph))
+      setEditingPhase(null)
+    } else {
+      setPhases(p => [...p, phase])
+      setShowForm(false)
+    }
+    router.refresh()
+  }
+
+  const handleStatusChange = async (phaseId: string, status: string) => {
+    const supabase = createClient()
+    await supabase.from('phases').update({ status, updated_at: new Date().toISOString() }).eq('id', phaseId)
+    await touchProjectAudit(supabase, projectId, currentUserId)
+    setPhases(p => p.map(ph => ph.id === phaseId ? { ...ph, status: status as Phase['status'] } : ph))
+    router.refresh()
+  }
+
+  return (
+    <div>
+      {phases.length === 0 && !showForm && (
+        <div className="px-6 py-12 text-center">
+          <p className="text-slate-400 text-sm mb-3">No phases yet. Add your first phase to get started.</p>
+          {canEdit && (
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              <Plus size={15} /> Add Phase
+            </Button>
+          )}
+        </div>
+      )}
+
+      {phases.map(phase => (
+        editingPhase?.id === phase.id ? (
+          <div key={phase.id} className="border-b border-slate-100 p-4">
+            <PhaseForm
+              projectId={projectId}
+              companyId={companyId}
+              members={members}
+              phase={phase}
+              currentUserId={currentUserId}
+              onSave={handleSave}
+              onCancel={() => setEditingPhase(null)}
+              sortOrder={phase.sort_order}
+            />
+          </div>
+        ) : (
+          <PhaseRow
+            key={phase.id}
+            phase={phase}
+            members={members}
+            canEdit={canEdit}
+            onEdit={() => setEditingPhase(phase)}
+            onDelete={() => handleDelete(phase.id)}
+            onStatusChange={(status) => handleStatusChange(phase.id, status)}
+          />
+        )
+      ))}
+
+      {showForm && (
+        <div className="border-t border-slate-100 p-4">
+          <PhaseForm
+            projectId={projectId}
+            companyId={companyId}
+            members={members}
+            currentUserId={currentUserId}
+            onSave={handleSave}
+            onCancel={() => setShowForm(false)}
+            sortOrder={phases.length}
+          />
+        </div>
+      )}
+
+      {canEdit && phases.length > 0 && !showForm && !editingPhase && (
+        <div className="px-6 py-3 border-t border-slate-100">
+          <Button variant="ghost" size="sm" onClick={() => setShowForm(true)}>
+            <Plus size={15} /> Add Phase
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
