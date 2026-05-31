@@ -163,6 +163,18 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                   projectsToPrint.forEach((project, projIdx) => {
                     const phases = project.phases || []
                     console.log(`Project ${projIdx} (${project.name}): ${phases.length} phases`)
+
+                    // Add visible separator for debugging
+                    if (phases.length > 0) {
+                      phaseRows.push(
+                        <tr key={`sep-${project.id}`} className="border-b-2 border-black bg-gray-200">
+                          <td className="px-3 py-2 text-black text-xs font-bold border border-black" colSpan={5}>
+                            ↓ {project.name} ({phases.length} phases) ↓
+                          </td>
+                        </tr>
+                      )
+                    }
+
                     phases.forEach((phase, phaseIdx) => {
                       try {
                         const phStart = parseISO(phase.start_date)
