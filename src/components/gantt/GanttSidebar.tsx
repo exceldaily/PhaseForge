@@ -37,10 +37,26 @@ export function GanttSidebar({
       style={{ width: SIDEBAR_WIDTH }}
     >
       <div
-        className="flex flex-shrink-0 items-center border-b border-slate-200 bg-gradient-to-r from-white to-slate-50 px-4 shadow-sm"
+        className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-gradient-to-r from-white to-slate-50 px-4 shadow-sm"
         style={{ height: headerHeight }}
       >
         <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Projects & Phases</span>
+        <div className="flex gap-1">
+          <button
+            onClick={() => projects.forEach(p => collapsedProjects.has(p.id) && toggleProjectCollapse(p.id))}
+            title="Expand all"
+            className="rounded px-2 py-0.5 text-xs font-semibold text-slate-500 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+          >
+            +
+          </button>
+          <button
+            onClick={() => projects.forEach(p => !collapsedProjects.has(p.id) && toggleProjectCollapse(p.id))}
+            title="Collapse all"
+            className="rounded px-2 py-0.5 text-xs font-semibold text-slate-500 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+          >
+            −
+          </button>
+        </div>
       </div>
 
       <div ref={rowsRef} onScroll={onRowsScroll} className="flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-white to-slate-50/40">

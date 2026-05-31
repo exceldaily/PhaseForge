@@ -17,7 +17,6 @@ interface GanttPrintModalProps {
 const ROW_HEIGHT = 48
 const HEADER_HEIGHT = 70
 const PROJECT_ROW_HEIGHT = 52
-const PIXELS_PER_DAY = 18
 
 export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, style, onClose }: GanttPrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
@@ -33,18 +32,18 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
   const pixelsPerDay = zoom === 'day' ? 24 : zoom === 'week' ? 20 : zoom === 'month' ? 18 : 16
   const headerInterval = zoom === 'day' ? 1 : zoom === 'week' ? 7 : zoom === 'month' ? 30 : 90
 
-  // Get date range from all projects
-  const allDates = projects.flatMap(p => [
+  const projectsToPrint = scope === 'all' ? projects : projects.slice(0, 1)
+
+  // Get date range from projects to print
+  const allDates = projectsToPrint.flatMap(p => [
     ...((p.phases || []).flatMap(ph => [parseISO(ph.start_date), parseISO(ph.end_date)])),
     parseISO(p.start_date),
     parseISO(p.end_date),
   ])
-  const startDate = new Date(Math.min(...allDates.map(d => d.getTime())))
-  const endDate = new Date(Math.max(...allDates.map(d => d.getTime())))
+  const startDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : new Date()
+  const endDate = allDates.length > 0 ? new Date(Math.max(...allDates.map(d => d.getTime()))) : new Date()
   const totalDays = differenceInDays(endDate, startDate) + 1
   const totalWidth = totalDays * pixelsPerDay
-
-  const projectsToPrint = scope === 'all' ? projects : projects.slice(0, 1)
 
   // Generate timeline headers based on zoom level
   const headers: { date: Date; label: string; weekStart: boolean }[] = []
@@ -64,8 +63,8 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
   const getBarPosition = (start: string, end: string) => {
     const phStart = parseISO(start)
     const phEnd = parseISO(end)
-    const left = differenceInDays(phStart, startDate) * PIXELS_PER_DAY
-    const width = Math.max(differenceInDays(phEnd, phStart) + 1, 1) * PIXELS_PER_DAY
+    const left = differenceInDays(phStart, startDate) * pixelsPerDay
+    const width = Math.max(differenceInDays(phEnd, phStart) + 1, 1) * pixelsPerDay
     return { left, width }
   }
 
@@ -194,7 +193,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                 <div
                   key={idx}
                   className="border-r border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-center flex-shrink-0"
-                  style={{ width: PIXELS_PER_DAY * 7, minWidth: PIXELS_PER_DAY * 7 }}
+                  style={{ width: pixelsPerDay * headerInterval, minWidth: pixelsPerDay * headerInterval }}
                 >
                   {header.label}
                 </div>
