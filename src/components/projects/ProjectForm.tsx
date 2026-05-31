@@ -120,11 +120,52 @@ export function ProjectForm({ companyId, members, currentUserId, project }: Proj
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Team</h3>
         <div className="grid md:grid-cols-2 gap-4">
-          <Select id="project_manager" label="Project Manager" value={form.project_manager} onChange={set('project_manager')}>
-            <option value="">— Select PM —</option>
-            {members.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-          </Select>
-          <Input id="superintendent" label="Superintendent" placeholder="Name or company" value={form.superintendent} onChange={set('superintendent')} />
+          <div>
+            <label className="text-sm font-medium text-slate-700 block mb-1.5">Project Manager</label>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <input
+                  list="pm-suggestions"
+                  value={form.project_manager}
+                  onChange={set('project_manager')}
+                  placeholder="Type or select PM..."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <datalist id="pm-suggestions">
+                  {members.map(m => <option key={m.id} value={m.full_name} />)}
+                </datalist>
+              </div>
+              {form.project_manager && (
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, project_manager: '' }))}
+                  className="px-3 py-2 text-slate-400 hover:text-rose-500 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700 block mb-1.5">Superintendent</label>
+            <div className="flex gap-2">
+              <input
+                value={form.superintendent}
+                onChange={set('superintendent')}
+                placeholder="Name or company"
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              {form.superintendent && (
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, superintendent: '' }))}
+                  className="px-3 py-2 text-slate-400 hover:text-rose-500 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Subcontractors */}
