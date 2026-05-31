@@ -17,6 +17,7 @@ export interface DetectedProject {
   end_date: string
   phases: ParsedTask[]
   accepted: boolean
+  status?: string // default: 'mobilization'
 }
 
 export interface ParseResult {
@@ -154,6 +155,7 @@ export function detectProjects(rows: RawRow[], fileName?: string): DetectedProje
       end_date: ends[ends.length - 1],
       phases: rows.map(r => ({ name: r.name, start_date: r.start, end_date: r.end, indent: 0 })),
       accepted: true,
+      status: 'mobilization',
     }]
   }
 
@@ -181,6 +183,7 @@ export function detectProjects(rows: RawRow[], fileName?: string): DetectedProje
         end_date: row.end,
         phases: [],
         accepted: true,
+        status: 'mobilization',
       }
     } else {
       // This is a phase under the current project
@@ -192,6 +195,7 @@ export function detectProjects(rows: RawRow[], fileName?: string): DetectedProje
           end_date: row.end,
           phases: [],
           accepted: true,
+          status: 'mobilization',
         }
       }
       currentProject.phases.push({

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { DetectedProject } from '@/lib/importParser'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
+import { DEFAULT_PHASE_COLORS, KANBAN_COLUMNS, PROJECT_STATUS_LABELS } from '@/lib/constants'
 import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { cn } from '@/lib/utils'
 
@@ -119,6 +119,9 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
   const updateName = (id: string, name: string) =>
     setDetectedProjects(prev => prev.map(p => p.id === id ? { ...p, name } : p))
 
+  const updateStatus = (id: string, status: string) =>
+    setDetectedProjects(prev => prev.map(p => p.id === id ? { ...p, status } : p))
+
   const removePhase = (projectId: string, phaseIdx: number) =>
     setDetectedProjects(prev => prev.map(p =>
       p.id === projectId ? { ...p, phases: p.phases.filter((_, i) => i !== phaseIdx) } : p
@@ -149,7 +152,7 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
         updated_by: currentUserId,
         start_date: proj.start_date,
         end_date: proj.end_date,
-        status: 'mobilization',
+        status: proj.status || 'mobilization',
         priority: 'medium',
         color: DEFAULT_PHASE_COLORS[detectedProjects.indexOf(proj) % DEFAULT_PHASE_COLORS.length],
       }).select().single()
@@ -161,7 +164,7 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
           created_by: currentUserId,
           start_date: proj.start_date,
           end_date: proj.end_date,
-          status: 'mobilization',
+          status: proj.status || 'mobilization',
           priority: 'medium',
           color: DEFAULT_PHASE_COLORS[detectedProjects.indexOf(proj) % DEFAULT_PHASE_COLORS.length],
         }).select().single()
@@ -318,6 +321,24 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
                     <span className="font-medium">{proj.phases.length} phases</span>
                     {expandedIds.has(proj.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   </button>
+                </div>
+
+                {/* Status selector */}
+                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50">
+                  <label className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Stage</span>
+                    <select
+                      value={proj.status || 'mobilization'}
+                      onChange={e => updateStatus(proj.id, e.target.value)}
+                      className="text-xs border border-slate-200 rounded-lg px-2.5 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {KANBAN_COLUMNS.map((col) => (
+                        <option key={col.status} value={col.status}>
+                          {col.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
 
                 {/* Expanded phases */}
