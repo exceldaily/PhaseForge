@@ -125,7 +125,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                   </tr>
                 ))}
                 {projectsToPrint.flatMap((project) =>
-                  !collapsedProjects.has(project.id) ? (project.phases || []).map((phase) => {
+                  (project.phases || []).map((phase) => {
                     const duration = differenceInDays(parseISO(phase.end_date), parseISO(phase.start_date)) + 1
                     return (
                       <tr key={phase.id} className="border-b border-black">
@@ -136,7 +136,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                         <td className="px-3 py-2 text-black text-sm border border-black">{duration} days</td>
                       </tr>
                     )
-                  }) : []
+                  })
                 )}
               </tbody>
             </table>
