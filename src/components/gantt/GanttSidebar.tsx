@@ -29,7 +29,7 @@ export function GanttSidebar({
   rowsRef,
   onRowsScroll,
 }: GanttSidebarProps) {
-  const { collapsedProjects, toggleProjectCollapse, selectedPhaseId, setSelectedPhase } = useGanttStore()
+  const { collapsedProjects, toggleProjectCollapse, selectedPhaseId, setSelectedPhase, selectedProjectId, setSelectedProject } = useGanttStore()
 
   return (
     <div
@@ -76,7 +76,10 @@ export function GanttSidebar({
               <div
                 className="cursor-pointer border-b border-slate-100 bg-gradient-to-r from-slate-50 to-slate-50/30 px-3 transition-all hover:bg-indigo-50/40 hover:border-slate-200"
                 style={{ height: projectRowHeight }}
-                onClick={() => toggleProjectCollapse(project.id)}
+                onClick={() => {
+                  toggleProjectCollapse(project.id)
+                  setSelectedProject(project.id)
+                }}
               >
                 <div className="flex h-full items-center gap-2">
                   <div className="flex-shrink-0 text-slate-400">

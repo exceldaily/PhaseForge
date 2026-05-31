@@ -11,6 +11,7 @@ interface GanttPrintModalProps {
   zoom: ZoomLevel
   collapsedProjects: Set<string>
   style: 'chart' | 'list'
+  selectedProjectId: string | null
   onClose: () => void
 }
 
@@ -18,7 +19,7 @@ const ROW_HEIGHT = 48
 const HEADER_HEIGHT = 70
 const PROJECT_ROW_HEIGHT = 52
 
-export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, style, onClose }: GanttPrintModalProps) {
+export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, style, selectedProjectId, onClose }: GanttPrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -32,7 +33,11 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
   const pixelsPerDay = zoom === 'day' ? 24 : zoom === 'week' ? 20 : zoom === 'month' ? 18 : 16
   const headerInterval = zoom === 'day' ? 1 : zoom === 'week' ? 7 : zoom === 'month' ? 30 : 90
 
-  const projectsToPrint = scope === 'all' ? projects : projects.slice(0, 1)
+  const projectsToPrint = scope === 'all'
+    ? projects
+    : selectedProjectId
+      ? projects.filter(p => p.id === selectedProjectId)
+      : projects.slice(0, 1)
 
   // Get date range from projects to print
   const allDates = projectsToPrint.flatMap(p => [

@@ -11,9 +11,11 @@ interface GanttState {
   viewEnd: Date
   pixelsPerDay: number
   selectedPhaseId: string | null
+  selectedProjectId: string | null
   collapsedProjects: Set<string>
   setZoom: (zoom: ZoomLevel) => void
   setSelectedPhase: (id: string | null) => void
+  setSelectedProject: (id: string | null) => void
   toggleProjectCollapse: (projectId: string) => void
   scrollToToday: () => void
   shiftView: (direction: 'backward' | 'forward') => void
@@ -27,6 +29,7 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   viewEnd: getViewRange('week').end,
   pixelsPerDay: ZOOM_PIXELS_PER_DAY.week,
   selectedPhaseId: null,
+  selectedProjectId: null,
   collapsedProjects: new Set(),
 
   setZoom: (zoom) => {
@@ -43,6 +46,8 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   },
 
   setSelectedPhase: (id) => set({ selectedPhaseId: id }),
+
+  setSelectedProject: (id) => set({ selectedProjectId: id }),
 
   toggleProjectCollapse: (projectId) => {
     const collapsed = new Set(get().collapsedProjects)
