@@ -149,7 +149,7 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
         updated_by: currentUserId,
         start_date: proj.start_date,
         end_date: proj.end_date,
-        status: 'planning',
+        status: 'mobilization',
         priority: 'medium',
         color: DEFAULT_PHASE_COLORS[detectedProjects.indexOf(proj) % DEFAULT_PHASE_COLORS.length],
       }).select().single()
@@ -161,7 +161,7 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
           created_by: currentUserId,
           start_date: proj.start_date,
           end_date: proj.end_date,
-          status: 'planning',
+          status: 'mobilization',
           priority: 'medium',
           color: DEFAULT_PHASE_COLORS[detectedProjects.indexOf(proj) % DEFAULT_PHASE_COLORS.length],
         }).select().single()
