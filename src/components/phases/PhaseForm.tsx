@@ -376,71 +376,73 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
             ))}
           </select>
         ) : (
-          <div ref={tradeRef} className="relative">
-            <div className="flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500">
-              <Wrench size={13} className="ml-3 flex-shrink-0 text-slate-400" />
-              <input
-                value={tradeInput}
-                onChange={(event) => {
-                  setTradeInput(event.target.value)
-                  setShowTradeDropdown(true)
-                }}
-                onFocus={() => setShowTradeDropdown(true)}
-                placeholder="Select trade / role or type a custom one..."
-                className="flex-1 bg-transparent px-2 py-2 text-sm outline-none"
-              />
-              {tradeInput && (
-                <button
-                  type="button"
-                  onClick={() => setTradeInput('')}
-                  className="px-2 text-slate-400 hover:text-slate-600"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-            {showTradeDropdown && (
-              <div className="absolute left-0 top-full z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
-                {filteredTrades.map((trade) => (
+          <div>
+            <div ref={tradeRef} className="relative">
+              <div className="flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500">
+                <Wrench size={13} className="ml-3 flex-shrink-0 text-slate-400" />
+                <input
+                  value={tradeInput}
+                  onChange={(event) => {
+                    setTradeInput(event.target.value)
+                    setShowTradeDropdown(true)
+                  }}
+                  onFocus={() => setShowTradeDropdown(true)}
+                  placeholder="Select trade / role or type a custom one..."
+                  className="flex-1 bg-transparent px-2 py-2 text-sm outline-none"
+                />
+                {tradeInput && (
                   <button
-                    key={trade}
                     type="button"
-                    onClick={() => selectTrade(trade)}
-                    className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                    onClick={() => setTradeInput('')}
+                    className="px-2 text-slate-400 hover:text-slate-600"
                   >
-                    {trade}
+                    <X size={13} />
                   </button>
-                ))}
-
-                {tradeInput.trim() && !hasMatchingTrade && (
-                  <div className="border-t border-slate-100 p-2">
-                    <button
-                      type="button"
-                      onClick={useOneOffTrade}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-                    >
-                      <ChevronDown size={14} /> Use &ldquo;{normalizeOption(tradeInput)}&rdquo; once
-                    </button>
-                    <button
-                      type="button"
-                      onClick={createAndSelectTrade}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-indigo-600 hover:bg-indigo-50"
-                    >
-                      <Plus size={14} /> Save &ldquo;{normalizeOption(tradeInput)}&rdquo; to trade / role options
-                    </button>
-                  </div>
                 )}
               </div>
-            )}
+
+              {showTradeDropdown && (
+                <div className="absolute left-0 top-full z-30 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                  {filteredTrades.map((trade) => (
+                    <button
+                      key={trade}
+                      type="button"
+                      onClick={() => selectTrade(trade)}
+                      className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                    >
+                      {trade}
+                    </button>
+                  ))}
+
+                  {tradeInput.trim() && !hasMatchingTrade && (
+                    <div className="border-t border-slate-100 p-2">
+                      <button
+                        type="button"
+                        onClick={useOneOffTrade}
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                      >
+                        <ChevronDown size={14} /> Use &ldquo;{normalizeOption(tradeInput)}&rdquo; once
+                      </button>
+                      <button
+                        type="button"
+                        onClick={createAndSelectTrade}
+                        className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-indigo-600 hover:bg-indigo-50"
+                      >
+                        <Plus size={14} /> Save &ldquo;{normalizeOption(tradeInput)}&rdquo; to trade / role options
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTradeManager(!showTradeManager)}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors mt-1"
+            >
+              {showTradeManager ? '▼ Manage trades' : '▶ Manage trades'}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowTradeManager(!showTradeManager)}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            {showTradeManager ? '▼ Manage trades' : '▶ Manage trades'}
-          </button>
         )}
 
         {assignMode === 'trade' && showTradeManager && (
