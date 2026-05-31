@@ -32,14 +32,14 @@ export default async function DashboardPage() {
   const today = new Date().toISOString().split('T')[0]
 
   const stats = {
-    active: (projects as Project[]).filter(p => p.status === 'active').length,
-    planning: (projects as Project[]).filter(p => p.status === 'planning').length,
-    completed: (projects as Project[]).filter(p => p.status === 'completed').length,
+    active: (projects as Project[]).filter(p => ['mobilization', 'construction_initiated', 'pct_30', 'pct_60', 'pct_90'].includes(p.status)).length,
+    planning: (projects as Project[]).filter(p => p.status === 'queue').length,
+    completed: (projects as Project[]).filter(p => p.status === 'closed').length,
     overdue: allPhases.filter(ph => isOverdue(ph.end_date, ph.status)).length,
   }
 
   const overdueProjects = (projects as Project[]).filter(p =>
-    p.status !== 'completed' && p.status !== 'cancelled' && p.end_date < today
+    p.status !== 'closed' && p.status !== 'closeout' && p.end_date < today
   )
 
   const upcomingPhases = allPhases

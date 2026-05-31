@@ -24,7 +24,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
   useEffect(() => {
     const timer = setTimeout(() => {
       window.print()
-    }, 500)
+    }, 1000)
     return () => clearTimeout(timer)
   }, [])
 
@@ -95,6 +95,12 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
             {format(startDate, 'MMM d, yyyy')} – {format(endDate, 'MMM d, yyyy')}
           </p>
         </div>
+
+        {projectsToPrint.length === 0 && (
+          <div className="px-8 py-12 text-center">
+            <p className="text-slate-500">No projects to print</p>
+          </div>
+        )}
 
         {/* List Style */}
         {style === 'list' && (
