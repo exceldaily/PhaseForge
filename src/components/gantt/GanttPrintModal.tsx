@@ -25,6 +25,17 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
   const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // DEBUG: Log all projects and their phases
+    console.log('===== PRINT MODAL DEBUG =====')
+    console.log('Total projects:', projects.length)
+    console.log('Scope:', scope)
+    projects.forEach((p, idx) => {
+      console.log(`Project ${idx + 1}: ${p.name}`)
+      console.log(`  - Phases count: ${p.phases?.length || 0}`)
+      console.log(`  - Phases:`, p.phases)
+    })
+    console.log('============================')
+
     const timer = setTimeout(() => {
       window.print()
     }, 1000)
