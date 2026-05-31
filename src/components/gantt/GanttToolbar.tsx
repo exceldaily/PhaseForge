@@ -276,6 +276,8 @@ export function GanttToolbar({
           collapsedProjects={collapsedProjects}
           style={printStyle}
           selectedProjectId={selectedProjectId}
+          viewStart={viewStart}
+          viewEnd={viewEnd}
           onClose={() => setPrintScope(null)}
         />
       )}

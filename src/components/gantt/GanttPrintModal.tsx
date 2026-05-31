@@ -12,6 +12,8 @@ interface GanttPrintModalProps {
   collapsedProjects: Set<string>
   style: 'chart' | 'list'
   selectedProjectId: string | null
+  viewStart: Date
+  viewEnd: Date
   onClose: () => void
 }
 
@@ -19,7 +21,7 @@ const ROW_HEIGHT = 48
 const HEADER_HEIGHT = 70
 const PROJECT_ROW_HEIGHT = 52
 
-export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, style, selectedProjectId, onClose }: GanttPrintModalProps) {
+export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, style, selectedProjectId, viewStart, viewEnd, onClose }: GanttPrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,14 +41,9 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
       ? projects.filter(p => p.id === selectedProjectId)
       : projects.slice(0, 1)
 
-  // Get date range from projects to print
-  const allDates = projectsToPrint.flatMap(p => [
-    ...((p.phases || []).flatMap(ph => [parseISO(ph.start_date), parseISO(ph.end_date)])),
-    parseISO(p.start_date),
-    parseISO(p.end_date),
-  ])
-  const startDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : new Date()
-  const endDate = allDates.length > 0 ? new Date(Math.max(...allDates.map(d => d.getTime()))) : new Date()
+  // Use the current view range from the Gantt chart
+  const startDate = viewStart
+  const endDate = viewEnd
   const totalDays = differenceInDays(endDate, startDate) + 1
   const totalWidth = totalDays * pixelsPerDay
 
