@@ -414,7 +414,10 @@ function ProjectCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editingPM, setEditingPM] = useState(false)
 
-  const pmName = project.project_manager ? memberMap[project.project_manager] : null
+  // Handle both UUID (member ID) and custom text names for project_manager
+  const pmName = project.project_manager
+    ? (memberMap[project.project_manager] || project.project_manager)
+    : null
   const permitStatus = project.permit_status || 'not_required'
   const lastUpdatedLabel = getProjectLastUpdatedLabel(project, memberMap)
   const [pmInput, setPMInput] = useState(pmName || '')
