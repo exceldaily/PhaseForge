@@ -227,6 +227,24 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                         style={{ left: idx * pixelsPerDay * headerInterval, width: pixelsPerDay * headerInterval }}
                       />
                     ))}
+
+                    {/* Project bar */}
+                    {(() => {
+                      const { left, width } = getBarPosition(project.start_date, project.end_date)
+                      return width > 0 ? (
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 rounded-lg shadow-md flex items-center px-3 font-semibold text-white text-xs"
+                          style={{
+                            left,
+                            width: Math.max(width, 50),
+                            height: PROJECT_ROW_HEIGHT - 10,
+                            backgroundColor: project.color,
+                          }}
+                        >
+                          {width > 80 && <span className="truncate">{project.name}</span>}
+                        </div>
+                      ) : null
+                    })()}
                   </div>
 
                   {/* Phase Rows */}
