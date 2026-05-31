@@ -57,7 +57,7 @@ function getInitialTypeState(phase: Phase | undefined, phaseTypes: string[]) {
 }
 
 export function PhaseForm({ projectId, companyId, members, currentUserId, phase, onSave, onCancel, sortOrder }: PhaseFormProps) {
-  const { phaseTypes, trades, addPhaseType, addTrade } = usePhaseConfig(companyId)
+  const { phaseTypes, trades, addPhaseType, addTrade, removeTrade } = usePhaseConfig(companyId)
   const initialTypeState = getInitialTypeState(phase, phaseTypes)
 
   const [loading, setLoading] = useState(false)
@@ -72,6 +72,7 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
   const [assignedTo, setAssignedTo] = useState(phase?.assigned_to || '')
   const [tradeInput, setTradeInput] = useState(phase?.assigned_trade || '')
   const [showTradeDropdown, setShowTradeDropdown] = useState(false)
+  const [showTradeManager, setShowTradeManager] = useState(false)
   const tradeRef = useRef<HTMLDivElement>(null)
 
   const [startDate, setStartDate] = useState(phase?.start_date || '')
@@ -432,6 +433,37 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
                 )}
               </div>
             )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowTradeManager(!showTradeManager)}
+            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            {showTradeManager ? '▼ Manage trades' : '▶ Manage trades'}
+          </button>
+        )}
+
+        {assignMode === 'trade' && showTradeManager && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-medium text-slate-600 mb-2">Available Trades & Roles</p>
+            <div className="flex flex-wrap gap-2">
+              {trades.map((trade) => (
+                <div
+                  key={trade}
+                  className="flex items-center gap-1.5 bg-white rounded-lg px-2.5 py-1.5 text-xs text-slate-700 border border-slate-200 hover:border-slate-300"
+                >
+                  <span>{trade}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeTrade(trade)}
+                    className="text-slate-400 hover:text-rose-500 transition-colors flex-shrink-0"
+                    title={`Remove ${trade}`}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
