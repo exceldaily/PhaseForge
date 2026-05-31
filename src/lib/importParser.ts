@@ -211,8 +211,19 @@ export function detectProjects(rows: RawRow[], fileName?: string): DetectedProje
     projects.push(currentProject)
   }
 
-  // Filter out projects with no phases (pure header rows with no children)
-  return projects.filter(p => p.phases.length > 0)
+  // Filter out projects with no phases and update project dates to encompass all phases
+  return projects.filter(p => p.phases.length > 0).map(project => {
+    const phaseDates = project.phases.flatMap(ph => [ph.start_date, ph.end_date]).filter(Boolean)
+    if (phaseDates.length > 0) {
+      const sortedDates = phaseDates.sort()
+      return {
+        ...project,
+        start_date: sortedDates[0],
+        end_date: sortedDates[sortedDates.length - 1],
+      }
+    }
+    return project
+  })
 }
 
 // ─── Table row parser (Excel / CSV) ──────────────────────────────────────────
