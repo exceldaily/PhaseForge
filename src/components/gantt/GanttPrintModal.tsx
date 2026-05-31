@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { Project, Phase } from '@/types/app'
 import { differenceInDays, parseISO, format, addDays } from '@/lib/dates'
@@ -349,13 +349,16 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
             color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body {
+          html, body {
             margin: 0;
             padding: 0;
             background: white;
+            height: auto;
+            overflow: visible;
           }
-          html, body, div[style*="zIndex"] {
-            overflow: visible !important;
+          body {
+            margin: 0;
+            padding: 0;
           }
           .print\\:hidden {
             display: none !important;
@@ -364,24 +367,27 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
             size: landscape !important;
             margin: 0.25in !important;
           }
-          @supports (size: landscape) {
-            @page {
-              size: landscape !important;
-            }
-          }
           table {
             font-size: 11px !important;
+            page-break-inside: auto;
+            width: 100%;
+          }
+          tr {
+            page-break-inside: avoid;
           }
           th, td {
             padding: 3px 2px !important;
+            page-break-inside: avoid;
           }
           h1 {
             font-size: 16px !important;
             margin: 0.2in 0 !important;
+            page-break-after: avoid;
           }
           p {
             font-size: 12px !important;
             margin: 0.1in 0 !important;
+            page-break-after: avoid;
           }
         }
       `}</style>
