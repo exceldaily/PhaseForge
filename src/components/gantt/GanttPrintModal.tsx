@@ -3,10 +3,12 @@ import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { Project, Phase } from '@/types/app'
 import { differenceInDays, parseISO, format, addDays } from '@/lib/dates'
+import { ZoomLevel } from '@/types/app'
 
 interface GanttPrintModalProps {
   projects: Project[]
   scope: 'current' | 'all'
+  zoom: ZoomLevel
   onClose: () => void
 }
 
@@ -15,7 +17,7 @@ const HEADER_HEIGHT = 70
 const PROJECT_ROW_HEIGHT = 52
 const PIXELS_PER_DAY = 18
 
-export function GanttPrintModal({ projects, scope, onClose }: GanttPrintModalProps) {
+export function GanttPrintModal({ projects, scope, zoom, onClose }: GanttPrintModalProps) {
   const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -24,6 +26,10 @@ export function GanttPrintModal({ projects, scope, onClose }: GanttPrintModalPro
     }, 500)
     return () => clearTimeout(timer)
   }, [])
+
+  // Determine pixels per day and header interval based on zoom level
+  const pixelsPerDay = zoom === 'day' ? 24 : zoom === 'week' ? 20 : zoom === 'month' ? 18 : 16
+  const headerInterval = zoom === 'day' ? 1 : zoom === 'week' ? 7 : zoom === 'month' ? 30 : 90
 
   // Get date range from all projects
   const allDates = projects.flatMap(p => [
@@ -34,17 +40,21 @@ export function GanttPrintModal({ projects, scope, onClose }: GanttPrintModalPro
   const startDate = new Date(Math.min(...allDates.map(d => d.getTime())))
   const endDate = new Date(Math.max(...allDates.map(d => d.getTime())))
   const totalDays = differenceInDays(endDate, startDate) + 1
-  const totalWidth = totalDays * PIXELS_PER_DAY
+  const totalWidth = totalDays * pixelsPerDay
 
   const projectsToPrint = scope === 'all' ? projects : projects.slice(0, 1)
 
-  // Generate timeline headers - show every week
+  // Generate timeline headers based on zoom level
   const headers: { date: Date; label: string; weekStart: boolean }[] = []
-  for (let i = 0; i < totalDays; i += 7) {
+  for (let i = 0; i < totalDays; i += headerInterval) {
     const headerDate = addDays(startDate, i)
+    const label = zoom === 'day' ? format(headerDate, 'MMM d') :
+                  zoom === 'week' ? format(headerDate, 'MMM d') :
+                  zoom === 'month' ? format(headerDate, 'MMM yyyy') :
+                  format(headerDate, 'MMM yyyy')
     headers.push({
       date: headerDate,
-      label: format(headerDate, 'MMM d'),
+      label,
       weekStart: true,
     })
   }
@@ -162,7 +172,7 @@ export function GanttPrintModal({ projects, scope, onClose }: GanttPrintModalPro
                       <div
                         key={idx}
                         className="absolute top-0 bottom-0 border-r border-slate-300"
-                        style={{ left: idx * PIXELS_PER_DAY * 7, width: PIXELS_PER_DAY * 7 }}
+                        style={{ left: idx * pixelsPerDay * headerInterval, width: pixelsPerDay * headerInterval }}
                       />
                     ))}
                   </div>
@@ -181,7 +191,7 @@ export function GanttPrintModal({ projects, scope, onClose }: GanttPrintModalPro
                           <div
                             key={idx}
                             className="absolute top-0 bottom-0 border-r border-slate-200"
-                            style={{ left: idx * PIXELS_PER_DAY * 7, width: PIXELS_PER_DAY * 7 }}
+                            style={{ left: idx * pixelsPerDay * headerInterval, width: pixelsPerDay * headerInterval }}
                           />
                         ))}
 
@@ -229,8 +239,13 @@ export function GanttPrintModal({ projects, scope, onClose }: GanttPrintModalPro
             display: none !important;
           }
           @page {
-            size: landscape;
-            margin: 0.5in;
+            size: landscape !important;
+            margin: 0.5in !important;
+          }
+          @supports (size: landscape) {
+            @page {
+              size: landscape !important;
+            }
           }
         }
       `}</style>

@@ -243,6 +243,7 @@ export function GanttToolbar({
         <GanttPrintModal
           projects={projects}
           scope={printScope}
+          zoom={zoom}
           onClose={() => setPrintScope(null)}
         />
       )}
