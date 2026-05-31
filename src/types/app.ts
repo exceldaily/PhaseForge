@@ -1,5 +1,6 @@
 export type UserRole = 'owner' | 'admin' | 'manager' | 'viewer'
 export type ProjectStatus =
+  | 'queue'
   | 'mobilization'
   | 'construction_initiated'
   | 'pct_30'

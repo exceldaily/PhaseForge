@@ -160,6 +160,7 @@ export function ProjectForm({ companyId, members, currentUserId, project }: Proj
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Status</h3>
         <div className="grid md:grid-cols-3 gap-4">
           <Select id="status" label="Project Stage" value={form.status} onChange={set('status')}>
+            <option value="queue">Queue</option>
             <option value="mobilization">Mobilization</option>
             <option value="construction_initiated">Construction Initiated</option>
             <option value="pct_30">30% Constructed</option>

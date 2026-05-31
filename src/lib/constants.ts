@@ -1,6 +1,7 @@
 import { PhaseStatus, ProjectPriority, ProjectStatus } from '@/types/app'
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  queue: 'Queue',
   mobilization: 'Mobilization',
   construction_initiated: 'Construction Initiated',
   pct_30: '30% Constructed',
@@ -18,6 +19,7 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
 }
 
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
+  queue: 'bg-slate-100 text-slate-700',
   mobilization: 'bg-rose-100 text-rose-700',
   construction_initiated: 'bg-orange-100 text-orange-700',
   pct_30: 'bg-amber-100 text-amber-700',
@@ -36,6 +38,7 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
 
 // The ordered Kanban columns (construction stages)
 export const KANBAN_COLUMNS: { status: ProjectStatus; label: string; color: string }[] = [
+  { status: 'queue',                 label: 'Queue',                  color: 'border-slate-400' },
   { status: 'mobilization',          label: 'Mobilization',          color: 'border-rose-400' },
   { status: 'construction_initiated',label: 'Construction Initiated', color: 'border-orange-400' },
   { status: 'pct_30',                label: '30% Constructed',        color: 'border-amber-400' },

@@ -75,6 +75,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
             className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="">All statuses</option>
+            <option value="queue">Queue</option>
             <option value="mobilization">Mobilization</option>
             <option value="construction_initiated">Construction Initiated</option>
             <option value="pct_30">30% Constructed</option>
