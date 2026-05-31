@@ -55,6 +55,16 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     mode: 'move' | 'resize-right' | 'resize-left'
   } | null>(null)
 
+  // DEBUG: Check what projects we're getting from server
+  useEffect(() => {
+    console.log('===== GANTT CHART - INITIAL PROJECTS FROM SERVER =====')
+    console.log('Total projects:', initialProjects.length)
+    initialProjects.forEach((p, idx) => {
+      console.log(`${idx + 1}. ${p.name}: ${p.phases?.length || 0} phases`)
+    })
+    console.log('====================================================')
+  }, [])
+
   const sidebarScrollRef = useRef<HTMLDivElement | null>(null)
   const timelineScrollRef = useRef<HTMLDivElement | null>(null)
   const activeScrollSyncRef = useRef<'sidebar' | 'timeline' | null>(null)
