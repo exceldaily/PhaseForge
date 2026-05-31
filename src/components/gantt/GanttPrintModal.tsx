@@ -123,6 +123,21 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
         {/* List Style */}
         {style === 'list' && (
           <div className="px-8 py-6">
+            {/* DETAILED DEBUG */}
+            <div className="mb-4 p-4 bg-yellow-100 border-2 border-red-500 print:hidden">
+              <p className="text-xs font-bold">DETAILED DEBUG:</p>
+              <p className="text-xs">projectsToPrint length: {projectsToPrint.length}</p>
+              {projectsToPrint.map(p => (
+                <div key={p.id} className="text-xs ml-4 border-l-2 border-gray-400 pl-2">
+                  <p>{p.name}</p>
+                  <p className="text-gray-600">phases array exists: {p.phases ? 'YES' : 'NO'}</p>
+                  <p className="text-gray-600">phases length: {p.phases?.length || 'undefined'}</p>
+                  {p.phases && p.phases.length > 0 && (
+                    <p className="text-gray-600">first phase: {p.phases[0].name}</p>
+                  )}
+                </div>
+              ))}
+            </div>
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b-2 border-black">
@@ -134,14 +149,19 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                 </tr>
               </thead>
               <tbody>
-                {projectsToPrint.map((project) => (
-                  <tr key={project.id} className="border-b border-black">
-                    <td className="px-3 py-2 font-bold text-black border border-black">{project.name}</td>
-                    <td colSpan={4} className="px-3 py-2 text-sm text-black border border-black"></td>
-                  </tr>
-                ))}
-                {projectsToPrint.flatMap((project) =>
-                  (project.phases || []).map((phase) => {
+                {projectsToPrint.map((project) => {
+                  console.log(`Rendering project row: ${project.name}, has ${project.phases?.length || 0} phases`)
+                  return (
+                    <tr key={project.id} className="border-b border-black">
+                      <td className="px-3 py-2 font-bold text-black border border-black">{project.name}</td>
+                      <td colSpan={4} className="px-3 py-2 text-sm text-black border border-black"></td>
+                    </tr>
+                  )
+                })}
+                {projectsToPrint.flatMap((project) => {
+                  console.log(`Mapping phases for project: ${project.name}`, project.phases)
+                  return (project.phases || []).map((phase) => {
+                    console.log(`  Rendering phase: ${phase.name}`)
                     const duration = differenceInDays(parseISO(phase.end_date), parseISO(phase.start_date)) + 1
                     return (
                       <tr key={phase.id} className="border-b border-black">
@@ -153,7 +173,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                       </tr>
                     )
                   })
-                )}
+                })}
               </tbody>
             </table>
           </div>
