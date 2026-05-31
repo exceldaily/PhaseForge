@@ -132,11 +132,16 @@ function quantiseIndents(rows: RawRow[]): number[] {
   return rows.map(r => indents.indexOf(r.indent))
 }
 
-export function detectProjects(rows: RawRow[]): DetectedProject[] {
+export function detectProjects(rows: RawRow[], fileName?: string): DetectedProject[] {
   if (rows.length === 0) return []
 
   const levels = quantiseIndents(rows)
   const maxLevel = Math.max(...levels)
+
+  // Extract filename without extension for use as default project name
+  const defaultProjectName = fileName
+    ? fileName.replace(/\.[^/.]+$/, '').trim() || 'Imported Schedule'
+    : 'Imported Schedule'
 
   // If everything is the same indent, treat the whole file as one project
   if (maxLevel === 0) {
@@ -144,7 +149,7 @@ export function detectProjects(rows: RawRow[]): DetectedProject[] {
     const ends = rows.map(r => r.end).sort()
     return [{
       id: crypto.randomUUID(),
-      name: 'Imported Schedule',
+      name: defaultProjectName,
       start_date: starts[0],
       end_date: ends[ends.length - 1],
       phases: rows.map(r => ({ name: r.name, start_date: r.start, end_date: r.end, indent: 0 })),
@@ -182,7 +187,7 @@ export function detectProjects(rows: RawRow[]): DetectedProject[] {
       if (!currentProject) {
         currentProject = {
           id: crypto.randomUUID(),
-          name: 'Imported Schedule',
+          name: defaultProjectName,
           start_date: row.start,
           end_date: row.end,
           phases: [],

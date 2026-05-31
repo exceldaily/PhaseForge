@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       }, { status: 422 })
     }
 
-    const projects = detectProjects(rows)
+    const projects = detectProjects(rows, file.name)
 
     return NextResponse.json({
       projects,

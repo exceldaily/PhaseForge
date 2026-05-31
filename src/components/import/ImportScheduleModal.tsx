@@ -69,7 +69,7 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
           return
         }
         const rawRows: import('@/lib/importParser').RawRow[] = rows.map(r => ({ name: r.name, start: r.start_date, end: r.end_date, indent: r.indent }))
-        const detected = detectProjects(rawRows)
+        const detected = detectProjects(rawRows, file.name)
         setDetectedProjects(detected)
         setStep('confirm')
       } else {
