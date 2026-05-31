@@ -412,10 +412,30 @@ function ProjectCard({
 }) {
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [editingPM, setEditingPM] = useState(false)
 
   const pmName = project.project_manager ? memberMap[project.project_manager] : null
   const permitStatus = project.permit_status || 'not_required'
   const lastUpdatedLabel = getProjectLastUpdatedLabel(project, memberMap)
+  const [pmInput, setPMInput] = useState(pmName || '')
+
+  const updateProjectField = async (field: string, value: any) => {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('projects')
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq('id', project.id)
+    if (!error) {
+      onStatusChange(project.id, project.status)
+    }
+  }
+
+  const handlePMSave = async () => {
+    if (pmInput.trim()) {
+      await updateProjectField('project_manager', pmInput)
+      setEditingPM(false)
+    }
+  }
 
   return (
     <div
@@ -500,16 +520,68 @@ function ProjectCard({
         )}
 
         <div className="mb-3 space-y-1.5">
-          {pmName && <InfoRow label="PM" value={pmName} />}
-          {project.superintendent && <InfoRow label="Super" value={project.superintendent} />}
+          {editingPM ? (
+            <div className="flex items-center gap-1">
+              <span className="w-8 flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">PM</span>
+              <input
+                autoFocus
+                value={pmInput}
+                onChange={(e) => setPMInput(e.target.value)}
+                onBlur={handlePMSave}
+                onKeyDown={(e) => e.key === 'Enter' && handlePMSave()}
+                className="flex-1 text-xs border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Type PM name"
+              />
+            </div>
+          ) : (
+            pmName && (
+              <div className="flex items-center justify-between">
+                <InfoRow label="PM" value={pmName} />
+                {canEdit && (
+                  <button onClick={() => setEditingPM(true)} className="text-slate-400 hover:text-rose-500 text-xs">✕</button>
+                )}
+              </div>
+            )
+          )}
+          {!pmName && !editingPM && canEdit && (
+            <button
+              onClick={() => setEditingPM(true)}
+              className="text-[10px] text-slate-400 hover:text-indigo-600"
+            >
+              + Add PM
+            </button>
+          )}
+          {project.superintendent && (
+            <div className="flex items-center justify-between">
+              <InfoRow label="Super" value={project.superintendent} />
+              {canEdit && (
+                <button
+                  onClick={() => updateProjectField('superintendent', null)}
+                  className="text-slate-400 hover:text-rose-500 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
           {project.subcontractors && project.subcontractors.length > 0 && (
-            <InfoRow
-              label="Subs"
-              value={
-                project.subcontractors.slice(0, 2).join(', ') +
-                (project.subcontractors.length > 2 ? ` +${project.subcontractors.length - 2}` : '')
-              }
-            />
+            <div className="flex items-center justify-between">
+              <InfoRow
+                label="Subs"
+                value={
+                  project.subcontractors.slice(0, 2).join(', ') +
+                  (project.subcontractors.length > 2 ? ` +${project.subcontractors.length - 2}` : '')
+                }
+              />
+              {canEdit && (
+                <button
+                  onClick={() => updateProjectField('subcontractors', [])}
+                  className="text-slate-400 hover:text-rose-500 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           )}
         </div>
 
