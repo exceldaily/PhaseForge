@@ -159,19 +159,30 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                   )
                 })}
                 {projectsToPrint.flatMap((project) => {
-                  console.log(`Mapping phases for project: ${project.name}`, project.phases)
                   return (project.phases || []).map((phase) => {
-                    console.log(`  Rendering phase: ${phase.name}`)
-                    const duration = differenceInDays(parseISO(phase.end_date), parseISO(phase.start_date)) + 1
-                    return (
-                      <tr key={phase.id} className="border-b border-black">
-                        <td className="px-3 py-2 text-black border border-black"></td>
-                        <td className="px-3 py-2 text-black border border-black">{phase.name}</td>
-                        <td className="px-3 py-2 text-black text-sm border border-black">{format(parseISO(phase.start_date), 'MMM d, yyyy')}</td>
-                        <td className="px-3 py-2 text-black text-sm border border-black">{format(parseISO(phase.end_date), 'MMM d, yyyy')}</td>
-                        <td className="px-3 py-2 text-black text-sm border border-black">{duration} days</td>
-                      </tr>
-                    )
+                    try {
+                      const phStart = parseISO(phase.start_date)
+                      const phEnd = parseISO(phase.end_date)
+                      const duration = differenceInDays(phEnd, phStart) + 1
+                      return (
+                        <tr key={phase.id} className="border-b border-black">
+                          <td className="px-3 py-2 text-black border border-black"></td>
+                          <td className="px-3 py-2 text-black border border-black">{phase.name}</td>
+                          <td className="px-3 py-2 text-black text-sm border border-black">{format(phStart, 'MMM d, yyyy')}</td>
+                          <td className="px-3 py-2 text-black text-sm border border-black">{format(phEnd, 'MMM d, yyyy')}</td>
+                          <td className="px-3 py-2 text-black text-sm border border-black">{duration} days</td>
+                        </tr>
+                      )
+                    } catch (error) {
+                      console.error(`Error rendering phase ${phase.name} for project ${project.name}:`, error, phase)
+                      return (
+                        <tr key={phase.id} className="border-b border-black bg-red-200">
+                          <td className="px-3 py-2 text-red-700 border border-black" colSpan={5}>
+                            ERROR: Could not render phase "{phase.name}" - {String(error)}
+                          </td>
+                        </tr>
+                      )
+                    }
                   })
                 })}
               </tbody>
