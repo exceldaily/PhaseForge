@@ -107,6 +107,11 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
           <p className="text-sm text-black">
             {format(startDate, 'MMM d, yyyy')} – {format(endDate, 'MMM d, yyyy')}
           </p>
+          {/* DEBUG INFO */}
+          <p className="text-xs text-red-600 mt-2 print:hidden">
+            DEBUG: {projectsToPrint.length} projects total | Scope: {scope} | Style: {style}
+            {projectsToPrint.map(p => ` | ${p.name}: ${p.phases?.length || 0} phases`).join('')}
+          </p>
         </div>
 
         {projectsToPrint.length === 0 && (
