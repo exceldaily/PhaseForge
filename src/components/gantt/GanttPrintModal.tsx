@@ -159,7 +159,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                   )
                 })}
                 {(() => {
-                  const phaseRows: JSX.Element[] = []
+                  const phaseRows: React.ReactElement[] = []
                   projectsToPrint.forEach((project, projIdx) => {
                     const phases = project.phases || []
                     console.log(`Project ${projIdx} (${project.name}): ${phases.length} phases`)
