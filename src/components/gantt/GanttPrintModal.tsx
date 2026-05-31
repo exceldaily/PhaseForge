@@ -84,7 +84,7 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
   return (
     <div
       ref={printRef}
-      className="fixed inset-0 bg-white overflow-auto"
+      className="fixed inset-0 bg-white overflow-auto print:static print:inset-auto print:h-auto print:overflow-visible"
       style={{ zIndex: 9999 }}
     >
       <div className="print:hidden absolute top-4 right-4 z-50">
@@ -353,12 +353,19 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
             margin: 0;
             padding: 0;
             background: white;
-            height: auto;
-            overflow: visible;
+            height: auto !important;
+            overflow: visible !important;
+            width: 100%;
           }
           body {
             margin: 0;
             padding: 0;
+          }
+          div[style*="zIndex"] {
+            position: static !important;
+            inset: auto !important;
+            height: auto !important;
+            overflow: visible !important;
           }
           .print\\:hidden {
             display: none !important;
