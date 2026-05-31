@@ -1,9 +1,9 @@
 'use client'
-import React, { useEffect, useRef } from 'react'
+
+import { useEffect } from 'react'
 import { X } from 'lucide-react'
-import { Project, Phase } from '@/types/app'
-import { differenceInDays, parseISO, format, addDays } from '@/lib/dates'
-import { ZoomLevel } from '@/types/app'
+import { addDays, differenceInDays, format, formatDate, getTimelineHeaders, parseISO } from '@/lib/dates'
+import { Project, ZoomLevel } from '@/types/app'
 
 interface GanttPrintModalProps {
   projects: Project[]
@@ -17,396 +17,424 @@ interface GanttPrintModalProps {
   onClose: () => void
 }
 
-const ROW_HEIGHT = 48
-const HEADER_HEIGHT = 70
-const PROJECT_ROW_HEIGHT = 52
+interface TimelineSegment {
+  key: string
+  label: string
+  left: number
+  width: number
+}
 
-export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, style, selectedProjectId, viewStart, viewEnd, onClose }: GanttPrintModalProps) {
-  const printRef = useRef<HTMLDivElement>(null)
+interface ChartPrintRow {
+  key: string
+  kind: 'project' | 'phase'
+  label: string
+  color: string
+  startDate: string
+  endDate: string
+}
 
+const ROW_HEIGHT = 42
+const PROJECT_ROW_HEIGHT = 50
+const HEADER_HEIGHT = 62
+const SIDEBAR_WIDTH = 294
+
+export function GanttPrintModal({
+  projects,
+  scope,
+  zoom,
+  collapsedProjects,
+  style,
+  selectedProjectId,
+  viewStart,
+  viewEnd,
+  onClose,
+}: GanttPrintModalProps) {
   useEffect(() => {
-    // DEBUG: Log all projects and their phases
-    console.log('===== PRINT MODAL DEBUG =====')
-    console.log('Total projects:', projects.length)
-    console.log('Scope:', scope)
-    projects.forEach((p, idx) => {
-      console.log(`Project ${idx + 1}: ${p.name}`)
-      console.log(`  - Phases count: ${p.phases?.length || 0}`)
-      console.log(`  - Phases:`, p.phases)
-    })
-    console.log('============================')
-
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       window.print()
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [])
+    }, 250)
 
-  // Determine pixels per day and header interval based on zoom level
+    const handleAfterPrint = () => {
+      onClose()
+    }
+
+    window.addEventListener('afterprint', handleAfterPrint)
+
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('afterprint', handleAfterPrint)
+    }
+  }, [onClose])
+
   const pixelsPerDay = zoom === 'day' ? 24 : zoom === 'week' ? 20 : zoom === 'month' ? 18 : 16
-  const headerInterval = zoom === 'day' ? 1 : zoom === 'week' ? 7 : zoom === 'month' ? 30 : 90
-
   const projectsToPrint = scope === 'all'
     ? projects
     : selectedProjectId
-      ? projects.filter(p => p.id === selectedProjectId)
+      ? projects.filter((project) => project.id === selectedProjectId)
       : projects.slice(0, 1)
 
-  // Use the current view range from the Gantt chart
-  const startDate = viewStart
-  const endDate = viewEnd
-  const totalDays = differenceInDays(endDate, startDate) + 1
-  const totalWidth = totalDays * pixelsPerDay
-
-  // Generate timeline headers based on zoom level
-  const headers: { date: Date; label: string; weekStart: boolean }[] = []
-  for (let i = 0; i < totalDays; i += headerInterval) {
-    const headerDate = addDays(startDate, i)
-    const label = zoom === 'day' ? format(headerDate, 'MMM d') :
-                  zoom === 'week' ? format(headerDate, 'MMM d') :
-                  zoom === 'month' ? format(headerDate, 'MMM yyyy') :
-                  format(headerDate, 'MMM yyyy')
-    headers.push({
-      date: headerDate,
-      label,
-      weekStart: true,
-    })
-  }
-
-  const getBarPosition = (start: string, end: string) => {
-    const phStart = parseISO(start)
-    const phEnd = parseISO(end)
-    const left = differenceInDays(phStart, startDate) * pixelsPerDay
-    const width = Math.max(differenceInDays(phEnd, phStart) + 1, 1) * pixelsPerDay
-    return { left, width }
-  }
+  const totalDays = differenceInDays(viewEnd, viewStart) + 1
+  const totalWidth = Math.max(totalDays * pixelsPerDay, 720)
+  const timelineSegments = getPrintTimelineSegments(zoom, viewStart, viewEnd, pixelsPerDay)
+  const chartRows = buildChartRows(projectsToPrint, collapsedProjects)
 
   return (
-    <div
-      ref={printRef}
-      className="fixed inset-0 bg-white overflow-auto print:static print:inset-auto print:h-auto print:overflow-visible"
-      style={{ zIndex: 9999 }}
-    >
-      <div className="print:hidden absolute top-4 right-4 z-50">
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-slate-100 rounded-lg bg-white border border-slate-300"
-        >
-          <X size={20} />
-        </button>
-      </div>
+    <div className="gantt-print-root fixed inset-0 z-[9999] overflow-auto bg-slate-200/80 backdrop-blur-sm">
+      <div className="gantt-print-sheet min-h-screen bg-white text-black shadow-2xl">
+        <div className="print:hidden sticky top-4 z-50 flex justify-end px-4 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-300 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-      {/* Main Content */}
-      <div className="bg-white text-black">
-        {/* Header */}
-        <div className="px-8 pt-8 pb-6 border-b-2 border-slate-300 border-solid">
-          <h1 className="text-3xl font-bold text-black mb-2">{style === 'chart' ? 'Gantt Chart' : 'Project Schedule'}</h1>
-          <p className="text-base text-black mb-1">
+        <div className="gantt-print-header border-b border-slate-200 px-8 pb-6 pt-6">
+          <h1 className="text-3xl font-bold text-slate-900">
+            {style === 'chart' ? 'Gantt Chart' : 'Project Schedule'}
+          </h1>
+          <p className="mt-2 text-sm font-medium text-slate-600">
             {scope === 'all' ? 'All Projects' : 'Current Project'}
           </p>
-          <p className="text-sm text-black">
-            {format(startDate, 'MMM d, yyyy')} – {format(endDate, 'MMM d, yyyy')}
-          </p>
-          {/* DEBUG INFO */}
-          <p className="text-xs text-red-600 mt-2 print:hidden">
-            DEBUG: {projectsToPrint.length} projects total | Scope: {scope} | Style: {style}
-            {projectsToPrint.map(p => ` | ${p.name}: ${p.phases?.length || 0} phases`).join('')}
+          <p className="mt-1 text-sm text-slate-500">
+            {format(viewStart, 'MMM d, yyyy')} - {format(viewEnd, 'MMM d, yyyy')}
           </p>
         </div>
 
         {projectsToPrint.length === 0 && (
-          <div className="px-8 py-12 text-center">
-            <p className="text-slate-500">No projects to print</p>
+          <div className="px-8 py-12 text-center text-slate-500">
+            No projects to print
           </div>
         )}
 
-        {/* List Style */}
-        {style === 'list' && (
-          <div className="px-8 py-6">
-            {/* DETAILED DEBUG */}
-            <div className="mb-4 p-4 bg-yellow-100 border-2 border-red-500 print:hidden">
-              <p className="text-xs font-bold">DETAILED DEBUG:</p>
-              <p className="text-xs">projectsToPrint length: {projectsToPrint.length}</p>
-              {projectsToPrint.map(p => (
-                <div key={p.id} className="text-xs ml-4 border-l-2 border-gray-400 pl-2">
-                  <p>{p.name}</p>
-                  <p className="text-gray-600">phases array exists: {p.phases ? 'YES' : 'NO'}</p>
-                  <p className="text-gray-600">phases length: {p.phases?.length || 'undefined'}</p>
-                  {p.phases && p.phases.length > 0 && (
-                    <p className="text-gray-600">first phase: {p.phases[0].name}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-            <table className="w-full border-collapse">
+        {style === 'list' && projectsToPrint.length > 0 && (
+          <div className="gantt-print-scroll px-8 py-6">
+            <table className="gantt-print-table gantt-print-list-table w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b-2 border-black">
-                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Project</th>
-                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Phase</th>
-                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Start Date</th>
-                  <th className="text-left px-3 py-3 font-bold text-black border border-black">End Date</th>
-                  <th className="text-left px-3 py-3 font-bold text-black border border-black">Duration</th>
+                <tr className="bg-slate-100">
+                  <th className="border border-slate-300 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    Project
+                  </th>
+                  <th className="border border-slate-300 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    Phase
+                  </th>
+                  <th className="border border-slate-300 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    Start
+                  </th>
+                  <th className="border border-slate-300 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    End
+                  </th>
+                  <th className="border border-slate-300 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-700">
+                    Duration
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {projectsToPrint.map((project) => (
-                  <React.Fragment key={project.id}>
-                    {/* Project Row */}
-                    <tr className="border-b border-black">
-                      <td className="px-3 py-2 font-bold text-black border border-black">{project.name}</td>
-                      <td colSpan={4} className="px-3 py-2 text-sm text-black border border-black"></td>
-                    </tr>
+                {projectsToPrint.map((project) => {
+                  const phases = project.phases || []
+                  const projectDuration = differenceInDays(parseISO(project.end_date), parseISO(project.start_date)) + 1
 
-                    {/* Phase Rows for this Project */}
-                    {(project.phases || []).length > 0 && (
-                      <tr className="border-b-2 border-black bg-gray-200">
-                        <td className="px-3 py-2 text-black text-xs font-bold border border-black" colSpan={5}>
-                          ↓ {project.name} ({(project.phases || []).length} phases) ↓
+                  if (phases.length === 0) {
+                    return (
+                      <tr key={project.id}>
+                        <td className="border border-slate-300 px-3 py-2 font-semibold text-slate-900">
+                          {project.name}
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-500">
+                          No phases
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-700">
+                          {formatDate(project.start_date, 'MMM d, yyyy')}
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-700">
+                          {formatDate(project.end_date, 'MMM d, yyyy')}
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-700">
+                          {projectDuration} days
                         </td>
                       </tr>
-                    )}
-                    {(project.phases || []).map((phase) => {
-                      try {
-                        const phStart = parseISO(phase.start_date)
-                        const phEnd = parseISO(phase.end_date)
-                        const duration = differenceInDays(phEnd, phStart) + 1
-                        return (
-                          <tr key={phase.id} className="border-b border-black">
-                            <td className="px-3 py-2 text-black border border-black"></td>
-                            <td className="px-3 py-2 text-black border border-black">{phase.name}</td>
-                            <td className="px-3 py-2 text-black text-sm border border-black">{format(phStart, 'MMM d, yyyy')}</td>
-                            <td className="px-3 py-2 text-black text-sm border border-black">{format(phEnd, 'MMM d, yyyy')}</td>
-                            <td className="px-3 py-2 text-black text-sm border border-black">{duration} days</td>
-                          </tr>
-                        )
-                      } catch (error) {
-                        console.error(`Error rendering phase for ${project.name}:`, error, phase)
-                        return (
-                          <tr key={phase.id} className="border-b border-black bg-red-200">
-                            <td className="px-3 py-2 text-red-700 border border-black" colSpan={5}>
-                              ERROR: {project.name} - {phase.name}: {String(error)}
-                            </td>
-                          </tr>
-                        )
-                      }
-                    })}
-                  </React.Fragment>
-                ))}
+                    )
+                  }
+
+                  return phases.map((phase, phaseIndex) => {
+                    const phaseDuration = differenceInDays(parseISO(phase.end_date), parseISO(phase.start_date)) + 1
+
+                    return (
+                      <tr key={phase.id}>
+                        <td className="border border-slate-300 px-3 py-2 align-top text-slate-900">
+                          {phaseIndex === 0 ? (
+                            <div>
+                              <div className="font-semibold">{project.name}</div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                {formatDate(project.start_date, 'MMM d')} - {formatDate(project.end_date, 'MMM d, yyyy')}
+                              </div>
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-800">
+                          {phase.name}
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-700">
+                          {formatDate(phase.start_date, 'MMM d, yyyy')}
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-700">
+                          {formatDate(phase.end_date, 'MMM d, yyyy')}
+                        </td>
+                        <td className="border border-slate-300 px-3 py-2 text-slate-700">
+                          {phaseDuration} days
+                        </td>
+                      </tr>
+                    )
+                  })
+                })}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* Gantt Container - Chart Style */}
-        {style === 'chart' && (
-        <div className="flex bg-white">
-          {/* Sidebar */}
-          <div className="w-80 flex-shrink-0 border-r-2 border-slate-300 bg-slate-50">
-            {/* Header */}
-            <div
-              className="border-b-2 border-slate-300 bg-slate-100 px-6 font-bold text-slate-800 text-sm"
-              style={{ height: HEADER_HEIGHT }}
-            >
-              <div className="flex items-center h-full">Projects & Phases</div>
-            </div>
-
-            {/* Content */}
-            <div>
-              {projectsToPrint.map((project) => (
-                <div key={project.id}>
-                  {/* Project Row */}
-                  <div
-                    className="border-b border-slate-300 bg-slate-100 px-6 font-bold text-slate-900 flex items-center gap-3"
-                    style={{ height: PROJECT_ROW_HEIGHT }}
+        {style === 'chart' && projectsToPrint.length > 0 && (
+          <div className="gantt-print-scroll px-8 py-6">
+            <table className="gantt-print-table border-collapse" style={{ minWidth: SIDEBAR_WIDTH + totalWidth }}>
+              <thead>
+                <tr>
+                  <th
+                    className="gantt-print-sidebar-cell border border-slate-300 bg-slate-100 px-5 py-3 text-left text-sm font-semibold text-slate-900"
+                    style={{ width: SIDEBAR_WIDTH, minWidth: SIDEBAR_WIDTH }}
                   >
-                    <div
-                      className="w-4 h-4 rounded-md flex-shrink-0"
-                      style={{ backgroundColor: project.color }}
-                    />
-                    <span className="text-sm">{project.name}</span>
-                  </div>
-
-                  {/* Phase Rows */}
-                  {!collapsedProjects.has(project.id) && (project.phases || []).map((phase) => (
-                    <div
-                      key={phase.id}
-                      className="border-b border-slate-200 px-6 flex items-center gap-3 bg-white"
-                      style={{ height: ROW_HEIGHT }}
-                    >
-                      <div
-                        className="w-3 h-3 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: phase.color || '#6366f1' }}
-                      />
-                      <span className="text-xs text-slate-700 font-medium truncate">
-                        {phase.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Timeline */}
-          <div className="flex-1 overflow-x-auto bg-white">
-            {/* Header */}
-            <div className="flex border-b-2 border-slate-300 bg-slate-50">
-              {headers.map((header, idx) => (
-                <div
-                  key={idx}
-                  className="border-r border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 flex items-center justify-center flex-shrink-0"
-                  style={{ width: pixelsPerDay * headerInterval, minWidth: pixelsPerDay * headerInterval }}
-                >
-                  {header.label}
-                </div>
-              ))}
-            </div>
-
-            {/* Grid */}
-            <div style={{ width: totalWidth, minWidth: '100%' }}>
-              {projectsToPrint.map((project) => (
-                <div key={project.id}>
-                  {/* Project Row */}
-                  <div
-                    className="border-b border-slate-300 bg-slate-50 relative"
-                    style={{ height: PROJECT_ROW_HEIGHT }}
-                  >
-                    {headers.map((_, idx) => (
-                      <div
-                        key={idx}
-                        className="absolute top-0 bottom-0 border-r border-slate-300"
-                        style={{ left: idx * pixelsPerDay * headerInterval, width: pixelsPerDay * headerInterval }}
-                      />
-                    ))}
-
-                    {/* Project bar */}
-                    {(() => {
-                      const { left, width } = getBarPosition(project.start_date, project.end_date)
-                      return width > 0 ? (
+                    Projects & Phases
+                  </th>
+                  <th className="gantt-print-timeline-cell border border-slate-300 bg-slate-50 p-0">
+                    <div className="relative" style={{ width: totalWidth, minWidth: totalWidth, height: HEADER_HEIGHT }}>
+                      {timelineSegments.map((segment) => (
                         <div
-                          className="absolute top-1/2 -translate-y-1/2 rounded-lg shadow-md flex items-center px-3 font-semibold text-white text-xs"
-                          style={{
-                            left,
-                            width: Math.max(width, 50),
-                            height: PROJECT_ROW_HEIGHT - 10,
-                            backgroundColor: project.color,
-                          }}
+                          key={segment.key}
+                          className="absolute bottom-0 top-0 flex items-center justify-center border-r border-slate-300 px-2 text-xs font-semibold text-slate-700"
+                          style={{ left: segment.left, width: segment.width }}
                         >
-                          {width > 80 && <span className="truncate">{project.name}</span>}
+                          {segment.label}
                         </div>
-                      ) : null
-                    })()}
-                  </div>
+                      ))}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {chartRows.map((row) => {
+                  const bar = getClippedBarPosition(row.startDate, row.endDate, viewStart, viewEnd, pixelsPerDay)
+                  const rowHeight = row.kind === 'project' ? PROJECT_ROW_HEIGHT : ROW_HEIGHT
+                  const barWidth = row.kind === 'project'
+                    ? bar.clippedStart || bar.clippedEnd
+                      ? bar.width
+                      : Math.max(bar.width, 44)
+                    : bar.clippedStart || bar.clippedEnd
+                      ? bar.width
+                      : Math.max(bar.width, 24)
 
-                  {/* Phase Rows */}
-                  {!collapsedProjects.has(project.id) && (project.phases || []).map((phase) => {
-                    const { left, width } = getBarPosition(phase.start_date, phase.end_date)
-                    return (
-                      <div
-                        key={phase.id}
-                        className="border-b border-slate-200 bg-white relative"
-                        style={{ height: ROW_HEIGHT }}
+                  return (
+                    <tr key={row.key}>
+                      <td
+                        className={`border border-slate-200 align-middle text-slate-800 ${row.kind === 'project' ? 'bg-slate-50 px-5' : 'bg-white px-5 pl-8'}`}
+                        style={{ height: rowHeight }}
                       >
-                        {/* Grid lines */}
-                        {headers.map((_, idx) => (
-                          <div
-                            key={idx}
-                            className="absolute top-0 bottom-0 border-r border-slate-200"
-                            style={{ left: idx * pixelsPerDay * headerInterval, width: pixelsPerDay * headerInterval }}
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={row.kind === 'project' ? 'h-4 w-4 rounded-md' : 'h-3 w-3 rounded-sm'}
+                            style={{ backgroundColor: row.color }}
                           />
-                        ))}
+                          <span className={row.kind === 'project' ? 'text-sm font-semibold' : 'text-xs font-medium'}>
+                            {row.label}
+                          </span>
+                        </div>
+                      </td>
+                      <td className={`gantt-print-timeline-cell border border-slate-200 p-0 ${row.kind === 'project' ? 'bg-slate-50' : 'bg-white'}`}>
+                        <div className="relative" style={{ width: totalWidth, minWidth: totalWidth, height: rowHeight }}>
+                          {timelineSegments.map((segment) => (
+                            <div
+                              key={`${row.key}-${segment.key}`}
+                              className={`absolute bottom-0 top-0 border-r ${row.kind === 'project' ? 'border-slate-200' : 'border-slate-100'}`}
+                              style={{ left: segment.left, width: segment.width }}
+                            />
+                          ))}
 
-                        {/* Bar */}
-                        {width > 0 && (
-                          <div
-                            className="absolute top-1/2 -translate-y-1/2 rounded-lg shadow-md flex items-center px-3 font-semibold text-white text-xs"
-                            style={{
-                              left,
-                              width: Math.max(width, 50),
-                              height: ROW_HEIGHT - 10,
-                              backgroundColor: phase.color || '#6366f1',
-                            }}
-                          >
-                            {width > 80 && <span className="truncate">{phase.name}</span>}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
+                          {bar.width > 0 && (
+                            <div
+                              className={`absolute top-1/2 flex -translate-y-1/2 items-center px-3 text-xs font-semibold text-white shadow-sm ${
+                                bar.clippedStart ? '' : 'rounded-l-lg'
+                              } ${bar.clippedEnd ? '' : 'rounded-r-lg'}`}
+                              style={{
+                                left: bar.left,
+                                width: barWidth,
+                                height: rowHeight - (row.kind === 'project' ? 14 : 10),
+                                backgroundColor: row.color,
+                              }}
+                            >
+                              {barWidth > 96 ? (
+                                <span className="truncate">{row.label}</span>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
         )}
       </div>
 
-      {/* Print Styles */}
       <style>{`
+        @page {
+          size: landscape;
+          margin: 0.35in;
+        }
+
         @media print {
           * {
             -webkit-print-color-adjust: exact !important;
-            color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            height: auto !important;
-            overflow: visible !important;
-            width: 100% !important;
-          }
+
+          html,
           body {
             margin: 0 !important;
             padding: 0 !important;
-          }
-          /* Hide sidebar and other UI elements */
-          aside, nav, [class*="sidebar"], [class*="Sidebar"] {
-            display: none !important;
-          }
-          div[style*="zIndex"] {
-            position: static !important;
-            inset: auto !important;
             height: auto !important;
             overflow: visible !important;
+            background: white !important;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .gantt-print-root,
+          .gantt-print-root * {
+            visibility: visible !important;
+          }
+
+          .gantt-print-root {
+            position: absolute !important;
+            inset: 0 !important;
+            overflow: visible !important;
+            height: auto !important;
             width: 100% !important;
+            background: white !important;
           }
-          .print\\:hidden {
-            display: none !important;
+
+          .gantt-print-sheet {
+            min-height: 0 !important;
+            box-shadow: none !important;
           }
-          @page {
-            size: landscape !important;
-            margin: 0.15in !important;
+
+          .gantt-print-scroll {
+            overflow: visible !important;
           }
-          table {
-            font-size: 7px !important;
-            page-break-inside: auto !important;
-            width: 100% !important;
+
+          .gantt-print-table {
             border-collapse: collapse !important;
           }
-          tr {
+
+          .gantt-print-table thead {
+            display: table-header-group !important;
+          }
+
+          .gantt-print-table tfoot {
+            display: table-footer-group !important;
+          }
+
+          .gantt-print-table tr,
+          .gantt-print-table td,
+          .gantt-print-table th {
+            break-inside: avoid !important;
             page-break-inside: avoid !important;
-            height: auto !important;
           }
-          th, td {
-            padding: 0.5px 0.5px !important;
-            page-break-inside: avoid !important;
-            border-width: 0.5px !important;
-            word-wrap: break-word !important;
+
+          .gantt-print-list-table {
+            width: 100% !important;
           }
-          h1 {
-            font-size: 14px !important;
-            margin: 0.1in 0 !important;
-            page-break-after: avoid !important;
-          }
-          p {
-            font-size: 10px !important;
-            margin: 0.05in 0 !important;
-            page-break-after: avoid !important;
+
+          .print\\:hidden {
+            display: none !important;
           }
         }
       `}</style>
     </div>
   )
+}
+
+function buildChartRows(projects: Project[], collapsedProjects: Set<string>): ChartPrintRow[] {
+  return projects.flatMap((project) => {
+    const rows: ChartPrintRow[] = [
+      {
+        key: `project-${project.id}`,
+        kind: 'project',
+        label: project.name,
+        color: project.color,
+        startDate: project.start_date,
+        endDate: project.end_date,
+      },
+    ]
+
+    if (!collapsedProjects.has(project.id)) {
+      rows.push(
+        ...(project.phases || []).map((phase) => ({
+          key: `phase-${phase.id}`,
+          kind: 'phase' as const,
+          label: phase.name,
+          color: phase.color || '#6366f1',
+          startDate: phase.start_date,
+          endDate: phase.end_date,
+        }))
+      )
+    }
+
+    return rows
+  })
+}
+
+function getPrintTimelineSegments(
+  zoom: ZoomLevel,
+  viewStart: Date,
+  viewEnd: Date,
+  pixelsPerDay: number
+): TimelineSegment[] {
+  const headers = getTimelineHeaders(zoom, viewStart, viewEnd)
+
+  return headers.map((header, index) => {
+    const nextDate = headers[index + 1]?.date ?? addDays(viewEnd, 1)
+    const left = differenceInDays(header.date, viewStart) * pixelsPerDay
+    const width = Math.max(differenceInDays(nextDate, header.date) * pixelsPerDay, pixelsPerDay)
+
+    return {
+      key: `${format(header.date, 'yyyy-MM-dd')}-${index}`,
+      label: zoom === 'day' ? format(header.date, 'MMM d') : header.label,
+      left,
+      width,
+    }
+  })
+}
+
+function getClippedBarPosition(
+  startDate: string,
+  endDate: string,
+  viewStart: Date,
+  viewEnd: Date,
+  pixelsPerDay: number
+) {
+  const startOffset = differenceInDays(parseISO(startDate), viewStart) * pixelsPerDay
+  const endOffset = (differenceInDays(parseISO(endDate), viewStart) + 1) * pixelsPerDay
+  const chartWidth = (differenceInDays(viewEnd, viewStart) + 1) * pixelsPerDay
+  const left = Math.max(0, startOffset)
+  const right = Math.min(chartWidth, endOffset)
+
+  return {
+    left,
+    width: Math.max(0, right - left),
+    clippedStart: startOffset < 0,
+    clippedEnd: endOffset > chartWidth,
+  }
 }
