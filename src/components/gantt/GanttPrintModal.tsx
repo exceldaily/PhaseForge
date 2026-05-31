@@ -149,38 +149,28 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                 </tr>
               </thead>
               <tbody>
-                {projectsToPrint.map((project) => {
-                  console.log(`Rendering project row: ${project.name}, has ${project.phases?.length || 0} phases`)
-                  return (
-                    <tr key={project.id} className="border-b border-black">
+                {projectsToPrint.map((project) => (
+                  <React.Fragment key={project.id}>
+                    {/* Project Row */}
+                    <tr className="border-b border-black">
                       <td className="px-3 py-2 font-bold text-black border border-black">{project.name}</td>
                       <td colSpan={4} className="px-3 py-2 text-sm text-black border border-black"></td>
                     </tr>
-                  )
-                })}
-                {(() => {
-                  const phaseRows: React.ReactElement[] = []
-                  projectsToPrint.forEach((project, projIdx) => {
-                    const phases = project.phases || []
-                    console.log(`Project ${projIdx} (${project.name}): ${phases.length} phases`)
 
-                    // Add visible separator for debugging
-                    if (phases.length > 0) {
-                      phaseRows.push(
-                        <tr key={`sep-${project.id}`} className="border-b-2 border-black bg-gray-200">
-                          <td className="px-3 py-2 text-black text-xs font-bold border border-black" colSpan={5}>
-                            ↓ {project.name} ({phases.length} phases) ↓
-                          </td>
-                        </tr>
-                      )
-                    }
-
-                    phases.forEach((phase, phaseIdx) => {
+                    {/* Phase Rows for this Project */}
+                    {(project.phases || []).length > 0 && (
+                      <tr className="border-b-2 border-black bg-gray-200">
+                        <td className="px-3 py-2 text-black text-xs font-bold border border-black" colSpan={5}>
+                          ↓ {project.name} ({(project.phases || []).length} phases) ↓
+                        </td>
+                      </tr>
+                    )}
+                    {(project.phases || []).map((phase) => {
                       try {
                         const phStart = parseISO(phase.start_date)
                         const phEnd = parseISO(phase.end_date)
                         const duration = differenceInDays(phEnd, phStart) + 1
-                        phaseRows.push(
+                        return (
                           <tr key={phase.id} className="border-b border-black">
                             <td className="px-3 py-2 text-black border border-black"></td>
                             <td className="px-3 py-2 text-black border border-black">{phase.name}</td>
@@ -190,20 +180,18 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
                           </tr>
                         )
                       } catch (error) {
-                        console.error(`Error rendering phase ${phaseIdx} for project ${project.name}:`, error, phase)
-                        phaseRows.push(
+                        console.error(`Error rendering phase for ${project.name}:`, error, phase)
+                        return (
                           <tr key={phase.id} className="border-b border-black bg-red-200">
                             <td className="px-3 py-2 text-red-700 border border-black" colSpan={5}>
-                              ERROR: {project.name} phase "{phase.name}" - {String(error)}
+                              ERROR: {project.name} - {phase.name}: {String(error)}
                             </td>
                           </tr>
                         )
                       }
-                    })
-                  })
-                  console.log(`Total phase rows created: ${phaseRows.length}`)
-                  return phaseRows
-                })()}
+                    })}
+                  </React.Fragment>
+                ))}
               </tbody>
             </table>
           </div>
