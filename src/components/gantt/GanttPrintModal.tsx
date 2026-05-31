@@ -375,16 +375,19 @@ export function GanttPrintModal({ projects, scope, zoom, collapsedProjects, styl
             margin: 0.25in !important;
           }
           table {
-            font-size: 11px !important;
+            font-size: 8px !important;
             page-break-inside: auto;
             width: 100%;
+            border-collapse: collapse;
           }
           tr {
             page-break-inside: avoid;
+            height: auto !important;
           }
           th, td {
-            padding: 3px 2px !important;
+            padding: 1px 1px !important;
             page-break-inside: avoid;
+            border-width: 0.5px !important;
           }
           h1 {
             font-size: 16px !important;
