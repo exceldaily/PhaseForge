@@ -42,7 +42,7 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
     }
   }
 
-  const handleDelete = async (userId: string, email: string) {
+  const handleDelete = async (userId: string, email: string) => {
     if (!confirm(`Delete user ${email}? This action cannot be undone.`)) return
 
     setActionInProgress(userId)
