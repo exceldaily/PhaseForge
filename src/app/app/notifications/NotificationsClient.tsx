@@ -42,8 +42,8 @@ export function NotificationsClient({ notifications: initial, userId }: Notifica
   const unread = notifications.filter(n => !n.read).length
 
   const markRead = async (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-    // Only persist to DB for real stored notifications (not computed ones with prefix IDs)
+    // Remove immediately — read notifications disappear
+    setNotifications(prev => prev.filter(n => n.id !== id))
     if (!id.startsWith('proj-') && !id.startsWith('phase-')) {
       const supabase = createClient()
       await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
@@ -51,7 +51,7 @@ export function NotificationsClient({ notifications: initial, userId }: Notifica
   }
 
   const markAllRead = async () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    setNotifications([])
     const supabase = createClient()
     await supabase.from('notifications').update({ read: true })
       .eq('user_id', userId).eq('read', false)
@@ -84,26 +84,18 @@ export function NotificationsClient({ notifications: initial, userId }: Notifica
 
       <div className="space-y-2">
         {notifications.map(n => (
-          <div key={n.id}
-            className={cn(
-              'rounded-2xl border transition-all',
-              n.read ? 'border-slate-100 bg-white' : `border-slate-200 ${TYPE_BG[n.type] ?? 'bg-slate-50'}`
-            )}>
+          <div key={n.id} className={cn('rounded-2xl border border-slate-200 transition-all', TYPE_BG[n.type] ?? 'bg-slate-50')}>
             <div className="flex items-start gap-4 p-4">
               <div className="mt-0.5 flex-shrink-0">
                 {TYPE_ICONS[n.type] ?? <Bell size={16} className="text-slate-400" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className={cn('text-sm', n.read ? 'font-normal text-slate-600' : 'font-semibold text-slate-900')}>
-                    {n.title}
-                  </p>
-                  {!n.read && (
-                    <button onClick={() => markRead(n.id)}
-                      className="flex-shrink-0 text-xs text-slate-400 hover:text-indigo-600 transition-colors">
-                      Mark read
-                    </button>
-                  )}
+                  <p className="text-sm font-semibold text-slate-900">{n.title}</p>
+                  <button onClick={() => markRead(n.id)}
+                    className="flex-shrink-0 text-xs text-slate-400 hover:text-rose-500 transition-colors">
+                    Dismiss
+                  </button>
                 </div>
                 {n.body && <p className="text-sm text-slate-500 mt-0.5">{n.body}</p>}
                 <div className="mt-2 flex items-center gap-3">
@@ -116,7 +108,7 @@ export function NotificationsClient({ notifications: initial, userId }: Notifica
                   )}
                 </div>
               </div>
-              {!n.read && <div className="mt-2 h-2 w-2 rounded-full bg-indigo-500 flex-shrink-0" />}
+              <div className="mt-2 h-2 w-2 rounded-full bg-indigo-500 flex-shrink-0" />
             </div>
           </div>
         ))}

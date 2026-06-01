@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, Users, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
-  BarChart2, FileText, UsersRound, Bell,
+  BarChart2, FileText, UsersRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -20,7 +20,6 @@ const NAV_ITEMS = [
   { href: '/app/reports', label: 'Reports', icon: FileText },
   { href: '/app/resources', label: 'Resources', icon: UsersRound },
   { href: '/app/teams', label: 'Teams', icon: UsersRound },
-  { href: '/app/notifications', label: 'Notifications', icon: Bell },
   { href: '/app/settings/members', label: 'Team', icon: Users },
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ]
