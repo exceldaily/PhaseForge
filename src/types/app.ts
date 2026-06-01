@@ -1,4 +1,41 @@
 export type UserRole = 'owner' | 'admin' | 'manager' | 'member' | 'viewer' // viewer = legacy alias for member
+
+// ── v2 Board Architecture ──────────────────────────────────────────────────────
+
+export interface Board {
+  id: string
+  company_id: string
+  name: string
+  description: string | null
+  color: string
+  sort_order: number
+  is_default: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  // joined
+  columns?: BoardColumn[]
+  team_ids?: string[]
+}
+
+export interface BoardColumn {
+  id: string
+  board_id: string
+  name: string
+  color: string
+  sort_order: number
+  is_done: boolean   // terminal/closed column
+  created_at: string
+  // joined
+  project_count?: number
+}
+
+export interface BoardTeam {
+  board_id: string
+  team_id: string
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 export type ProjectStatus =
   | 'queue'
   | 'mobilization'
@@ -48,7 +85,7 @@ export interface Project {
   start_date: string
   end_date: string
   project_manager: string | null
-  status: ProjectStatus
+  status: ProjectStatus           // legacy — kept for backward compat
   priority: ProjectPriority
   notes: string | null
   color: string
@@ -61,7 +98,12 @@ export interface Project {
   created_at: string
   updated_at: string
   updated_by?: string | null
+  // v2 board fields
+  board_id?: string | null
+  board_column_id?: string | null
   // joined
+  board?: Board
+  board_column?: BoardColumn
   manager_profile?: Profile
   members?: Profile[]
   phases?: Phase[]
@@ -75,15 +117,18 @@ export interface Phase {
   end_date: string
   assigned_to: string | null
   assigned_trade: string | null
-  status: PhaseStatus
+  status: PhaseStatus             // legacy — kept for backward compat
   color: string | null
   notes: string | null
   sort_order: number
   created_at: string
   updated_at: string
+  // v2 board field
+  board_column_id?: string | null
   // joined
   assigned_profile?: Profile
   dependencies?: PhaseDependency[]
+  board_column?: BoardColumn
 }
 
 export interface PhaseDependency {
