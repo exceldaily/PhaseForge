@@ -12,10 +12,11 @@ interface PlanSelectorModalProps {
   companyId: string
   companyName: string
   currentPlan: string
-  onSuccess?: () => void
+  onSuccess?: (newPlan: string) => void
 }
 
 const PLANS = ['free', 'pro', 'business', 'enterprise'] as const
+type Plan = (typeof PLANS)[number]
 
 export function PlanSelectorModal({
   open,
@@ -25,7 +26,9 @@ export function PlanSelectorModal({
   currentPlan,
   onSuccess,
 }: PlanSelectorModalProps) {
-  const [selectedPlan, setSelectedPlan] = useState(currentPlan)
+  const [selectedPlan, setSelectedPlan] = useState<Plan>(
+    PLANS.includes(currentPlan as Plan) ? (currentPlan as Plan) : 'free'
+  )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -38,8 +41,8 @@ export function PlanSelectorModal({
     try {
       setLoading(true)
       setError('')
-      await updateCompanyPlan(companyId, selectedPlan as any, 'Admin override')
-      onSuccess?.()
+      await updateCompanyPlan(companyId, selectedPlan, 'Admin override')
+      onSuccess?.(selectedPlan)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update plan')
@@ -49,7 +52,7 @@ export function PlanSelectorModal({
   }
 
   const handleClose = () => {
-    setSelectedPlan(currentPlan)
+    setSelectedPlan(PLANS.includes(currentPlan as Plan) ? (currentPlan as Plan) : 'free')
     setError('')
     onClose()
   }
@@ -73,7 +76,7 @@ export function PlanSelectorModal({
                 name="plan"
                 value={plan}
                 checked={selectedPlan === plan}
-                onChange={(e) => setSelectedPlan(e.target.value)}
+                onChange={(e) => setSelectedPlan(e.target.value as Plan)}
                 disabled={loading}
                 className="h-4 w-4 text-indigo-600"
               />

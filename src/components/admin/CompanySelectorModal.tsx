@@ -18,7 +18,7 @@ interface CompanySelectorModalProps {
   userName: string
   currentCompanyId: string | null
   companies: Company[]
-  onSuccess: () => void
+  onSuccess: (company: Company | null) => void
 }
 
 export function CompanySelectorModal({
@@ -35,6 +35,7 @@ export function CompanySelectorModal({
   const [error, setError] = useState<string | null>(null)
 
   const handleClose = () => {
+    setSelectedCompanyId(currentCompanyId)
     setError(null)
     onClose()
   }
@@ -50,7 +51,7 @@ export function CompanySelectorModal({
 
     try {
       await updateUserCompany(userId, selectedCompanyId)
-      onSuccess()
+      onSuccess(companies.find((company) => company.id === selectedCompanyId) || null)
       handleClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update company')

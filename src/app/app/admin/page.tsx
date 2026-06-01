@@ -1,9 +1,21 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { Users, Building2, Activity, BarChart3 } from 'lucide-react'
 
+interface RecentAdminAction {
+  id: string
+  action: string
+  actor?: {
+    full_name?: string | null
+    email?: string | null
+  } | null
+  target_email?: string | null
+  target_id: string
+  created_at: string
+}
+
 export default async function AdminDashboard() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch stats
   const [
@@ -21,6 +33,8 @@ export default async function AdminDashboard() {
       .order('created_at', { ascending: false })
       .limit(10),
   ])
+
+  const recentAdminActions = (recentActions || []) as RecentAdminAction[]
 
   return (
     <div className="p-8">
@@ -126,11 +140,11 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Recent Actions */}
-      {recentActions && recentActions.length > 0 && (
+      {recentAdminActions.length > 0 && (
         <div className="mt-8 bg-white rounded-lg border border-slate-200 p-6">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Recent Admin Actions</h3>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {recentActions.map((action: any) => (
+            {recentAdminActions.map((action) => (
               <div key={action.id} className="flex items-start justify-between text-sm border-b border-slate-100 pb-3 last:border-0">
                 <div>
                   <p className="text-slate-900 font-medium">{action.action}</p>

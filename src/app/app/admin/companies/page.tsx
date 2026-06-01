@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { CompaniesTable } from '@/components/admin/CompaniesTable'
 
 export default async function AdminCompaniesPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch all companies with member and project counts
   const { data: companies } = await supabase

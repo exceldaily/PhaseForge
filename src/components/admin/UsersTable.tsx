@@ -27,7 +27,6 @@ interface UsersTableProps {
 export function UsersTable({ users: initialUsers, companies = [] }: UsersTableProps) {
   const [users, setUsers] = useState(initialUsers)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editData, setEditData] = useState<{ full_name?: string; email?: string; job_title?: string }>({})
@@ -118,7 +117,7 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
     }
   }
 
-  const handleReactivate = async (userId: string, email: string) => {
+  const handleReactivate = async (userId: string) => {
     setActionInProgress(userId)
     try {
       await reactivateUser(userId)
@@ -130,11 +129,19 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
     }
   }
 
-  const handleCompanySelectSuccess = () => {
-    // Refetch user data after company change (or just update local state)
+  const handleCompanySelectSuccess = (company: Company | null) => {
     setSelectingCompanyUserId(null)
-    // In a real app, you might refetch the user or update the local state
-    // For now, just close the modal
+    setUsers(prev =>
+      prev.map((user) =>
+        user.id === selectingCompanyUserId
+          ? {
+              ...user,
+              company_id: company?.id || null,
+              company: company ? { name: company.name, slug: company.slug } : null,
+            }
+          : user
+      )
+    )
   }
 
   return (
@@ -144,7 +151,10 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
         type="text"
         placeholder="Search by name or email..."
         value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+        onChange={(e) => {
+          setSearchTerm(e.target.value)
+          setPage(1)
+        }}
         className="w-full max-w-xs px-4 py-2 border border-slate-300 rounded-lg mb-6 text-sm"
       />
 
@@ -258,7 +268,7 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
                           )}
                           {!user.is_active && (
                             <button
-                              onClick={() => handleReactivate(user.id, user.email)}
+                              onClick={() => handleReactivate(user.id)}
                               disabled={actionInProgress === user.id}
                               className="w-full text-left px-4 py-2 hover:bg-green-50 text-sm text-green-700 flex items-center gap-2 border-b border-slate-100"
                             >
@@ -337,14 +347,7 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
           userName={users.find(u => u.id === selectingCompanyUserId)?.full_name || 'User'}
           currentCompanyId={users.find(u => u.id === selectingCompanyUserId)?.company_id || null}
           companies={companies}
-          onSuccess={() => {
-            handleCompanySelectSuccess()
-            // Refresh user in the list
-            const user = users.find(u => u.id === selectingCompanyUserId)
-            if (user) {
-              setUsers(prev => prev.map(u => u.id === selectingCompanyUserId ? { ...u, company_id: null } : u))
-            }
-          }}
+          onSuccess={handleCompanySelectSuccess}
         />
       )}
     </div>

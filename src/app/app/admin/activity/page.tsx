@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ActivityTimeline } from '@/components/admin/ActivityTimeline'
 
 export default async function AdminActivityPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // Fetch admin audit logs
   const { data: logs } = await supabase

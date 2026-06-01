@@ -28,14 +28,27 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [companies, setCompanies] = useState(initialCompanies)
 
+  const duplicateNames = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    for (const company of companies) {
+      const key = company.name.trim().toLowerCase()
+      counts.set(key, (counts.get(key) || 0) + 1)
+    }
+
+    return counts
+  }, [companies])
+
   const filteredCompanies = useMemo(() => {
     const q = searchTerm.toLowerCase()
     return q
-      ? initialCompanies.filter(c =>
-          c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+      ? companies.filter(c =>
+          c.name.toLowerCase().includes(q) ||
+          c.slug.toLowerCase().includes(q) ||
+          c.id.toLowerCase().includes(q)
         )
-      : initialCompanies
-  }, [initialCompanies, searchTerm])
+      : companies
+  }, [companies, searchTerm])
 
   const totalPages = Math.max(1, Math.ceil(filteredCompanies.length / PAGE_SIZE))
   const pagedCompanies = filteredCompanies.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -47,7 +60,10 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
         type="text"
         placeholder="Search by company name..."
         value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+        onChange={(e) => {
+          setSearchTerm(e.target.value)
+          setPage(1)
+        }}
         className="w-full max-w-xs px-4 py-2 border border-slate-300 rounded-lg mb-6 text-sm"
       />
 
@@ -67,12 +83,19 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
             {pagedCompanies.map((company) => {
               const memberCount = company.profiles?.[0]?.count || 0
               const projectCount = company.projects?.[0]?.count || 0
+              const isDuplicateName = (duplicateNames.get(company.name.trim().toLowerCase()) || 0) > 1
               return (
                 <tr key={company.id} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4">
                     <div className="flex flex-col">
-                      <span className="text-slate-900 font-medium">{company.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-900 font-medium">{company.name}</span>
+                        {isDuplicateName && (
+                          <Badge className="bg-amber-100 text-amber-700">Duplicate name</Badge>
+                        )}
+                      </div>
                       <span className="text-slate-500 text-xs">{company.slug}</span>
+                      <span className="text-slate-400 text-[11px]">{company.id}</span>
                     </div>
                   </td>
                   <td className="py-3 px-4">
@@ -138,10 +161,10 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
           companyId={editingCompanyId}
           companyName={companies.find(c => c.id === editingCompanyId)?.name || ''}
           currentPlan={companies.find(c => c.id === editingCompanyId)?.plan || 'free'}
-          onSuccess={() => {
+          onSuccess={(newPlan) => {
             // Update local state with new plan
             const updatedCompanies = companies.map(c =>
-              c.id === editingCompanyId ? { ...c, plan: c.plan } : c
+              c.id === editingCompanyId ? { ...c, plan: newPlan } : c
             )
             setCompanies(updatedCompanies)
           }}
