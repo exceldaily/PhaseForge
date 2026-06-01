@@ -35,22 +35,16 @@ async function logAdminAction(
   changes?: Record<string, unknown>
 ) {
   const supabase = await createClient()
-  const { error } = await supabase.rpc('bypass_rls', {
-    query: 'INSERT INTO admin_audit_logs (actor_id, action, target_type, target_id, target_email, changes) VALUES ($1, $2, $3, $4, $5, $6)',
-    params: [actorId, action, targetType, targetId, targetEmail, JSON.stringify(changes)],
-  }).catch(() => {
-    // Fallback: insert directly without bypass if RPC doesn't exist
-    return supabase
-      .from('admin_audit_logs')
-      .insert({
-        actor_id: actorId,
-        action,
-        target_type: targetType,
-        target_id: targetId,
-        target_email: targetEmail,
-        changes: changes || {},
-      })
-  })
+  const { error } = await supabase
+    .from('admin_audit_logs')
+    .insert({
+      actor_id: actorId,
+      action,
+      target_type: targetType,
+      target_id: targetId,
+      target_email: targetEmail,
+      changes: changes || {},
+    })
 
   if (error) {
     console.error('Failed to log admin action:', error)
