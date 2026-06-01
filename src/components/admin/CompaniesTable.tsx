@@ -1,9 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { Edit2 } from 'lucide-react'
+import { Badge } from '@/components/ui/Badge'
+import { PlanSelectorModal } from './PlanSelectorModal'
 
 const PAGE_SIZE = 25
-import { Badge } from '@/components/ui/Badge'
 
 interface Company {
   id: string
@@ -23,6 +25,8 @@ interface CompaniesTableProps {
 export function CompaniesTable({ companies: initialCompanies }: CompaniesTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
+  const [companies, setCompanies] = useState(initialCompanies)
 
   const filteredCompanies = useMemo(() => {
     const q = searchTerm.toLowerCase()
@@ -72,7 +76,16 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <Badge className="bg-slate-100 text-slate-700">{company.plan}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-slate-100 text-slate-700 capitalize">{company.plan}</Badge>
+                      <button
+                        onClick={() => setEditingCompanyId(company.id)}
+                        className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                        title="Edit plan"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-center font-medium text-slate-900">
                     {memberCount}
@@ -116,6 +129,23 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
             </button>
           </div>
         </div>
+      )}
+
+      {editingCompanyId && (
+        <PlanSelectorModal
+          open={true}
+          onClose={() => setEditingCompanyId(null)}
+          companyId={editingCompanyId}
+          companyName={companies.find(c => c.id === editingCompanyId)?.name || ''}
+          currentPlan={companies.find(c => c.id === editingCompanyId)?.plan || 'free'}
+          onSuccess={() => {
+            // Update local state with new plan
+            const updatedCompanies = companies.map(c =>
+              c.id === editingCompanyId ? { ...c, plan: c.plan } : c
+            )
+            setCompanies(updatedCompanies)
+          }}
+        />
       )}
     </div>
   )

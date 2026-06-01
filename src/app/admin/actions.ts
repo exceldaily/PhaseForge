@@ -237,3 +237,54 @@ export async function updateUserProfile(userId: string, updates: { full_name?: s
     throw error
   }
 }
+
+export async function updateCompanyPlan(
+  companyId: string,
+  newPlan: 'free' | 'pro' | 'business' | 'enterprise',
+  reason?: string
+) {
+  try {
+    const actorId = await requireSuperAdmin()
+    const supabase = await createClient()
+
+    // Get company details before update
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id, name, plan')
+      .eq('id', companyId)
+      .single()
+
+    if (!company) {
+      throw new Error('Company not found')
+    }
+
+    const oldPlan = company.plan
+
+    // Validate plan
+    const validPlans = ['free', 'pro', 'business', 'enterprise']
+    if (!validPlans.includes(newPlan)) {
+      throw new Error(`Invalid plan: ${newPlan}`)
+    }
+
+    // Update company
+    const { error } = await supabase
+      .from('companies')
+      .update({ plan: newPlan })
+      .eq('id', companyId)
+
+    if (error) throw error
+
+    // Log action
+    await logAdminAction(actorId, 'update_company_plan', 'company', companyId, undefined, {
+      company_name: company.name,
+      old_plan: oldPlan,
+      new_plan: newPlan,
+      reason,
+    })
+
+    return { success: true, message: `Plan updated from ${oldPlan} to ${newPlan} for ${company.name}` }
+  } catch (error) {
+    logger.error('Error updating company plan', error)
+    throw error
+  }
+}
