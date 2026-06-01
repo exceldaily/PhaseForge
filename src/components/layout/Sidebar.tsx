@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
-  Settings, Users, LogOut, ChevronLeft, ChevronRight,
+  Settings, Users, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -19,7 +19,11 @@ const NAV_ITEMS = [
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  isSuperAdmin?: boolean
+}
+
+export function Sidebar({ isSuperAdmin = false }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -71,6 +75,26 @@ export function Sidebar() {
             </Link>
           )
         })}
+
+        {/* Admin Link - Only for Super Admins */}
+        {isSuperAdmin && (
+          <div className="mt-6 pt-4 border-t border-slate-700">
+            <Link
+              href="/app/admin"
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                pathname.startsWith('/app/admin')
+                  ? 'bg-red-600 text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white',
+                collapsed && 'justify-center px-0'
+              )}
+              title={collapsed ? 'Admin' : undefined}
+            >
+              <ShieldAlert size={18} className="flex-shrink-0" />
+              {!collapsed && 'Admin'}
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* Bottom */}

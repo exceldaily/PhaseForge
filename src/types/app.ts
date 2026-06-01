@@ -35,6 +35,7 @@ export interface Profile {
   job_title: string | null
   email: string
   is_active: boolean
+  is_super_admin?: boolean
   created_at: string
 }
 
