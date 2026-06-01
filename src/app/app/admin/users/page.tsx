@@ -10,6 +10,12 @@ export default async function AdminUsersPage() {
     .select('*, company:companies(name, slug)')
     .order('created_at', { ascending: false })
 
+  // Fetch all companies for the selector
+  const { data: companies } = await supabase
+    .from('companies')
+    .select('id, name, slug')
+    .order('name', { ascending: true })
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -18,7 +24,7 @@ export default async function AdminUsersPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200">
-        <UsersTable users={users || []} />
+        <UsersTable users={users || []} companies={companies || []} />
       </div>
     </div>
   )

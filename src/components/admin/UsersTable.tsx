@@ -4,19 +4,27 @@ import { useMemo, useState } from 'react'
 
 const PAGE_SIZE = 25
 import { Profile } from '@/types/app'
-import { ChevronDown, Trash2, Lock, Shield, Edit } from 'lucide-react'
-import { deactivateUser, deleteUser, promoteToSuperAdmin, demoteFromSuperAdmin, updateUserProfile } from '@/app/admin/actions'
+import { ChevronDown, Trash2, Lock, Shield, Edit, Unlock } from 'lucide-react'
+import { deactivateUser, deleteUser, promoteToSuperAdmin, demoteFromSuperAdmin, updateUserProfile, reactivateUser } from '@/app/admin/actions'
 import { Badge } from '@/components/ui/Badge'
+import { CompanySelectorModal } from '@/components/admin/CompanySelectorModal'
 
 interface User extends Profile {
   company?: { name: string; slug: string } | null
 }
 
-interface UsersTableProps {
-  users: User[]
+interface Company {
+  id: string
+  name: string
+  slug: string
 }
 
-export function UsersTable({ users: initialUsers }: UsersTableProps) {
+interface UsersTableProps {
+  users: User[]
+  companies?: Company[]
+}
+
+export function UsersTable({ users: initialUsers, companies = [] }: UsersTableProps) {
   const [users, setUsers] = useState(initialUsers)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -24,6 +32,7 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editData, setEditData] = useState<{ full_name?: string; email?: string; job_title?: string }>({})
   const [page, setPage] = useState(1)
+  const [selectingCompanyUserId, setSelectingCompanyUserId] = useState<string | null>(null)
 
   const filteredUsers = useMemo(() => {
     const q = searchTerm.toLowerCase()
@@ -107,6 +116,25 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
     } catch (error) {
       alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  const handleReactivate = async (userId: string, email: string) => {
+    setActionInProgress(userId)
+    try {
+      await reactivateUser(userId)
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_active: true } : u))
+    } catch (error) {
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setActionInProgress(null)
+    }
+  }
+
+  const handleCompanySelectSuccess = () => {
+    // Refetch user data after company change (or just update local state)
+    setSelectingCompanyUserId(null)
+    // In a real app, you might refetch the user or update the local state
+    // For now, just close the modal
   }
 
   return (
@@ -212,6 +240,13 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
                           >
                             <Edit size={16} /> Edit
                           </button>
+                          <button
+                            onClick={() => setSelectingCompanyUserId(user.id)}
+                            disabled={actionInProgress === user.id}
+                            className="w-full text-left px-4 py-2 hover:bg-slate-100 text-sm text-slate-700 flex items-center gap-2 border-b border-slate-100"
+                          >
+                            <Shield size={16} /> Change Company
+                          </button>
                           {user.is_active && (
                             <button
                               onClick={() => handleDeactivate(user.id, user.email)}
@@ -219,6 +254,15 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
                               className="w-full text-left px-4 py-2 hover:bg-slate-100 text-sm text-slate-700 flex items-center gap-2 border-b border-slate-100"
                             >
                               <Lock size={16} /> Deactivate
+                            </button>
+                          )}
+                          {!user.is_active && (
+                            <button
+                              onClick={() => handleReactivate(user.id, user.email)}
+                              disabled={actionInProgress === user.id}
+                              className="w-full text-left px-4 py-2 hover:bg-green-50 text-sm text-green-700 flex items-center gap-2 border-b border-slate-100"
+                            >
+                              <Unlock size={16} /> Reactivate
                             </button>
                           )}
                           {user.is_super_admin ? (
@@ -282,6 +326,26 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Company Selector Modal */}
+      {selectingCompanyUserId && (
+        <CompanySelectorModal
+          open={Boolean(selectingCompanyUserId)}
+          onClose={() => setSelectingCompanyUserId(null)}
+          userId={selectingCompanyUserId}
+          userName={users.find(u => u.id === selectingCompanyUserId)?.full_name || 'User'}
+          currentCompanyId={users.find(u => u.id === selectingCompanyUserId)?.company_id || null}
+          companies={companies}
+          onSuccess={() => {
+            handleCompanySelectSuccess()
+            // Refresh user in the list
+            const user = users.find(u => u.id === selectingCompanyUserId)
+            if (user) {
+              setUsers(prev => prev.map(u => u.id === selectingCompanyUserId ? { ...u, company_id: null } : u))
+            }
+          }}
+        />
       )}
     </div>
   )

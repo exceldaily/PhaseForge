@@ -288,3 +288,90 @@ export async function updateCompanyPlan(
     throw error
   }
 }
+
+export async function reactivateUser(userId: string) {
+  try {
+    const actorId = await requireSuperAdmin()
+    const supabase = await createClient()
+
+    // Get user details before update
+    const { data: user } = await supabase
+      .from('profiles')
+      .select('email, is_active')
+      .eq('id', userId)
+      .single()
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    // Update user
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: true })
+      .eq('id', userId)
+
+    if (error) throw error
+
+    // Log action
+    await logAdminAction(actorId, 'reactivate_user', 'user', userId, user.email)
+
+    return { success: true, message: `User ${user.email} reactivated` }
+  } catch (error) {
+    logger.error('Error reactivating user', error)
+    throw error
+  }
+}
+
+export async function updateUserCompany(userId: string, newCompanyId: string | null) {
+  try {
+    const actorId = await requireSuperAdmin()
+    const supabase = await createClient()
+
+    // Get user details before update
+    const { data: user } = await supabase
+      .from('profiles')
+      .select('email, company_id, company:companies(name)')
+      .eq('id', userId)
+      .single()
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    const oldCompanyName = (user.company as any)?.name || 'No company'
+
+    // Get new company name if provided
+    let newCompanyName = 'No company'
+    if (newCompanyId) {
+      const { data: newCompany } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', newCompanyId)
+        .single()
+
+      if (newCompany) {
+        newCompanyName = newCompany.name
+      }
+    }
+
+    // Update user
+    const { error } = await supabase
+      .from('profiles')
+      .update({ company_id: newCompanyId })
+      .eq('id', userId)
+
+    if (error) throw error
+
+    // Log action
+    await logAdminAction(actorId, 'update_user_company', 'user', userId, user.email, {
+      old_company: oldCompanyName,
+      new_company: newCompanyName,
+    })
+
+    return { success: true, message: `User company changed from ${oldCompanyName} to ${newCompanyName}` }
+  } catch (error) {
+    logger.error('Error updating user company', error)
+    throw error
+  }
+}
