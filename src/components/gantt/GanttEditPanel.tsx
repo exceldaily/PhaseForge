@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/dates'
 import { touchProjectAudit } from '@/lib/projectAudit'
 import { cn } from '@/lib/utils'
 import { Phase, PhaseStatus, Profile, Project } from '@/types/app'
+import { PhaseComments } from '@/components/phases/PhaseComments'
 
 interface GanttEditPanelProps {
   phase: Phase
@@ -102,6 +103,11 @@ export function GanttEditPanel({
   }
 
   const handleSave = async () => {
+    if (form.start_date > form.end_date) {
+      alert('Start date must be on or before the end date.')
+      return
+    }
+
     setSaving(true)
 
     const supabase = createClient()
@@ -340,6 +346,8 @@ export function GanttEditPanel({
           </Button>
         </div>
       )}
+
+      <PhaseComments phaseId={phase.id} currentUserId={currentUserId} />
     </div>
   )
 }

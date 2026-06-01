@@ -143,17 +143,24 @@ export default function LoginPage() {
                   className="h-14 rounded-2xl border-slate-200 bg-white/95 pl-14 text-base text-slate-800 shadow-[0_14px_34px_rgba(15,23,42,0.06)]"
                   required
                 />
-                <Input
-                  id="password"
-                  type="password"
-                  label="Password"
-                  placeholder="........"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  icon={<Lock size={19} />}
-                  className="h-14 rounded-2xl border-slate-200 bg-white/95 pl-14 text-base text-slate-800 shadow-[0_14px_34px_rgba(15,23,42,0.06)]"
-                  required
-                />
+                <div>
+                  <Input
+                    id="password"
+                    type="password"
+                    label="Password"
+                    placeholder="........"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    icon={<Lock size={19} />}
+                    className="h-14 rounded-2xl border-slate-200 bg-white/95 pl-14 text-base text-slate-800 shadow-[0_14px_34px_rgba(15,23,42,0.06)]"
+                    required
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <Link href="/forgot-password" className="text-sm text-[#3348ff] hover:text-[#2337dd] transition-colors">
+                      Forgot password?
+                    </Link>
+                  </div>
+                </div>
 
                 {error && (
                   <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

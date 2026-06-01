@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { TopBar } from '@/components/layout/TopBar'
+import { AppShell } from '@/components/layout/AppShell'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { Profile } from '@/types/app'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -16,14 +16,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .single()
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      <Sidebar isSuperAdmin={profile?.is_super_admin || false} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar profile={profile as Profile} />
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
-      </div>
-    </div>
+    <AppShell
+      profile={profile as Profile}
+      isSuperAdmin={profile?.is_super_admin ?? false}
+    >
+      <ErrorBoundary>
+        {children}
+      </ErrorBoundary>
+    </AppShell>
   )
 }

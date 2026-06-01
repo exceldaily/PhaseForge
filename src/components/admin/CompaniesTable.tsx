@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+
+const PAGE_SIZE = 25
 import { Badge } from '@/components/ui/Badge'
 
 interface Company {
@@ -20,11 +22,19 @@ interface CompaniesTableProps {
 
 export function CompaniesTable({ companies: initialCompanies }: CompaniesTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
 
-  const filteredCompanies = initialCompanies.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.slug.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredCompanies = useMemo(() => {
+    const q = searchTerm.toLowerCase()
+    return q
+      ? initialCompanies.filter(c =>
+          c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+        )
+      : initialCompanies
+  }, [initialCompanies, searchTerm])
+
+  const totalPages = Math.max(1, Math.ceil(filteredCompanies.length / PAGE_SIZE))
+  const pagedCompanies = filteredCompanies.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="p-6">
@@ -50,7 +60,7 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
             </tr>
           </thead>
           <tbody>
-            {filteredCompanies.map((company) => {
+            {pagedCompanies.map((company) => {
               const memberCount = company.profiles?.[0]?.count || 0
               const projectCount = company.projects?.[0]?.count || 0
               return (
@@ -83,6 +93,28 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
       {filteredCompanies.length === 0 && (
         <div className="text-center py-12 text-slate-500">
           No companies found
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+          <span>{filteredCompanies.length} compan{filteredCompanies.length !== 1 ? 'ies' : 'y'} · page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>

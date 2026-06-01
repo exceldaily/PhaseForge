@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useDeferredValue, useState } from 'react'
 import Link from 'next/link'
 import { Plus, Search, LayoutGrid, Kanban, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -26,14 +26,16 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
   const [view, setView] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const deferredSearch = useDeferredValue(search)
 
   const memberMap = Object.fromEntries(members.map(m => [m.id, m.full_name]))
 
   const filtered = projects.filter(p => {
-    const matchesSearch = !search.trim() ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.customer_name?.toLowerCase().includes(search.toLowerCase())) ||
-      (p.job_location?.toLowerCase().includes(search.toLowerCase()))
+    const q = deferredSearch.toLowerCase().trim()
+    const matchesSearch = !q ||
+      p.name.toLowerCase().includes(q) ||
+      (p.customer_name?.toLowerCase().includes(q)) ||
+      (p.job_location?.toLowerCase().includes(q))
     const matchesStatus = !statusFilter || p.status === statusFilter
     return matchesSearch && matchesStatus
   })

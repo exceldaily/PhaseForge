@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { logger } from '@/lib/logger'
 
 // Helper: Check if user is super admin
 async function requireSuperAdmin() {
@@ -47,7 +48,7 @@ async function logAdminAction(
     })
 
   if (error) {
-    console.error('Failed to log admin action:', error)
+    logger.warn('Failed to log admin action', error)
   }
 }
 
@@ -80,7 +81,7 @@ export async function deactivateUser(userId: string, reason?: string) {
 
     return { success: true, message: `User ${user.email} deactivated` }
   } catch (error) {
-    console.error('Error deactivating user:', error)
+    logger.error('Error deactivating user', error)
     throw error
   }
 }
@@ -114,7 +115,7 @@ export async function deleteUser(userId: string, reason?: string) {
 
     return { success: true, message: `User ${user.email} deleted` }
   } catch (error) {
-    console.error('Error deleting user:', error)
+    logger.error('Error deleting user', error)
     throw error
   }
 }
@@ -152,7 +153,7 @@ export async function promoteToSuperAdmin(userId: string) {
 
     return { success: true, message: `User ${user.email} promoted to super admin` }
   } catch (error) {
-    console.error('Error promoting user:', error)
+    logger.error('Error promoting user', error)
     throw error
   }
 }
@@ -195,7 +196,7 @@ export async function demoteFromSuperAdmin(userId: string) {
 
     return { success: true, message: `User ${user.email} demoted from super admin` }
   } catch (error) {
-    console.error('Error demoting user:', error)
+    logger.error('Error demoting user', error)
     throw error
   }
 }
@@ -232,7 +233,7 @@ export async function updateUserProfile(userId: string, updates: { full_name?: s
 
     return { success: true, message: 'User updated' }
   } catch (error) {
-    console.error('Error updating user:', error)
+    logger.error('Error updating user', error)
     throw error
   }
 }

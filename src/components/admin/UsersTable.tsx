@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+
+const PAGE_SIZE = 25
 import { Profile } from '@/types/app'
 import { ChevronDown, Trash2, Lock, Shield, Edit } from 'lucide-react'
 import { deactivateUser, deleteUser, promoteToSuperAdmin, demoteFromSuperAdmin, updateUserProfile } from '@/app/admin/actions'
@@ -21,12 +23,20 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editData, setEditData] = useState<{ full_name?: string; email?: string; job_title?: string }>({})
+  const [page, setPage] = useState(1)
 
-  // Filter users by search term
-  const filteredUsers = users.filter(u =>
-    u.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredUsers = useMemo(() => {
+    const q = searchTerm.toLowerCase()
+    return q
+      ? users.filter(u =>
+          u.full_name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q)
+        )
+      : users
+  }, [users, searchTerm])
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
+  const pagedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleDeactivate = async (userId: string, email: string) => {
     if (!confirm(`Deactivate user ${email}? They won't be able to log in.`)) return
@@ -124,7 +134,7 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
+            {pagedUsers.map((user) => (
               <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="py-3 px-4">
                   {editingUserId === user.id ? (
@@ -249,6 +259,28 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
       {filteredUsers.length === 0 && (
         <div className="text-center py-12 text-slate-500">
           No users found
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+          <span>{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} · page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>

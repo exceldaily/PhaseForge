@@ -82,14 +82,19 @@ export function ActivityTimeline({ logs }: ActivityTimelineProps) {
 
               {/* Changes */}
               {log.changes && Object.keys(log.changes).length > 0 && (
-                <div className="mt-2 bg-slate-50 rounded p-3 text-xs font-mono text-slate-600">
+                <div className="mt-2 rounded bg-slate-50 p-3 text-xs text-slate-600">
                   <details>
                     <summary className="cursor-pointer font-medium text-slate-700 hover:text-slate-900">
                       View changes
                     </summary>
-                    <pre className="mt-2 whitespace-pre-wrap break-words">
-                      {JSON.stringify(log.changes, null, 2)}
-                    </pre>
+                    <ul className="mt-2 space-y-1">
+                      {Object.entries(log.changes).map(([key, val]) => (
+                        <li key={key} className="flex gap-2 font-mono">
+                          <span className="font-semibold text-slate-700">{key}:</span>
+                          <span className="break-all">{String(val)}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </details>
                 </div>
               )}

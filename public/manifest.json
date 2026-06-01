@@ -1,0 +1,40 @@
+{
+  "name": "Ganttic - Project Management",
+  "short_name": "Ganttic",
+  "description": "Professional Gantt chart project management for construction teams",
+  "start_url": "/app/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/branding/ganttic-app-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/branding/ganttic-app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Gantt Chart",
+      "short_name": "Gantt",
+      "url": "/app/gantt",
+      "icons": [{ "src": "/branding/ganttic-app-icon.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Projects",
+      "short_name": "Projects",
+      "url": "/app/projects",
+      "icons": [{ "src": "/branding/ganttic-app-icon.png", "sizes": "96x96" }]
+    }
+  ]
+}

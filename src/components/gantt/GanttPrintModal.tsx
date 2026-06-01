@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import { addDays, differenceInDays, format, formatDate, getTimelineHeaders, parseISO } from '@/lib/dates'
+import { getClippedBarPosition } from '@/lib/gantt'
 import { Project, ZoomLevel } from '@/types/app'
 
 interface GanttPrintModalProps {
@@ -418,23 +419,3 @@ function getPrintTimelineSegments(
   })
 }
 
-function getClippedBarPosition(
-  startDate: string,
-  endDate: string,
-  viewStart: Date,
-  viewEnd: Date,
-  pixelsPerDay: number
-) {
-  const startOffset = differenceInDays(parseISO(startDate), viewStart) * pixelsPerDay
-  const endOffset = (differenceInDays(parseISO(endDate), viewStart) + 1) * pixelsPerDay
-  const chartWidth = (differenceInDays(viewEnd, viewStart) + 1) * pixelsPerDay
-  const left = Math.max(0, startOffset)
-  const right = Math.min(chartWidth, endOffset)
-
-  return {
-    left,
-    width: Math.max(0, right - left),
-    clippedStart: startOffset < 0,
-    clippedEnd: endOffset > chartWidth,
-  }
-}

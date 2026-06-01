@@ -97,3 +97,12 @@ export const ZOOM_PIXELS_PER_DAY: Record<string, number> = {
   month: 8,
   quarter: 3,
 }
+
+/** Per-plan resource limits. 'pro' and 'enterprise' are effectively unlimited. */
+export const PLAN_LIMITS: Record<string, { projects: number; members: number }> = {
+  free:       { projects: 5,    members: 5    },
+  pro:        { projects: 200,  members: 50   },
+  enterprise: { projects: 9999, members: 9999 },
+}
+
+export const DEFAULT_PLAN = 'free'

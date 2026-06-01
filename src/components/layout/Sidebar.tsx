@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, Users, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
+  BarChart2, FileText, UsersRound, Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -15,15 +16,22 @@ const NAV_ITEMS = [
   { href: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/app/projects', label: 'Projects', icon: FolderKanban },
   { href: '/app/gantt', label: 'Gantt Chart', icon: GanttChartSquare },
+  { href: '/app/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/app/reports', label: 'Reports', icon: FileText },
+  { href: '/app/resources', label: 'Resources', icon: UsersRound },
+  { href: '/app/teams', label: 'Teams', icon: UsersRound },
+  { href: '/app/notifications', label: 'Notifications', icon: Bell },
   { href: '/app/settings/members', label: 'Team', icon: Users },
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
 interface SidebarProps {
   isSuperAdmin?: boolean
+  mobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
-export function Sidebar({ isSuperAdmin = false }: SidebarProps) {
+export function Sidebar({ isSuperAdmin = false, mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -34,11 +42,29 @@ export function Sidebar({ isSuperAdmin = false }: SidebarProps) {
     router.push('/login')
   }
 
+  const handleNavClick = () => {
+    onMobileClose?.()
+  }
+
   return (
-    <aside className={cn(
-      'flex flex-col h-full bg-slate-900 text-slate-400 transition-all duration-300',
-      collapsed ? 'w-16' : 'w-60'
-    )}>
+    <>
+      {/* Mobile overlay backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={cn(
+        'flex flex-col h-full bg-slate-900 text-slate-400 transition-all duration-300',
+        /* Desktop: collapsible sidebar */
+        'hidden md:flex',
+        collapsed ? 'md:w-16' : 'md:w-60',
+        /* Mobile: fixed drawer that slides in from the left */
+        mobileOpen && 'flex fixed inset-y-0 left-0 z-50 w-72 md:relative md:w-auto'
+      )}>
       {/* Logo */}
       <div className={cn('border-b border-slate-800 px-4 py-5', collapsed && 'px-0')}>
         <Link
@@ -61,6 +87,7 @@ export function Sidebar({ isSuperAdmin = false }: SidebarProps) {
             <Link
               key={href}
               href={href}
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
                 active
@@ -81,6 +108,7 @@ export function Sidebar({ isSuperAdmin = false }: SidebarProps) {
           <div className="mt-6 pt-4 border-t border-slate-700">
             <Link
               href="/app/admin"
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
                 pathname.startsWith('/app/admin')
@@ -119,5 +147,6 @@ export function Sidebar({ isSuperAdmin = false }: SidebarProps) {
         </button>
       </div>
     </aside>
+    </>
   )
 }

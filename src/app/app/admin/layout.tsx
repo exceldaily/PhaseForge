@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { Profile } from '@/types/app'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -33,7 +33,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* Content */}
       <div className="flex-1 overflow-auto bg-slate-50">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </div>
     </div>
   )

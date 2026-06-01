@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { createClient } from '@/lib/supabase/client'
+import { checkMemberLimit } from '@/lib/planLimits'
 
 export function InviteMemberButton({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false)
@@ -19,6 +20,14 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    const usage = await checkMemberLimit(companyId)
+    if (!usage.allowed) {
+      setError(usage.reason ?? 'Member limit reached.')
+      setLoading(false)
+      return
+    }
+
     const supabase = createClient()
     const token = crypto.randomUUID()
     const { error } = await supabase.from('invitations').insert({

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { checkProjectLimit } from '@/lib/planLimits'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -62,8 +63,30 @@ export function ProjectForm({ companyId, members, currentUserId, project }: Proj
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
+
+    // Client-side date validation
+    if (!form.end_date) {
+      setError('End date is required.')
+      return
+    }
+    if (form.start_date > form.end_date) {
+      setError('Start date must be on or before the end date.')
+      return
+    }
+
+    setLoading(true)
+
+    // Plan limit check (create only)
+    if (!project) {
+      const usage = await checkProjectLimit(companyId)
+      if (!usage.allowed) {
+        setError(usage.reason ?? 'Project limit reached.')
+        setLoading(false)
+        return
+      }
+    }
+
     const supabase = createClient()
 
     if (project) {

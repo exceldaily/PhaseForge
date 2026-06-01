@@ -17,7 +17,10 @@ import { touchProjectAudit } from '@/lib/projectAudit'
 import { useGanttStore } from '@/stores/ganttStore'
 import { Phase, PhaseStatus, Profile, Project, ZoomLevel } from '@/types/app'
 import { cn } from '@/lib/utils'
+import { getClippedBarPosition } from '@/lib/gantt'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { GanttEditPanel } from './GanttEditPanel'
+import { GanttMobileList } from './GanttMobileList'
 import { GanttSidebar } from './GanttSidebar'
 import { GanttToolbar } from './GanttToolbar'
 
@@ -34,6 +37,7 @@ const BASE_HEADER_HEIGHT = 56
 const PROJECT_ROW_HEIGHT = 56
 
 export function GanttChart({ projects: initialProjects, companyId, members, currentUserId, canEdit }: GanttChartProps) {
+  const isMobile = useMediaQuery('(max-width: 767px)')
   const {
     zoom,
     viewStart,
@@ -54,16 +58,6 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     origEnd: string
     mode: 'move' | 'resize-right' | 'resize-left'
   } | null>(null)
-
-  // DEBUG: Check what projects we're getting from server
-  useEffect(() => {
-    console.log('===== GANTT CHART - INITIAL PROJECTS FROM SERVER =====')
-    console.log('Total projects:', initialProjects.length)
-    initialProjects.forEach((p, idx) => {
-      console.log(`${idx + 1}. ${p.name}: ${p.phases?.length || 0} phases`)
-    })
-    console.log('====================================================')
-  }, [])
 
   const sidebarScrollRef = useRef<HTMLDivElement | null>(null)
   const timelineScrollRef = useRef<HTMLDivElement | null>(null)
@@ -204,31 +198,49 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
   const handleMouseUp = useCallback(async () => {
     if (!dragging) return
 
-    const phase = projects.find((project) => project.id === dragging.projectId)?.phases?.find((item) => item.id === dragging.phaseId)
-    if (phase) {
-      const supabase = createClient()
-      const updatedAt = new Date().toISOString()
-      await supabase
-        .from('phases')
-        .update({
-          start_date: phase.start_date,
-          end_date: phase.end_date,
-          updated_at: updatedAt,
-        })
-        .eq('id', phase.id)
+    const snapshot = dragging
+    setDragging(null)
 
-      await touchProjectAudit(supabase, dragging.projectId, currentUserId, updatedAt)
+    const phase = projects.find((project) => project.id === snapshot.projectId)?.phases?.find((item) => item.id === snapshot.phaseId)
+    if (!phase) return
+
+    const supabase = createClient()
+    const updatedAt = new Date().toISOString()
+    const { error } = await supabase
+      .from('phases')
+      .update({
+        start_date: phase.start_date,
+        end_date: phase.end_date,
+        updated_at: updatedAt,
+      })
+      .eq('id', phase.id)
+
+    if (error) {
+      setProjects((currentProjects) =>
+        currentProjects.map((project) => {
+          if (project.id !== snapshot.projectId) return project
+          return {
+            ...project,
+            phases: (project.phases || []).map((p) =>
+              p.id === snapshot.phaseId
+                ? { ...p, start_date: snapshot.origStart, end_date: snapshot.origEnd }
+                : p
+            ),
+          }
+        })
+      )
+      return
     }
 
-    setDragging(null)
+    await touchProjectAudit(supabase, snapshot.projectId, currentUserId, updatedAt)
   }, [currentUserId, dragging, projects])
 
-  const handlePhaseUpdate = (updatedPhase: Phase) => {
+  const handlePhaseUpdate = useCallback((updatedPhase: Phase) => {
     setProjects((currentProjects) => currentProjects.map((project) => ({
       ...project,
       phases: (project.phases || []).map((phase) => phase.id === updatedPhase.id ? updatedPhase : phase),
     })))
-  }
+  }, [])
 
   const handleFitTimeline = useCallback(() => {
     if (!scheduleBounds) return
@@ -248,6 +260,41 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
 
     timelineScrollRef.current.scrollLeft = 0
   }, [viewStart, viewEnd])
+
+  if (isMobile) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-3">
+          <h1 className="text-lg font-bold text-slate-900">Gantt Chart</h1>
+          <p className="text-xs text-slate-400 mt-0.5">{projects.length} project{projects.length !== 1 ? 's' : ''} · Tap a phase to view details</p>
+        </div>
+        <div className="flex flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <GanttMobileList
+              projects={projects}
+              selectedPhaseId={selectedPhaseId}
+              onSelectPhase={(phase, project) => {
+                setSelectedPhase(selectedPhaseId === phase.id ? null : phase.id)
+              }}
+            />
+          </div>
+          {selectedPhase && selectedProject && (
+            <GanttEditPanel
+              key={selectedPhase.id}
+              phase={selectedPhase}
+              project={selectedProject}
+              companyId={companyId}
+              members={members}
+              currentUserId={currentUserId}
+              onClose={() => setSelectedPhase(null)}
+              onUpdate={handlePhaseUpdate}
+              canEdit={canEdit}
+            />
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -599,25 +646,3 @@ function GanttPhaseRow({
   )
 }
 
-function getClippedBarPosition(
-  startDate: string,
-  endDate: string,
-  viewStart: Date,
-  viewEnd: Date,
-  pixelsPerDay: number
-) {
-  const startOffset = differenceInDays(parseISO(startDate), viewStart) * pixelsPerDay
-  const endOffset = (differenceInDays(parseISO(endDate), viewStart) + 1) * pixelsPerDay
-  const chartWidth = (differenceInDays(viewEnd, viewStart) + 1) * pixelsPerDay
-  const left = Math.max(0, startOffset)
-  const right = Math.min(chartWidth, endOffset)
-
-  return {
-    left,
-    width: Math.max(0, right - left),
-    clippedStart: startOffset < 0,
-    clippedEnd: endOffset > chartWidth,
-    endsBeforeView: endOffset <= 0,
-    startsAfterView: startOffset >= chartWidth,
-  }
-}

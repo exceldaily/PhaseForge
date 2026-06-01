@@ -17,7 +17,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { Edit, GanttChartSquare, GripVertical, MoreHorizontal, Settings2, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/Badge'
-import { PRIORITY_COLORS, PRIORITY_LABELS, KANBAN_COLUMNS } from '@/lib/constants'
+import { KANBAN_COLUMNS, PRIORITY_COLORS, PRIORITY_LABELS } from '@/lib/constants'
+
+const VALID_STATUSES = new Set(KANBAN_COLUMNS.map((col) => col.status))
 import { formatDate } from '@/lib/dates'
 import { getProjectLastUpdatedLabel, isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { cn } from '@/lib/utils'
@@ -159,13 +161,17 @@ export function KanbanBoard({ projects, canEdit, searchQuery, companyId, current
         }
         return next
       })
+      alert('Failed to update project status. Please try again.')
     }
   }
 
   const handleDelete = async (projectId: string) => {
     const supabase = createClient()
     const { error } = await supabase.from('projects').delete().eq('id', projectId)
-    if (error) return
+    if (error) {
+      alert('Failed to delete project. Please try again.')
+      return
+    }
 
     setDeletedProjectIds((current) => [...current, projectId])
     router.refresh()
@@ -179,8 +185,9 @@ export function KanbanBoard({ projects, canEdit, searchQuery, companyId, current
     setActiveProjectId(null)
 
     const projectId = String(event.active.id)
-    const nextStatus = event.over ? String(event.over.id) as ProjectStatus : null
-    if (!nextStatus) return
+    const rawStatus = event.over ? String(event.over.id) : null
+    if (!rawStatus || !VALID_STATUSES.has(rawStatus as ProjectStatus)) return
+    const nextStatus = rawStatus as ProjectStatus
 
     const currentProject = visibleProjects.find((project) => project.id === projectId)
     if (!currentProject || currentProject.status === nextStatus) return
