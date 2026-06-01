@@ -11,6 +11,7 @@ import {
   PROJECT_STATUS_LABELS,
 } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
+import { getPhasePercentComplete } from '@/lib/phaseProgress'
 import { cn } from '@/lib/utils'
 import { Phase, PhaseStatus, Project, ProjectStatus } from '@/types/app'
 
@@ -26,7 +27,11 @@ export function GanttMobileList({ projects, onSelectPhase, selectedPhaseId }: Ga
   const toggle = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
       return next
     })
 
@@ -86,6 +91,7 @@ export function GanttMobileList({ projects, onSelectPhase, selectedPhaseId }: Ga
                 {phases.map((phase) => {
                   const barColor = phase.color || PHASE_STATUS_COLORS[phase.status as PhaseStatus]
                   const isSelected = selectedPhaseId === phase.id
+                  const percentComplete = getPhasePercentComplete(phase)
 
                   return (
                     <button
@@ -103,7 +109,12 @@ export function GanttMobileList({ projects, onSelectPhase, selectedPhaseId }: Ga
                         style={{ backgroundColor: barColor }}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-slate-800">{phase.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm text-slate-800">{phase.name}</p>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {percentComplete}%
+                          </span>
+                        </div>
                         <p className="text-xs text-slate-400">
                           {formatDate(phase.start_date, 'MMM d')} – {formatDate(phase.end_date, 'MMM d, yyyy')}
                         </p>

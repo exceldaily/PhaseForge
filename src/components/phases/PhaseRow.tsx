@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { MoreHorizontal, Pencil, Trash2, GripVertical, Wrench } from 'lucide-react'
+import { AlertTriangle, Flag, MoreHorizontal, Pencil, Trash2, GripVertical, Wrench } from 'lucide-react'
 import { Phase, Profile, PhaseStatus } from '@/types/app'
 import { Avatar } from '@/components/ui/Avatar'
 import { PHASE_STATUS_LABELS, PHASE_STATUS_COLORS } from '@/lib/constants'
 import { formatDate, isOverdue } from '@/lib/dates'
+import { getPhasePercentComplete } from '@/lib/phaseProgress'
 import { cn } from '@/lib/utils'
 
 interface PhaseRowProps {
@@ -21,6 +22,7 @@ export function PhaseRow({ phase, members, canEdit, onEdit, onDelete, onStatusCh
   const assignee = members.find(m => m.id === phase.assigned_to)
   const assignedTrade = phase.assigned_trade?.trim()
   const overdue = isOverdue(phase.end_date, phase.status)
+  const percentComplete = getPhasePercentComplete(phase)
 
   return (
     <div className={cn(
@@ -37,7 +39,22 @@ export function PhaseRow({ phase, members, canEdit, onEdit, onDelete, onStatusCh
 
       {/* Phase name */}
       <div className="flex-1 min-w-0">
-        <p className={cn('text-sm font-medium', overdue ? 'text-rose-700' : 'text-slate-900')}>{phase.name}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={cn('text-sm font-medium', overdue ? 'text-rose-700' : 'text-slate-900')}>{phase.name}</p>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+            {percentComplete}%
+          </span>
+          {phase.is_milestone && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+              <Flag size={10} /> Milestone
+            </span>
+          )}
+          {phase.is_critical_path && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+              <AlertTriangle size={10} /> Critical
+            </span>
+          )}
+        </div>
         {phase.notes && <p className="text-xs text-slate-400 truncate mt-0.5">{phase.notes}</p>}
       </div>
 

@@ -98,14 +98,39 @@ export const ZOOM_PIXELS_PER_DAY: Record<string, number> = {
   quarter: 3,
 }
 
-/** Per-plan resource limits. 'pro' and 'enterprise' are effectively unlimited. */
-export const PLAN_LIMITS: Record<string, { projects: number; members: number }> = {
-  free:       { projects: 5,    members: 5    },
-  pro:        { projects: 200,  members: 50   },
-  enterprise: { projects: 9999, members: 9999 },
+/** Per-plan resource limits — v2 includes boards and teams */
+export const PLAN_LIMITS: Record<string, {
+  boards: number
+  projects: number   // per board (0 = unlimited)
+  members: number
+  teams: number
+}> = {
+  free:       { boards: 1,    projects: 5,    members: 3,    teams: 1    },
+  pro:        { boards: 10,   projects: 0,    members: 25,   teams: 5    },
+  business:   { boards: 0,    projects: 0,    members: 0,    teams: 0    },
+  enterprise: { boards: 0,    projects: 0,    members: 0,    teams: 0    },
 }
 
 export const DEFAULT_PLAN = 'free'
+
+export const PLAN_LABELS: Record<string, string> = {
+  free:       'Free',
+  pro:        'Pro',
+  business:   'Business',
+  enterprise: 'Enterprise',
+}
+
+/** Board column constraints */
+export const BOARD_COLUMN_MIN = 3
+export const BOARD_COLUMN_MAX = 10
+
+/** Default columns created for every new board */
+export const DEFAULT_BOARD_COLUMNS = [
+  { name: 'Queue',           color: '#94a3b8', sort_order: 0, is_done: false },
+  { name: 'In Progress',     color: '#6366f1', sort_order: 1, is_done: false },
+  { name: 'Review',          color: '#f59e0b', sort_order: 2, is_done: false },
+  { name: 'Done',            color: '#10b981', sort_order: 3, is_done: true  },
+] as const
 
 /** Role display labels (viewer is the legacy name for member) */
 export const ROLE_LABELS: Record<string, string> = {

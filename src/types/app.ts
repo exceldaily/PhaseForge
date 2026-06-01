@@ -1,4 +1,36 @@
 export type UserRole = 'owner' | 'admin' | 'manager' | 'member' | 'viewer' // viewer = legacy alias for member
+
+export interface Board {
+  id: string
+  company_id: string
+  name: string
+  description: string | null
+  color: string
+  sort_order: number
+  is_default: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  columns?: BoardColumn[]
+  team_ids?: string[]
+}
+
+export interface BoardColumn {
+  id: string
+  board_id: string
+  name: string
+  color: string
+  sort_order: number
+  is_done: boolean
+  created_at: string
+  project_count?: number
+}
+
+export interface BoardTeam {
+  board_id: string
+  team_id: string
+}
+
 export type ProjectStatus =
   | 'queue'
   | 'mobilization'
@@ -14,6 +46,7 @@ export type ProjectStatus =
   | 'on_hold'
   | 'completed'
   | 'cancelled'
+
 export type ProjectPriority = 'low' | 'medium' | 'high' | 'critical'
 export type PhaseStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked' | 'skipped'
 
@@ -61,7 +94,10 @@ export interface Project {
   created_at: string
   updated_at: string
   updated_by?: string | null
-  // joined
+  board_id?: string | null
+  board_column_id?: string | null
+  board?: Board
+  board_column?: BoardColumn
   manager_profile?: Profile
   members?: Profile[]
   phases?: Phase[]
@@ -76,14 +112,18 @@ export interface Phase {
   assigned_to: string | null
   assigned_trade: string | null
   status: PhaseStatus
+  percent_complete?: number | null
+  is_milestone?: boolean | null
+  is_critical_path?: boolean | null
   color: string | null
   notes: string | null
   sort_order: number
   created_at: string
   updated_at: string
-  // joined
+  board_column_id?: string | null
   assigned_profile?: Profile
   dependencies?: PhaseDependency[]
+  board_column?: BoardColumn
 }
 
 export interface PhaseDependency {

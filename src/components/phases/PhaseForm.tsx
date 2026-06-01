@@ -5,6 +5,12 @@ import { Calendar, ChevronDown, Plus, User, Wrench, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePhaseConfig } from '@/hooks/usePhaseConfig'
 import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
+import {
+  getPhasePercentComplete,
+  getPhasePercentForStatusChange,
+  sanitizePhasePercentComplete,
+  shouldRetryLegacyPhaseWrite,
+} from '@/lib/phaseProgress'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { touchProjectAudit } from '@/lib/projectAudit'
@@ -78,6 +84,9 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
   const [startDate, setStartDate] = useState(phase?.start_date || '')
   const [endDate, setEndDate] = useState(phase?.end_date || '')
   const [status, setStatus] = useState(phase?.status || 'not_started')
+  const [percentComplete, setPercentComplete] = useState(String(phase ? getPhasePercentComplete(phase) : 0))
+  const [isMilestone, setIsMilestone] = useState(Boolean(phase?.is_milestone))
+  const [isCriticalPath, setIsCriticalPath] = useState(Boolean(phase?.is_critical_path))
   const [color, setColor] = useState(phase?.color || DEFAULT_PHASE_COLORS[sortOrder % DEFAULT_PHASE_COLORS.length])
   const [notes, setNotes] = useState(phase?.notes || '')
 
@@ -157,6 +166,11 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
     ? `${selectedType || typeInput} ${typeDetail.trim()}`
     : (selectedType || typeInput)
 
+  const handleStatusChange = (nextStatus: Phase['status']) => {
+    setStatus(nextStatus)
+    setPercentComplete(String(getPhasePercentForStatusChange(nextStatus, Number(percentComplete))))
+  }
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
 
@@ -173,29 +187,65 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
       assigned_to: assignMode === 'person' ? (assignedTo || null) : null,
       assigned_trade: assignMode === 'trade' ? (normalizeOption(tradeInput) || null) : null,
       status,
+      percent_complete: sanitizePhasePercentComplete(status as Phase['status'], percentComplete),
+      is_milestone: isMilestone,
+      is_critical_path: isCriticalPath,
       color,
       notes: notes || null,
       sort_order: sortOrder,
     }
+    const legacyPayload = {
+      project_id: payload.project_id,
+      name: payload.name,
+      start_date: payload.start_date,
+      end_date: payload.end_date,
+      assigned_to: payload.assigned_to,
+      assigned_trade: payload.assigned_trade,
+      status: payload.status,
+      color: payload.color,
+      notes: payload.notes,
+      sort_order: payload.sort_order,
+    }
 
     if (phase) {
-      const { data } = await supabase
+      let { data, error } = await supabase
         .from('phases')
         .update({ ...payload, updated_at: new Date().toISOString() })
         .eq('id', phase.id)
         .select()
         .single()
 
+      if (error && shouldRetryLegacyPhaseWrite(error.message)) {
+        const fallback = await supabase
+          .from('phases')
+          .update({ ...legacyPayload, updated_at: new Date().toISOString() })
+          .eq('id', phase.id)
+          .select()
+          .single()
+        data = fallback.data
+        error = fallback.error
+      }
+
       if (data) {
         await touchProjectAudit(supabase, projectId, currentUserId)
         onSave(data as Phase)
       }
     } else {
-      const { data } = await supabase
+      let { data, error } = await supabase
         .from('phases')
         .insert(payload)
         .select()
         .single()
+
+      if (error && shouldRetryLegacyPhaseWrite(error.message)) {
+        const fallback = await supabase
+          .from('phases')
+          .insert(legacyPayload)
+          .select()
+          .single()
+        data = fallback.data
+        error = fallback.error
+      }
 
       if (data) {
         await touchProjectAudit(supabase, projectId, currentUserId)
@@ -473,7 +523,7 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
       <div className="flex items-center gap-3">
         <select
           value={status}
-          onChange={(event) => setStatus(event.target.value as Phase['status'])}
+          onChange={(event) => handleStatusChange(event.target.value as Phase['status'])}
           className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="not_started">Not Started</option>
@@ -493,6 +543,43 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
               style={{ backgroundColor: phaseColor, borderColor: color === phaseColor ? '#0f172a' : 'transparent' }}
             />
           ))}
+        </div>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-[120px_1fr]">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500">Progress %</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={5}
+            value={percentComplete}
+            onChange={(event) => setPercentComplete(event.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={isMilestone}
+              onChange={(event) => setIsMilestone(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span>Milestone</span>
+          </label>
+
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={isCriticalPath}
+              onChange={(event) => setIsCriticalPath(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+            />
+            <span>Critical path</span>
+          </label>
         </div>
       </div>
 

@@ -13,6 +13,7 @@ import {
   isOverdue,
   parseISO,
 } from '@/lib/dates'
+import { getPhasePercentComplete } from '@/lib/phaseProgress'
 import { touchProjectAudit } from '@/lib/projectAudit'
 import { useGanttStore } from '@/stores/ganttStore'
 import { Phase, PhaseStatus, Profile, Project, ZoomLevel } from '@/types/app'
@@ -89,6 +90,11 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
 
     return earliest && latest ? { start: earliest, end: latest } : null
   }, [projects])
+
+  const memberMap = useMemo(
+    () => Object.fromEntries(members.map((member) => [member.id, member])) as Record<string, Profile>,
+    [members]
+  )
 
   const selectedPhase = projects.flatMap((project) => project.phases || []).find((phase) => phase.id === selectedPhaseId) || null
   const selectedProject = projects.find((project) => (project.phases || []).some((phase) => phase.id === selectedPhaseId)) || null
@@ -273,7 +279,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
             <GanttMobileList
               projects={projects}
               selectedPhaseId={selectedPhaseId}
-              onSelectPhase={(phase, project) => {
+              onSelectPhase={(phase) => {
                 setSelectedPhase(selectedPhaseId === phase.id ? null : phase.id)
               }}
             />
@@ -357,6 +363,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
                       <GanttPhaseRow
                         key={phase.id}
                         phase={phase}
+                        assignee={phase.assigned_to ? memberMap[phase.assigned_to] ?? null : null}
                         viewStart={viewStart}
                         viewEnd={viewEnd}
                         pixelsPerDay={pixelsPerDay}
@@ -558,6 +565,7 @@ function ProjectSummaryRow({
 
 function GanttPhaseRow({
   phase,
+  assignee,
   viewStart,
   viewEnd,
   pixelsPerDay,
@@ -570,6 +578,7 @@ function GanttPhaseRow({
   isDragging,
 }: {
   phase: Phase
+  assignee: Profile | null
   viewStart: Date
   viewEnd: Date
   pixelsPerDay: number
@@ -591,6 +600,25 @@ function GanttPhaseRow({
   const visibleWidth = clippedStart || clippedEnd ? width : Math.max(width, 20)
   const overdue = isOverdue(phase.end_date, phase.status)
   const barColor = phase.color || PHASE_STATUS_COLORS[phase.status as PhaseStatus]
+  const percentComplete = getPhasePercentComplete(phase)
+  const isMilestone = Boolean(phase.is_milestone)
+  const isCriticalPath = Boolean(phase.is_critical_path)
+  const assignedTrade = phase.assigned_trade?.trim() || null
+  const barWidth = isMilestone ? Math.max(visibleWidth, 18) : visibleWidth
+  const showName = isMilestone ? barWidth > 52 : barWidth > 60
+  const showPercent = barWidth > 116
+  const showAssigneeBadge = Boolean(assignee) && barWidth > 150
+  const showTradeBadge = !assignee && Boolean(assignedTrade) && barWidth > 146
+  const showMilestoneLabel = isMilestone && barWidth <= 52
+  const barTitle = [
+    phase.name,
+    `${percentComplete}% complete`,
+    assignee ? `Assigned to ${assignee.full_name}` : assignedTrade ? `Assigned to ${assignedTrade}` : 'Unassigned',
+    isMilestone ? 'Milestone' : null,
+    isCriticalPath ? 'Critical path' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <div className="relative border-b border-slate-100/50 transition-colors hover:bg-indigo-50/20" style={{ height: rowHeight }}>
@@ -600,20 +628,22 @@ function GanttPhaseRow({
       {width > 0 && (
         <div
           className={cn(
-            'absolute top-1/2 flex -translate-y-1/2 items-center select-none transition-all duration-150',
+            'absolute top-1/2 flex -translate-y-1/2 items-center select-none overflow-visible transition-all duration-150',
             !clippedStart && 'rounded-l-lg',
             !clippedEnd && 'rounded-r-lg',
             isSelected ? 'ring-2 ring-indigo-600 ring-offset-2 shadow-xl' : 'shadow-md hover:shadow-lg',
             isDragging ? 'cursor-grabbing opacity-90 shadow-2xl' : 'cursor-grab',
-            overdue && phase.status !== 'completed' && 'ring-1 ring-rose-500'
+            overdue && phase.status !== 'completed' && 'ring-1 ring-rose-500',
+            isCriticalPath && 'border-2 border-dashed border-rose-300'
           )}
           style={{
             left,
-            width: visibleWidth,
+            width: barWidth,
             height: rowHeight - 8,
             backgroundColor: barColor,
             opacity: isDragging ? 0.9 : 1,
           }}
+          title={barTitle}
           onClick={onSelect}
           onMouseDown={(event) => onMouseDown(event, 'move')}
         >
@@ -627,9 +657,41 @@ function GanttPhaseRow({
             />
           )}
 
-          <span className="pointer-events-none flex-1 truncate px-2 text-xs font-medium text-white drop-shadow-sm">
-            {width > 60 ? phase.name : ''}
-          </span>
+          <div className="pointer-events-none flex min-w-0 flex-1 items-center gap-2 px-2">
+            {isMilestone && (
+              <span className="h-2.5 w-2.5 flex-shrink-0 rotate-45 rounded-[2px] border border-white/80 bg-white/70" />
+            )}
+
+            {showAssigneeBadge && assignee && (
+              <span
+                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-black/15 text-[9px] font-bold text-white"
+                title={assignee.full_name}
+              >
+                {getInitials(assignee.full_name)}
+              </span>
+            )}
+
+            {showTradeBadge && assignedTrade && (
+              <span
+                className="max-w-24 flex-shrink-0 truncate rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-medium text-white/90"
+                title={assignedTrade}
+              >
+                {assignedTrade}
+              </span>
+            )}
+
+            {showName && (
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-white drop-shadow-sm">
+                {phase.name}
+              </span>
+            )}
+
+            {showPercent && (
+              <span className="flex-shrink-0 text-[10px] font-semibold text-white/90">
+                {percentComplete}%
+              </span>
+            )}
+          </div>
 
           {!clippedEnd && (
             <div
@@ -642,7 +704,35 @@ function GanttPhaseRow({
           )}
         </div>
       )}
+
+      {width > 0 && isMilestone && (
+        <>
+          <div
+            className="pointer-events-none absolute top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 rotate-45 border-2 border-white shadow-sm"
+            style={{
+              left: left + Math.max(barWidth - 7, 0),
+              backgroundColor: barColor,
+            }}
+          />
+          {showMilestoneLabel && (
+            <span
+              className="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 whitespace-nowrap text-[11px] font-semibold text-slate-700"
+              style={{ left: left + barWidth + 10 }}
+            >
+              {phase.name}
+            </span>
+          )}
+        </>
+      )}
     </div>
   )
 }
 
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+}

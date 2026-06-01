@@ -626,8 +626,8 @@ All known issues from development have been resolved. If new bugs are discovered
 Required in Vercel (set via dashboard):
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://iugqydkkounnlkbploox.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_BHy5LOS6v-YJNJU8GTVqbg_J3r9d_xZ
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_oLBKpR_oDmEkEiEzOr1XHg_X6cQNqxk
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<set-in-vercel>
+SUPABASE_SERVICE_ROLE_KEY=<set-in-vercel>
 ```
 
 **Local Development**:

@@ -12,12 +12,17 @@ import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { Project } from '@/types/app'
 
 interface Member { id: string; full_name: string; email: string; role: string }
+interface BoardColumn { id: string; name: string; sort_order: number; color: string }
 
 interface ProjectFormProps {
   companyId: string
   members: Member[]
   currentUserId: string
   project?: Project
+  // v2 board context (when creating from a board)
+  defaultBoardId?: string
+  defaultColumnId?: string
+  boardColumns?: BoardColumn[]
 }
 
 const PERMIT_STATUSES = [
@@ -28,7 +33,7 @@ const PERMIT_STATUSES = [
   { value: 'denied', label: 'Denied' },
 ]
 
-export function ProjectForm({ companyId, members, currentUserId, project }: ProjectFormProps) {
+export function ProjectForm({ companyId, members, currentUserId, project, defaultBoardId, defaultColumnId, boardColumns = [] }: ProjectFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -106,18 +111,23 @@ export function ProjectForm({ companyId, members, currentUserId, project }: Proj
       if (error) { setError(error.message); setLoading(false); return }
       router.push(`/app/projects/${project.id}`)
     } else {
+      const boardFields = defaultBoardId
+        ? { board_id: defaultBoardId, board_column_id: defaultColumnId ?? null }
+        : {}
+
       let { data, error } = await supabase.from('projects').insert({
-        ...form, company_id: companyId, created_by: currentUserId, updated_by: currentUserId,
+        ...form, ...boardFields, company_id: companyId, created_by: currentUserId, updated_by: currentUserId,
       }).select().single()
 
       if (error && isMissingUpdatedByColumnError(error)) {
         ;({ data, error } = await supabase.from('projects').insert({
-          ...form, company_id: companyId, created_by: currentUserId,
+          ...form, ...boardFields, company_id: companyId, created_by: currentUserId,
         }).select().single())
       }
 
       if (error) { setError(error.message); setLoading(false); return }
-      router.push(`/app/projects/${data.id}`)
+      // Return to the board if we came from one
+      router.push(defaultBoardId ? `/app/boards/${defaultBoardId}` : `/app/projects/${data.id}`)
     }
     router.refresh()
   }
