@@ -8,6 +8,12 @@ import { usePhaseConfig } from '@/hooks/usePhaseConfig'
 import { Button } from '@/components/ui/Button'
 import { DEFAULT_PHASE_COLORS, PHASE_STATUS_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
+import {
+  getPhasePercentComplete,
+  getPhasePercentForStatusChange,
+  sanitizePhasePercentComplete,
+  shouldRetryLegacyPhaseWrite,
+} from '@/lib/phaseProgress'
 import { touchProjectAudit } from '@/lib/projectAudit'
 import { cn } from '@/lib/utils'
 import { Phase, PhaseStatus, Profile, Project } from '@/types/app'
@@ -50,6 +56,9 @@ export function GanttEditPanel({
     end_date: phase.end_date,
     assigned_to: phase.assigned_to || '',
     status: phase.status,
+    percent_complete: String(getPhasePercentComplete(phase)),
+    is_milestone: Boolean(phase.is_milestone),
+    is_critical_path: Boolean(phase.is_critical_path),
     color: phase.color || DEFAULT_PHASE_COLORS[0],
     notes: phase.notes || '',
   })
@@ -81,6 +90,18 @@ export function GanttEditPanel({
   const set = (key: keyof typeof form) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => setForm((current) => ({ ...current, [key]: event.target.value }))
+
+  const setChecked = (key: 'is_milestone' | 'is_critical_path') => (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => setForm((current) => ({ ...current, [key]: event.target.checked }))
+
+  const handleStatusChange = (nextStatus: Phase['status']) => {
+    setForm((current) => ({
+      ...current,
+      status: nextStatus,
+      percent_complete: String(getPhasePercentForStatusChange(nextStatus, Number(current.percent_complete))),
+    }))
+  }
 
   const selectTrade = (trade: string) => {
     setTradeInput(trade)
@@ -115,15 +136,40 @@ export function GanttEditPanel({
       ...form,
       assigned_to: assignMode === 'person' ? (form.assigned_to || null) : null,
       assigned_trade: assignMode === 'trade' ? (normalizeOption(tradeInput) || null) : null,
+      percent_complete: sanitizePhasePercentComplete(form.status as Phase['status'], form.percent_complete),
+      is_milestone: form.is_milestone,
+      is_critical_path: form.is_critical_path,
       updated_at: new Date().toISOString(),
     }
+    const legacyPayload = {
+      name: form.name,
+      start_date: form.start_date,
+      end_date: form.end_date,
+      assigned_to: assignMode === 'person' ? (form.assigned_to || null) : null,
+      assigned_trade: assignMode === 'trade' ? (normalizeOption(tradeInput) || null) : null,
+      status: form.status,
+      color: form.color,
+      notes: form.notes,
+      updated_at: payload.updated_at,
+    }
 
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from('phases')
       .update(payload)
       .eq('id', phase.id)
       .select()
       .single()
+
+    if (error && shouldRetryLegacyPhaseWrite(error.message)) {
+      const fallback = await supabase
+        .from('phases')
+        .update(legacyPayload)
+        .eq('id', phase.id)
+        .select()
+        .single()
+      data = fallback.data
+      error = fallback.error
+    }
 
     if (data) {
       await touchProjectAudit(supabase, project.id, currentUserId)
@@ -193,7 +239,7 @@ export function GanttEditPanel({
             <Field label="Status">
               <select
                 value={form.status}
-                onChange={set('status')}
+                onChange={(event) => handleStatusChange(event.target.value as Phase['status'])}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 {Object.entries(PHASE_STATUS_LABELS).map(([value, label]) => (
@@ -319,6 +365,43 @@ export function GanttEditPanel({
               </div>
             </Field>
 
+            <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
+              <Field label="Progress %">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={form.percent_complete}
+                  onChange={set('percent_complete')}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </Field>
+
+              <Field label="Timeline flags">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={form.is_milestone}
+                      onChange={setChecked('is_milestone')}
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Milestone</span>
+                  </label>
+                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={form.is_critical_path}
+                      onChange={setChecked('is_critical_path')}
+                      className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                    />
+                    <span>Critical path</span>
+                  </label>
+                </div>
+              </Field>
+            </div>
+
             <Field label="Notes">
               <textarea
                 value={form.notes}
@@ -333,7 +416,10 @@ export function GanttEditPanel({
           <div className="space-y-3">
             <InfoRow label="Dates" value={`${formatDate(phase.start_date)} to ${formatDate(phase.end_date)}`} />
             <InfoRow label="Status" value={PHASE_STATUS_LABELS[phase.status as PhaseStatus]} />
+            <InfoRow label="Progress" value={`${getPhasePercentComplete(phase)}%`} />
             <InfoRow label="Assigned to" value={assignee?.full_name || assignedTrade || 'Unassigned'} />
+            <InfoRow label="Milestone" value={phase.is_milestone ? 'Yes' : 'No'} />
+            <InfoRow label="Critical path" value={phase.is_critical_path ? 'Yes' : 'No'} />
             {phase.notes && <InfoRow label="Notes" value={phase.notes} />}
           </div>
         )}

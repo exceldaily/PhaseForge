@@ -7,6 +7,7 @@ import { PhaseForm } from './PhaseForm'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getPhasePercentForStatusChange, shouldRetryLegacyPhaseWrite } from '@/lib/phaseProgress'
 import { touchProjectAudit } from '@/lib/projectAudit'
 
 interface PhaseListProps {
@@ -26,8 +27,10 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
 
   const handleDelete = async (phaseId: string) => {
     const supabase = createClient()
-    await supabase.from('phases').delete().eq('id', phaseId)
-    await touchProjectAudit(supabase, projectId, currentUserId)
+    const { error } = await supabase.from('phases').delete().eq('id', phaseId)
+    if (!error) {
+      await touchProjectAudit(supabase, projectId, currentUserId)
+    }
     setPhases(p => p.filter(ph => ph.id !== phaseId))
     router.refresh()
   }
@@ -44,10 +47,35 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
   }
 
   const handleStatusChange = async (phaseId: string, status: string) => {
+    const currentPhase = phases.find((phase) => phase.id === phaseId)
+    const percentComplete = getPhasePercentForStatusChange(
+      status as Phase['status'],
+      currentPhase?.percent_complete
+    )
     const supabase = createClient()
-    await supabase.from('phases').update({ status, updated_at: new Date().toISOString() }).eq('id', phaseId)
+    let { error } = await supabase
+      .from('phases')
+      .update({ status, percent_complete: percentComplete, updated_at: new Date().toISOString() })
+      .eq('id', phaseId)
+
+    let nextPercentComplete = percentComplete
+    if (error && shouldRetryLegacyPhaseWrite(error.message)) {
+      const fallback = await supabase
+        .from('phases')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', phaseId)
+      error = fallback.error
+      nextPercentComplete = currentPhase?.percent_complete ?? percentComplete
+    }
+
     await touchProjectAudit(supabase, projectId, currentUserId)
-    setPhases(p => p.map(ph => ph.id === phaseId ? { ...ph, status: status as Phase['status'] } : ph))
+    setPhases((current) =>
+      current.map((phase) =>
+        phase.id === phaseId
+          ? { ...phase, status: status as Phase['status'], percent_complete: nextPercentComplete }
+          : phase
+      )
+    )
     router.refresh()
   }
 

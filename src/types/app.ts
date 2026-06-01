@@ -1,7 +1,5 @@
 export type UserRole = 'owner' | 'admin' | 'manager' | 'member' | 'viewer' // viewer = legacy alias for member
 
-// ── v2 Board Architecture ──────────────────────────────────────────────────────
-
 export interface Board {
   id: string
   company_id: string
@@ -13,7 +11,6 @@ export interface Board {
   created_by: string | null
   created_at: string
   updated_at: string
-  // joined
   columns?: BoardColumn[]
   team_ids?: string[]
 }
@@ -24,9 +21,8 @@ export interface BoardColumn {
   name: string
   color: string
   sort_order: number
-  is_done: boolean   // terminal/closed column
+  is_done: boolean
   created_at: string
-  // joined
   project_count?: number
 }
 
@@ -35,7 +31,6 @@ export interface BoardTeam {
   team_id: string
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
 export type ProjectStatus =
   | 'queue'
   | 'mobilization'
@@ -51,6 +46,7 @@ export type ProjectStatus =
   | 'on_hold'
   | 'completed'
   | 'cancelled'
+
 export type ProjectPriority = 'low' | 'medium' | 'high' | 'critical'
 export type PhaseStatus = 'not_started' | 'in_progress' | 'completed' | 'blocked' | 'skipped'
 
@@ -85,7 +81,7 @@ export interface Project {
   start_date: string
   end_date: string
   project_manager: string | null
-  status: ProjectStatus           // legacy — kept for backward compat
+  status: ProjectStatus
   priority: ProjectPriority
   notes: string | null
   color: string
@@ -98,10 +94,8 @@ export interface Project {
   created_at: string
   updated_at: string
   updated_by?: string | null
-  // v2 board fields
   board_id?: string | null
   board_column_id?: string | null
-  // joined
   board?: Board
   board_column?: BoardColumn
   manager_profile?: Profile
@@ -117,15 +111,16 @@ export interface Phase {
   end_date: string
   assigned_to: string | null
   assigned_trade: string | null
-  status: PhaseStatus             // legacy — kept for backward compat
+  status: PhaseStatus
+  percent_complete?: number | null
+  is_milestone?: boolean | null
+  is_critical_path?: boolean | null
   color: string | null
   notes: string | null
   sort_order: number
   created_at: string
   updated_at: string
-  // v2 board field
   board_column_id?: string | null
-  // joined
   assigned_profile?: Profile
   dependencies?: PhaseDependency[]
   board_column?: BoardColumn

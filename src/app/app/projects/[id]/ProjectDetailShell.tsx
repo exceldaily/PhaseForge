@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, GanttChartSquare, CheckSquare,
-  Activity, Paperclip, Edit, Trash2, MoreHorizontal,
+  Activity, Paperclip, Edit, MoreHorizontal,
   MapPin, Calendar, User, Flag,
 } from 'lucide-react'
 import { GanttChart } from '@/components/gantt/GanttChart'
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/Badge'
 import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
+import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
 import { Phase, Profile, Project, ProjectPriority } from '@/types/app'
 import { cn } from '@/lib/utils'
 
@@ -56,9 +57,7 @@ export function ProjectDetailShell({
   const pmName = project.project_manager
     ? (memberMap[project.project_manager] ?? project.project_manager) : null
 
-  const completedPhases = project.phases.filter(p => p.status === 'completed').length
-  const progress = project.phases.length > 0
-    ? Math.round((completedPhases / project.phases.length) * 100) : 0
+  const progress = getProjectProgressFromPhases(project.phases)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
