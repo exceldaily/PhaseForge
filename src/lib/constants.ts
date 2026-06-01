@@ -106,3 +106,35 @@ export const PLAN_LIMITS: Record<string, { projects: number; members: number }> 
 }
 
 export const DEFAULT_PLAN = 'free'
+
+/** Role display labels (viewer is the legacy name for member) */
+export const ROLE_LABELS: Record<string, string> = {
+  owner:   'Organization Owner',
+  admin:   'Admin',
+  manager: 'Manager',
+  member:  'Member',
+  viewer:  'Member', // legacy alias
+}
+
+export const ROLE_DESCRIPTIONS: Record<string, string> = {
+  owner:   'Full access · Billing · Team & user management',
+  admin:   'Manage teams · Manage projects · Manage users',
+  manager: 'Create projects · Assign tasks · Manage workload',
+  member:  'View assigned projects · Update tasks · Track progress',
+  viewer:  'View assigned projects · Update tasks · Track progress',
+}
+
+export const ROLE_COLORS: Record<string, string> = {
+  owner:   'bg-indigo-100 text-indigo-700',
+  admin:   'bg-violet-100 text-violet-700',
+  manager: 'bg-blue-100 text-blue-700',
+  member:  'bg-slate-100 text-slate-600',
+  viewer:  'bg-slate-100 text-slate-600',
+}
+
+/** Roles available when inviting a new member */
+export const INVITE_ROLES = [
+  { value: 'admin',   label: 'Admin',   description: 'Manage teams, projects, and users' },
+  { value: 'manager', label: 'Manager', description: 'Create projects and assign tasks' },
+  { value: 'member',  label: 'Member',  description: 'View projects and update tasks' },
+] as const

@@ -1,4 +1,4 @@
-export type UserRole = 'owner' | 'admin' | 'manager' | 'viewer'
+export type UserRole = 'owner' | 'admin' | 'manager' | 'member' | 'viewer' // viewer = legacy alias for member
 export type ProjectStatus =
   | 'queue'
   | 'mobilization'

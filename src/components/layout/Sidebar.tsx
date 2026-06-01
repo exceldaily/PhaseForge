@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, Users, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
-  BarChart2, FileText, UsersRound,
+  BarChart2, FileText, UsersRound, Building2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -13,15 +13,15 @@ import { useState } from 'react'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 
 const NAV_ITEMS = [
-  { href: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/app/projects', label: 'Projects', icon: FolderKanban },
-  { href: '/app/gantt', label: 'Gantt Chart', icon: GanttChartSquare },
-  { href: '/app/analytics', label: 'Analytics', icon: BarChart2 },
-  { href: '/app/reports', label: 'Reports', icon: FileText },
-  { href: '/app/resources', label: 'Resources', icon: UsersRound },
-  { href: '/app/teams', label: 'Teams', icon: UsersRound },
-  { href: '/app/settings/members', label: 'Team', icon: Users },
-  { href: '/app/settings', label: 'Settings', icon: Settings },
+  { href: '/app/dashboard',      label: 'Dashboard',    icon: LayoutDashboard },
+  { href: '/app/projects',       label: 'Projects',     icon: FolderKanban },
+  { href: '/app/gantt',          label: 'Gantt Chart',  icon: GanttChartSquare },
+  { href: '/app/analytics',      label: 'Analytics',    icon: BarChart2 },
+  { href: '/app/reports',        label: 'Reports',      icon: FileText },
+  { href: '/app/resources',      label: 'Resources',    icon: UsersRound },
+  { href: '/app/organization',   label: 'Organization', icon: Building2 },
+  { href: '/app/teams',          label: 'Teams',        icon: UsersRound },
+  { href: '/app/settings',       label: 'Settings',     icon: Settings },
 ]
 
 interface SidebarProps {

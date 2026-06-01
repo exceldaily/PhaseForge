@@ -37,7 +37,7 @@ export default async function SettingsPage() {
               <Building2 size={20} className="text-indigo-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-slate-900">Company</h2>
+              <h2 className="font-semibold text-slate-900">Organization</h2>
               <p className="text-sm text-slate-500">{settingsProfile?.companies?.name || 'Your workspace'}</p>
             </div>
           </div>

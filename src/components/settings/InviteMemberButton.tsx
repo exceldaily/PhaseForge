@@ -11,7 +11,7 @@ import { checkMemberLimit } from '@/lib/planLimits'
 export function InviteMemberButton({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState('viewer')
+  const [role, setRole] = useState('member')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -40,7 +40,7 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
     setLoading(false)
     if (error) { setError(error.message); return }
     setSuccess(true)
-    setTimeout(() => { setOpen(false); setSuccess(false); setEmail(''); setRole('viewer') }, 2000)
+    setTimeout(() => { setOpen(false); setSuccess(false); setEmail(''); setRole('member') }, 2000)
   }
 
   return (
@@ -61,9 +61,9 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
           <form onSubmit={handleInvite} className="space-y-4">
             <Input id="inv-email" type="email" label="Email address" placeholder="colleague@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
             <Select id="inv-role" label="Role" value={role} onChange={e => setRole(e.target.value)}>
-              <option value="viewer">Viewer — read only</option>
-              <option value="manager">Manager — edit projects</option>
-              <option value="admin">Admin — full access</option>
+              <option value="member">Member — view projects &amp; update tasks</option>
+              <option value="manager">Manager — create projects &amp; assign tasks</option>
+              <option value="admin">Admin — manage teams, projects &amp; users</option>
             </Select>
             {error && <p className="text-sm text-rose-600">{error}</p>}
             <div className="flex gap-2 pt-2">

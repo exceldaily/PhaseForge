@@ -9,16 +9,12 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Profile, UserRole } from '@/types/app'
+import { ROLE_LABELS, ROLE_COLORS as ROLE_COLOR_MAP } from '@/lib/constants'
 
-const ROLE_COLORS: Record<UserRole, string> = {
-  owner: 'bg-indigo-100 text-indigo-700',
-  admin: 'bg-violet-100 text-violet-700',
-  manager: 'bg-blue-100 text-blue-700',
-  viewer: 'bg-slate-100 text-slate-600',
-}
+const ROLE_COLORS: Record<string, string> = ROLE_COLOR_MAP
 
-function formatRole(role: UserRole) {
-  return role.charAt(0).toUpperCase() + role.slice(1)
+function formatRole(role: string) {
+  return ROLE_LABELS[role] ?? role.charAt(0).toUpperCase() + role.slice(1)
 }
 
 interface ProfileSettingsCardProps {

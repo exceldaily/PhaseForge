@@ -3,14 +3,8 @@ import { redirect } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { InviteMemberButton } from '@/components/settings/InviteMemberButton'
-import { Profile, UserRole } from '@/types/app'
-
-const ROLE_COLORS: Record<UserRole, string> = {
-  owner: 'bg-indigo-100 text-indigo-700',
-  admin: 'bg-violet-100 text-violet-700',
-  manager: 'bg-blue-100 text-blue-700',
-  viewer: 'bg-slate-100 text-slate-600',
-}
+import { ROLE_LABELS, ROLE_COLORS as ROLE_COLOR_MAP } from '@/lib/constants'
+import { Profile } from '@/types/app'
 
 export default async function MembersPage() {
   const supabase = await createClient()
@@ -49,8 +43,8 @@ export default async function MembersPage() {
                 <p className="text-sm text-slate-400">{member.email}</p>
               </div>
               {member.job_title && <p className="text-sm text-slate-500 hidden md:block">{member.job_title}</p>}
-              <Badge className={ROLE_COLORS[member.role as UserRole]}>
-                {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+              <Badge className={ROLE_COLOR_MAP[member.role] ?? 'bg-slate-100 text-slate-600'}>
+                {ROLE_LABELS[member.role] ?? member.role}
               </Badge>
             </div>
           ))}
