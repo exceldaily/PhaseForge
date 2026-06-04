@@ -67,6 +67,7 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
   const initialTypeState = getInitialTypeState(phase, phaseTypes)
 
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [typeInput, setTypeInput] = useState(initialTypeState.typeInput)
   const [selectedType, setSelectedType] = useState(initialTypeState.selectedType)
@@ -177,6 +178,7 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
     if (!phaseName.trim()) return
 
     setLoading(true)
+    setError(null)
     const supabase = createClient()
 
     const payload = {
@@ -207,57 +209,82 @@ export function PhaseForm({ projectId, companyId, members, currentUserId, phase,
       sort_order: payload.sort_order,
     }
 
-    if (phase) {
-      let { data, error } = await supabase
-        .from('phases')
-        .update({ ...payload, updated_at: new Date().toISOString() })
-        .eq('id', phase.id)
-        .select()
-        .single()
-
-      if (error && shouldRetryLegacyPhaseWrite(error.message)) {
-        const fallback = await supabase
+    try {
+      if (phase) {
+        let { data, error } = await supabase
           .from('phases')
-          .update({ ...legacyPayload, updated_at: new Date().toISOString() })
+          .update({ ...payload, updated_at: new Date().toISOString() })
           .eq('id', phase.id)
           .select()
           .single()
-        data = fallback.data
-        error = fallback.error
-      }
 
-      if (data) {
-        await touchProjectAudit(supabase, projectId, currentUserId)
-        onSave(data as Phase)
-      }
-    } else {
-      let { data, error } = await supabase
-        .from('phases')
-        .insert(payload)
-        .select()
-        .single()
+        if (error && shouldRetryLegacyPhaseWrite(error.message)) {
+          const fallback = await supabase
+            .from('phases')
+            .update({ ...legacyPayload, updated_at: new Date().toISOString() })
+            .eq('id', phase.id)
+            .select()
+            .single()
+          data = fallback.data
+          error = fallback.error
+        }
 
-      if (error && shouldRetryLegacyPhaseWrite(error.message)) {
-        const fallback = await supabase
+        if (error) {
+          console.error('Phase update error:', error)
+          setError(`Failed to update phase: ${error.message}`)
+          setLoading(false)
+          return
+        }
+
+        if (data) {
+          await touchProjectAudit(supabase, projectId, currentUserId)
+          onSave(data as Phase)
+        }
+      } else {
+        let { data, error } = await supabase
           .from('phases')
-          .insert(legacyPayload)
+          .insert(payload)
           .select()
           .single()
-        data = fallback.data
-        error = fallback.error
+
+        if (error && shouldRetryLegacyPhaseWrite(error.message)) {
+          const fallback = await supabase
+            .from('phases')
+            .insert(legacyPayload)
+            .select()
+            .single()
+          data = fallback.data
+          error = fallback.error
+        }
+
+        if (error) {
+          console.error('Phase creation error:', error)
+          setError(`Failed to create phase: ${error.message}`)
+          setLoading(false)
+          return
+        }
+
+        if (data) {
+          await touchProjectAudit(supabase, projectId, currentUserId)
+          onSave(data as Phase)
+        }
       }
 
-      if (data) {
-        await touchProjectAudit(supabase, projectId, currentUserId)
-        onSave(data as Phase)
-      }
+      setLoading(false)
+    } catch (err) {
+      console.error('Unexpected error in phase form:', err)
+      setError(`An unexpected error occurred: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      {error && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+          {error}
+        </div>
+      )}
       <div className="flex gap-2">
         <div ref={typeRef} className="relative w-52 flex-shrink-0">
           <div className="flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500">
