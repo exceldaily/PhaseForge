@@ -10,15 +10,76 @@ interface AcceptResult {
 }
 
 /**
- * Finalizes an invited user after they confirm their email.
- * Checks if they need to set a password.
+ * Verify invitation token and authenticate user via temporary password
  */
-export async function acceptInvite(): Promise<AcceptResult> {
+export async function acceptInvite(token?: string, email?: string, tempPassword?: string): Promise<AcceptResult> {
   try {
     const supabase = await createClient()
+
+    // If we have token + email + tempPassword, verify token and sign in
+    if (token && email && tempPassword) {
+      const admin = createAdminClient()
+
+      // Verify token exists and is valid
+      const { data: invitation } = await admin
+        .from('invitations')
+        .select('id, company_id, role, expires_at, accepted_at')
+        .eq('token', token)
+        .eq('email', email.toLowerCase())
+        .maybeSingle()
+
+      if (!invitation) {
+        return { error: 'Invalid or expired invitation link.' }
+      }
+
+      if (invitation.accepted_at) {
+        return { error: 'This invitation has already been accepted.' }
+      }
+
+      if (new Date(invitation.expires_at) < new Date()) {
+        return { error: 'This invitation has expired.' }
+      }
+
+      // Sign in with temp password to establish session
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: email.toLowerCase(),
+        password: tempPassword,
+      })
+
+      if (signInErr) {
+        return { error: 'Failed to authenticate. Please try again or request a new invite.' }
+      }
+
+      // Get authenticated user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        return { error: 'Authentication failed' }
+      }
+
+      const meta = user.user_metadata || {}
+      const role = (meta.role as string | undefined) ?? 'member'
+
+      // Ensure profile is set up with company + role
+      await admin.from('profiles').upsert({
+        id: user.id,
+        email: user.email,
+        full_name: (meta.full_name as string | undefined) ?? email.split('@')[0] ?? '',
+        company_id: invitation.company_id,
+        role,
+      })
+
+      // Mark invitation as accepted
+      await admin
+        .from('invitations')
+        .update({ accepted_at: new Date().toISOString() })
+        .eq('token', token)
+
+      return { success: true, needsPassword: true }
+    }
+
+    // Fallback: check if already authenticated
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Not authenticated yet - invite link hasn't been clicked
     if (!user) {
       return { error: 'Please click the invite link in your email to continue.' }
     }
@@ -48,11 +109,7 @@ export async function acceptInvite(): Promise<AcceptResult> {
         .is('accepted_at', null)
     }
 
-    // Check if user has a password set
-    // Invited users typically don't have passwords until they set one
-    const needsPassword = !user.user_metadata?.password_set
-
-    return { success: true, needsPassword }
+    return { success: true, needsPassword: true }
   } catch (err) {
     console.error('acceptInvite error:', err)
     return { error: err instanceof Error ? err.message : 'Failed to accept invite' }

@@ -19,13 +19,19 @@ export default function InviteAcceptPage() {
   // Check if user is authenticated (invite link clicked)
   useEffect(() => {
     const checkAuth = async () => {
-      const result = await acceptInvite()
+      // Extract token from URL params
+      const params = new URLSearchParams(window.location.search)
+      const token = params.get('token')
+      const email = params.get('email')
+      const tempPassword = params.get('tempPassword')
+
+      const result = await acceptInvite(token || undefined, email || undefined, tempPassword || undefined)
       if (result.error) {
         setState('error')
         setMessage(result.error)
         return
       }
-      // If they have no password set, show password form
+      // If they need to set a password, show password form
       if (result.needsPassword) {
         setState('password')
       } else {

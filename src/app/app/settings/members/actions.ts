@@ -101,6 +101,7 @@ async function recordInvitation(
     },
     { onConflict: 'token' }
   )
+  return token
 }
 
 export async function sendInvite(
@@ -174,88 +175,80 @@ export async function sendInvite(
       }
     }
 
-    // Send the Supabase-native invite email. This creates the auth user (if
-    // new) and emails a confirmation link. company_id + role flow through
-    // user metadata so handle_new_user() provisions the profile correctly.
-    const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
-      normalizedEmail,
-      {
-        data: { company_id: companyId, role },
-        redirectTo: origin ? `${origin}/invite/accept` : undefined,
-      }
-    )
+    // Check if user already exists in this company
+    const existingAuthUser = await findAuthUserByEmail(admin, normalizedEmail)
 
-    if (inviteErr) {
-      if (inviteErr.message.toLowerCase().includes('already registered')) {
-        const authUser = await findAuthUserByEmail(admin, normalizedEmail)
+    let authUserId = existingAuthUser?.id
+    let tempPassword: string | undefined
 
-        if (authUser) {
-          const fullName =
-            typeof authUser.user_metadata?.full_name === 'string' && authUser.user_metadata.full_name.trim()
-              ? authUser.user_metadata.full_name.trim()
-              : normalizedEmail.split('@')[0]
+    if (!existingAuthUser) {
+      // Create new auth user with a random temporary password (Brevo will contain actual invite link)
+      tempPassword = crypto.randomUUID()
+      const { data, error: createErr } = await admin.auth.admin.createUser({
+        email: normalizedEmail,
+        password: tempPassword,
+        user_metadata: {
+          company_id: companyId,
+          role,
+        },
+      })
 
-          const { error: authUpdateErr } = await admin.auth.admin.updateUserById(authUser.id, {
-            user_metadata: {
-              ...(authUser.user_metadata ?? {}),
-              company_id: companyId,
-              role,
-            },
-          })
-
-          if (authUpdateErr) {
-            return { error: getFriendlyInviteError(authUpdateErr.message) }
-          }
-
-          const { error: profileErr } = await admin.from('profiles').upsert({
-            id: authUser.id,
-            company_id: companyId,
-            email: normalizedEmail,
-            full_name: fullName,
-            role,
-            is_active: true,
-          })
-
-          if (profileErr) {
-            return { error: profileErr.message }
-          }
-
-          const { error: magicLinkErr } = await publicAuth.auth.signInWithOtp({
-            email: normalizedEmail,
-            options: {
-              shouldCreateUser: false,
-              emailRedirectTo: origin ? `${origin}/invite/accept` : undefined,
-            },
-          })
-
-          if (magicLinkErr) {
-            return { error: getFriendlyInviteError(magicLinkErr.message) }
-          }
-
-          await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
-
-          // Send branded Brevo email (fire and forget)
-          const inviteLink = origin ? `${origin}/invite/accept` : 'https://phaseforge.vercel.app/invite/accept'
-          sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName).catch(err =>
-            console.error('Invite email failed:', err)
-          )
-
-          return {
-            success: true,
-            message: `${normalizedEmail} already had an account, so we restored access and sent them a sign-in link.`,
-          }
-        }
+      if (createErr) {
+        return { error: createErr.message }
       }
 
-      return { error: getFriendlyInviteError(inviteErr.message) }
+      if (!data?.user) {
+        return { error: 'Failed to create user' }
+      }
+
+      authUserId = data.user.id
+    } else {
+      // Update existing user's metadata
+      const { error: updateErr } = await admin.auth.admin.updateUserById(existingAuthUser.id, {
+        user_metadata: {
+          ...(existingAuthUser.user_metadata ?? {}),
+          company_id: companyId,
+          role,
+        },
+      })
+
+      if (updateErr) {
+        return { error: updateErr.message }
+      }
     }
 
-    // Record the invitation for audit / pending-list display.
-    await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
+    // Ensure profile exists
+    const fullName = existingAuthUser?.user_metadata?.full_name?.trim()
+      ? existingAuthUser.user_metadata.full_name.trim()
+      : normalizedEmail.split('@')[0]
 
-    // Send branded Brevo email with role context (fire and forget)
-    const inviteLink = origin ? `${origin}/invite/accept` : 'https://phaseforge.vercel.app/invite/accept'
-    sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName).catch(err =>
+    const { error: profileErr } = await admin.from('profiles').upsert({
+      id: authUserId,
+      company_id: companyId,
+      email: normalizedEmail,
+      full_name: fullName,
+      role,
+      is_active: true,
+    })
+
+    if (profileErr) {
+      return { error: profileErr.message }
+    }
+
+    // Create invitation record and get token
+    const token = await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
+
+    // Build the invite link with token (and temp password if new user)
+    let inviteLink = origin
+      ? `${origin}/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
+      : `https://phaseforge.vercel.app/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
+
+    if (tempPassword) {
+      inviteLink += `&tempPassword=${encodeURIComponent(tempPassword)}`
+    }
+
+    // Send branded Brevo email (fire and forget)
+    sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName, tempPassword).catch(err =>
       console.error('Invite email failed:', err)
     )
 
