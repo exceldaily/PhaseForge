@@ -6,6 +6,19 @@ import { checkBoardLimit } from '@/lib/planLimits'
 import { BOARD_COLUMN_MIN, BOARD_COLUMN_MAX, DEFAULT_BOARD_COLUMNS } from '@/lib/constants'
 import { logger } from '@/lib/logger'
 
+// Supabase/Postgres errors are plain objects, not Error instances, so a bare
+// `err.message` check swallows them into a generic fallback. Pull out whatever
+// detail we can so the UI shows the real cause.
+function errMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object') {
+    const e = err as { message?: string; details?: string; hint?: string; code?: string }
+    const parts = [e.message, e.details, e.hint].filter(Boolean)
+    if (parts.length) return parts.join(' — ') + (e.code ? ` (${e.code})` : '')
+  }
+  return fallback
+}
+
 async function requireRole(roles: string[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -50,7 +63,7 @@ export async function createBoard(formData: FormData) {
     return { success: true, boardId: board.id }
   } catch (err) {
     logger.error('createBoard', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to create board' }
+    return { success: false, error: errMessage(err, 'Failed to create board') }
   }
 }
 
@@ -67,7 +80,7 @@ export async function updateBoard(boardId: string, updates: { name?: string; des
     return { success: true }
   } catch (err) {
     logger.error('updateBoard', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to update board' }
+    return { success: false, error: errMessage(err, 'Failed to update board') }
   }
 }
 
@@ -81,7 +94,7 @@ export async function deleteBoard(boardId: string) {
     return { success: true }
   } catch (err) {
     logger.error('deleteBoard', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to delete board' }
+    return { success: false, error: errMessage(err, 'Failed to delete board') }
   }
 }
 
@@ -118,7 +131,7 @@ export async function addBoardColumn(boardId: string, data: { name: string; colo
     return { success: true, column: col }
   } catch (err) {
     logger.error('addBoardColumn', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to add column' }
+    return { success: false, error: errMessage(err, 'Failed to add column') }
   }
 }
 
@@ -130,7 +143,7 @@ export async function updateBoardColumn(columnId: string, updates: { name?: stri
     return { success: true }
   } catch (err) {
     logger.error('updateBoardColumn', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to update column' }
+    return { success: false, error: errMessage(err, 'Failed to update column') }
   }
 }
 
@@ -167,7 +180,7 @@ export async function deleteBoardColumn(columnId: string, boardId: string) {
     return { success: true }
   } catch (err) {
     logger.error('deleteBoardColumn', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to delete column' }
+    return { success: false, error: errMessage(err, 'Failed to delete column') }
   }
 }
 
@@ -181,7 +194,7 @@ export async function reorderBoardColumns(boardId: string, orderedIds: string[])
     return { success: true }
   } catch (err) {
     logger.error('reorderBoardColumns', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to reorder columns' }
+    return { success: false, error: errMessage(err, 'Failed to reorder columns') }
   }
 }
 
@@ -198,7 +211,7 @@ export async function moveProjectToColumn(projectId: string, columnId: string) {
     return { success: true }
   } catch (err) {
     logger.error('moveProjectToColumn', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to move project' }
+    return { success: false, error: errMessage(err, 'Failed to move project') }
   }
 }
 
@@ -212,7 +225,7 @@ export async function addBoardTeam(boardId: string, teamId: string) {
     return { success: true }
   } catch (err) {
     logger.error('addBoardTeam', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to add team' }
+    return { success: false, error: errMessage(err, 'Failed to add team') }
   }
 }
 
@@ -224,6 +237,6 @@ export async function removeBoardTeam(boardId: string, teamId: string) {
     return { success: true }
   } catch (err) {
     logger.error('removeBoardTeam', err)
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to remove team' }
+    return { success: false, error: errMessage(err, 'Failed to remove team') }
   }
 }
