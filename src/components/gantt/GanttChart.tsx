@@ -15,7 +15,7 @@ import {
 } from '@/lib/dates'
 import { getPhasePercentComplete } from '@/lib/phaseProgress'
 import { touchProjectAudit } from '@/lib/projectAudit'
-import { useGanttStore } from '@/stores/ganttStore'
+import { useGanttStore, type ColorMode } from '@/stores/ganttStore'
 import { Phase, PhaseStatus, Profile, Project, ZoomLevel } from '@/types/app'
 import { cn } from '@/lib/utils'
 import { getClippedBarPosition } from '@/lib/gantt'
@@ -303,6 +303,75 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     })))
   }, [])
 
+  // Inline percent edit straight from a Gantt bar.
+  const handlePhasePercent = useCallback(async (phaseId: string, projectId: string, rawPercent: number) => {
+    const percent = Math.max(0, Math.min(100, Math.round(rawPercent)))
+
+    let previous = 0
+    setProjects((currentProjects) => currentProjects.map((project) => {
+      if (project.id !== projectId) return project
+      return {
+        ...project,
+        phases: (project.phases || []).map((phase) => {
+          if (phase.id !== phaseId) return phase
+          previous = getPhasePercentComplete(phase)
+          return { ...phase, percent_complete: percent }
+        }),
+      }
+    }))
+
+    const supabase = createClient()
+    const updatedAt = new Date().toISOString()
+    const { error } = await supabase
+      .from('phases')
+      .update({ percent_complete: percent, updated_at: updatedAt })
+      .eq('id', phaseId)
+
+    if (error) {
+      // Revert on failure.
+      setProjects((currentProjects) => currentProjects.map((project) => {
+        if (project.id !== projectId) return project
+        return {
+          ...project,
+          phases: (project.phases || []).map((phase) =>
+            phase.id === phaseId ? { ...phase, percent_complete: previous } : phase
+          ),
+        }
+      }))
+      return
+    }
+
+    await touchProjectAudit(supabase, projectId, currentUserId, updatedAt)
+  }, [currentUserId])
+
+  // Click-and-drag panning on empty timeline background.
+  const panRef = useRef<{ startX: number; scrollLeft: number } | null>(null)
+
+  const handleTimelinePanStart = useCallback((event: React.MouseEvent) => {
+    if (event.button !== 0) return
+    // Let bar drags (move/resize) handle their own mousedown.
+    if ((event.target as HTMLElement).closest('[data-bar]')) return
+    const el = timelineScrollRef.current
+    if (!el) return
+
+    panRef.current = { startX: event.clientX, scrollLeft: el.scrollLeft }
+
+    const handleMove = (e: MouseEvent) => {
+      if (!panRef.current || !timelineScrollRef.current) return
+      timelineScrollRef.current.scrollLeft = panRef.current.scrollLeft - (e.clientX - panRef.current.startX)
+    }
+    const handleUp = () => {
+      panRef.current = null
+      el.style.cursor = ''
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+
+    el.style.cursor = 'grabbing'
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }, [])
+
   const handleFitTimeline = useCallback(() => {
     if (!scheduleBounds) return
 
@@ -384,7 +453,8 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
         <div
           ref={timelineScrollRef}
           onScroll={handleTimelineScroll}
-          className="flex-1 overflow-auto bg-gradient-to-br from-white via-slate-50 to-slate-100/50"
+          onMouseDown={handleTimelinePanStart}
+          className="flex-1 cursor-grab overflow-auto bg-gradient-to-br from-white via-slate-50 to-slate-100/50 active:cursor-grabbing"
         >
           <div style={{ width: totalWidth, minWidth: '100%' }}>
             <GanttTimelineHeader
@@ -410,6 +480,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
                       totalDays={totalDays}
                       rowHeight={PROJECT_ROW_HEIGHT}
                       zoom={zoom}
+                      colorMode={colorMode}
                       isCollapsed={isCollapsed}
                       onToggleCollapse={() => handleProjectToggle(project.id)}
                     />
@@ -426,8 +497,11 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
                         rowHeight={ROW_HEIGHT}
                         zoom={zoom}
                         isSelected={selectedPhaseId === phase.id}
+                        colorMode={colorMode}
+                        canEdit={canEdit}
                         onSelect={() => setSelectedPhase(selectedPhaseId === phase.id ? null : phase.id)}
                         onMouseDown={(event, mode) => handleMouseDown(event, phase.id, project.id, mode)}
+                        onPercentChange={(pct) => handlePhasePercent(phase.id, project.id, pct)}
                         isDragging={dragging?.phaseId === phase.id}
                       />
                     ))}
@@ -523,8 +597,12 @@ function GridLines({ totalDays, pixelsPerDay, zoom }: { totalDays: number; pixel
 }
 
 function TodayLine({ viewStart, pixelsPerDay }: { viewStart: Date; pixelsPerDay: number }) {
-  const today = new Date()
-  const offset = differenceInDays(today, viewStart) * pixelsPerDay + pixelsPerDay / 2
+  // Normalize "today" to local midnight so it aligns exactly with bars, whose
+  // start dates are parsed from date-only strings (also local midnight). Using
+  // raw new Date() (with a time component) drifts against bar math in day zoom.
+  const now = new Date()
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const offset = differenceInDays(todayMidnight, viewStart) * pixelsPerDay + pixelsPerDay / 2
   if (offset < 0) return null
 
   return (
@@ -545,6 +623,7 @@ function ProjectSummaryRow({
   totalDays,
   rowHeight,
   zoom,
+  colorMode,
   isCollapsed,
   onToggleCollapse,
 }: {
@@ -555,6 +634,7 @@ function ProjectSummaryRow({
   totalDays: number
   rowHeight: number
   zoom: ZoomLevel
+  colorMode: ColorMode
   isCollapsed: boolean
   onToggleCollapse: () => void
 }) {
@@ -568,6 +648,9 @@ function ProjectSummaryRow({
   const barWidth = clippedStart || clippedEnd ? width : Math.max(width, 28)
   const showProjectName = barWidth > 88
   const showDateRange = barWidth > 220
+  const neutral = colorMode === 'none'
+  const barColor = neutral ? '#cbd5e1' : project.color
+  const textClass = neutral ? 'text-slate-700' : 'text-white'
 
   return (
     <div
@@ -581,7 +664,8 @@ function ProjectSummaryRow({
       {width > 0 && (
         <div
           className={cn(
-            'absolute top-1/2 flex -translate-y-1/2 items-center gap-3 px-3 text-white shadow-sm',
+            'absolute top-1/2 flex -translate-y-1/2 items-center gap-3 px-3 shadow-sm',
+            textClass,
             !clippedStart && 'rounded-l-lg',
             !clippedEnd && 'rounded-r-lg',
             isCollapsed ? 'opacity-100' : 'opacity-90'
@@ -590,14 +674,14 @@ function ProjectSummaryRow({
             left,
             width: barWidth,
             height: rowHeight - 18,
-            backgroundColor: project.color,
+            backgroundColor: barColor,
           }}
         >
           {showProjectName && (
             <span className="min-w-0 flex-1 truncate text-xs font-semibold">{project.name}</span>
           )}
           {showDateRange && (
-            <span className="flex-shrink-0 text-[10px] font-medium text-white/90">
+            <span className={cn('flex-shrink-0 text-[10px] font-medium', neutral ? 'text-slate-500' : 'text-white/90')}>
               {formatDate(project.start_date, 'MMM d')} - {formatDate(project.end_date, 'MMM d')}
             </span>
           )}
@@ -628,8 +712,11 @@ function GanttPhaseRow({
   rowHeight,
   zoom,
   isSelected,
+  colorMode,
+  canEdit,
   onSelect,
   onMouseDown,
+  onPercentChange,
   isDragging,
 }: {
   phase: Phase
@@ -641,8 +728,11 @@ function GanttPhaseRow({
   rowHeight: number
   zoom: ZoomLevel
   isSelected: boolean
+  colorMode: ColorMode
+  canEdit: boolean
   onSelect: () => void
   onMouseDown: (event: React.MouseEvent, mode: 'move' | 'resize-right' | 'resize-left') => void
+  onPercentChange: (percent: number) => void
   isDragging: boolean | undefined
 }) {
   const { left, width, clippedStart, clippedEnd } = getClippedBarPosition(
@@ -654,16 +744,19 @@ function GanttPhaseRow({
   )
   const visibleWidth = clippedStart || clippedEnd ? width : Math.max(width, 20)
   const overdue = isOverdue(phase.end_date, phase.status)
-  const barColor = phase.color || PHASE_STATUS_COLORS[phase.status as PhaseStatus]
+  const statusColor = PHASE_STATUS_COLORS[phase.status as PhaseStatus]
+  const barColor =
+    colorMode === 'none' ? '#cbd5e1'
+    : colorMode === 'status' ? statusColor
+    : (phase.color || statusColor)
+  const neutral = colorMode === 'none'
   const percentComplete = getPhasePercentComplete(phase)
   const isMilestone = Boolean(phase.is_milestone)
   const isCriticalPath = Boolean(phase.is_critical_path)
   const assignedTrade = phase.assigned_trade?.trim() || null
   const barWidth = isMilestone ? Math.max(visibleWidth, 18) : visibleWidth
-  const showName = isMilestone ? barWidth > 52 : barWidth > 60
-  const showPercent = barWidth > 116
-  const showAssigneeBadge = Boolean(assignee) && barWidth > 150
-  const showTradeBadge = !assignee && Boolean(assignedTrade) && barWidth > 146
+  const showLeftDate = !isMilestone && barWidth > 78
+  const showPercent = barWidth > 44
   const showMilestoneLabel = isMilestone && barWidth <= 52
   const barTitle = [
     phase.name,
@@ -712,39 +805,28 @@ function GanttPhaseRow({
             />
           )}
 
-          <div className="pointer-events-none flex min-w-0 flex-1 items-center gap-2 px-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2 px-2">
             {isMilestone && (
-              <span className="h-2.5 w-2.5 flex-shrink-0 rotate-45 rounded-[2px] border border-white/80 bg-white/70" />
+              <span className="pointer-events-none h-2.5 w-2.5 flex-shrink-0 rotate-45 rounded-[2px] border border-white/80 bg-white/70" />
             )}
 
-            {showAssigneeBadge && assignee && (
-              <span
-                className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-black/15 text-[9px] font-bold text-white"
-                title={assignee.full_name}
-              >
-                {getInitials(assignee.full_name)}
+            {/* Date on the LEFT side of the bar */}
+            {showLeftDate && (
+              <span className={cn('pointer-events-none flex-shrink-0 text-[10px] font-medium tabular-nums', neutral ? 'text-slate-500' : 'text-white/85')}>
+                {formatDate(phase.start_date, 'MMM d')}
               </span>
             )}
 
-            {showTradeBadge && assignedTrade && (
-              <span
-                className="max-w-24 flex-shrink-0 truncate rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-medium text-white/90"
-                title={assignedTrade}
-              >
-                {assignedTrade}
-              </span>
-            )}
+            <span className="pointer-events-none min-w-0 flex-1" />
 
-            {showName && (
-              <span className="min-w-0 flex-1 truncate text-xs font-medium text-white drop-shadow-sm">
-                {phase.name}
-              </span>
-            )}
-
+            {/* Percent complete INSIDE the bar — editable */}
             {showPercent && (
-              <span className="flex-shrink-0 text-[10px] font-semibold text-white/90">
-                {percentComplete}%
-              </span>
+              <EditablePercent
+                value={percentComplete}
+                canEdit={canEdit}
+                neutral={neutral}
+                onChange={onPercentChange}
+              />
             )}
           </div>
 
@@ -761,33 +843,100 @@ function GanttPhaseRow({
       )}
 
       {width > 0 && isMilestone && (
-        <>
-          <div
-            className="pointer-events-none absolute top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 rotate-45 border-2 border-white shadow-sm"
-            style={{
-              left: left + Math.max(barWidth - 7, 0),
-              backgroundColor: barColor,
-            }}
-          />
-          {showMilestoneLabel && (
-            <span
-              className="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 whitespace-nowrap text-[11px] font-semibold text-slate-700"
-              style={{ left: left + barWidth + 10 }}
-            >
-              {phase.name}
-            </span>
-          )}
-        </>
+        <div
+          className="pointer-events-none absolute top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 rotate-45 border-2 border-white shadow-sm"
+          style={{
+            left: left + Math.max(barWidth - 7, 0),
+            backgroundColor: barColor,
+          }}
+        />
+      )}
+
+      {/* Phase name rendered OUTSIDE the bar, on the right */}
+      {width > 0 && !showMilestoneLabel && (
+        <span
+          className="pointer-events-none absolute top-1/2 z-10 max-w-[40%] -translate-y-1/2 truncate whitespace-nowrap text-xs font-medium text-slate-700"
+          style={{ left: left + barWidth + 8 }}
+          title={phase.name}
+        >
+          {phase.name}
+        </span>
+      )}
+
+      {width > 0 && showMilestoneLabel && (
+        <span
+          className="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 whitespace-nowrap text-[11px] font-semibold text-slate-700"
+          style={{ left: left + barWidth + 10 }}
+        >
+          {phase.name}
+        </span>
       )}
     </div>
   )
 }
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
+function EditablePercent({
+  value,
+  canEdit,
+  neutral,
+  onChange,
+}: {
+  value: number
+  canEdit: boolean
+  neutral: boolean
+  onChange: (percent: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+
+  useEffect(() => {
+    setDraft(String(value))
+  }, [value])
+
+  const commit = () => {
+    setEditing(false)
+    const next = Math.max(0, Math.min(100, Math.round(Number(draft) || 0)))
+    if (next !== value) onChange(next)
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        min={0}
+        max={100}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          if (e.key === 'Escape') { setDraft(String(value)); setEditing(false) }
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-10 flex-shrink-0 rounded bg-white/95 px-1 text-[10px] font-semibold text-slate-800 outline-none ring-1 ring-indigo-400"
+      />
+    )
+  }
+
+  return (
+    <span
+      role={canEdit ? 'button' : undefined}
+      onClick={(e) => {
+        if (!canEdit) return
+        e.stopPropagation()
+        setEditing(true)
+      }}
+      onMouseDown={(e) => { if (canEdit) e.stopPropagation() }}
+      className={cn(
+        'flex-shrink-0 rounded px-1 text-[10px] font-semibold tabular-nums',
+        neutral ? 'text-slate-600' : 'text-white/90',
+        canEdit ? 'cursor-pointer hover:bg-black/10' : 'pointer-events-none'
+      )}
+      title={canEdit ? 'Click to edit % complete' : undefined}
+    >
+      {value}%
+    </span>
+  )
 }
