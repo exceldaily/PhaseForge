@@ -67,6 +67,7 @@ export function GanttEditPanel({
   const [showTradeDropdown, setShowTradeDropdown] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const tradeRef = useRef<HTMLDivElement>(null)
   const filteredTrades = trades.filter((trade) =>
@@ -130,6 +131,7 @@ export function GanttEditPanel({
     }
 
     setSaving(true)
+    setError(null)
 
     const supabase = createClient()
     const payload = {
@@ -169,6 +171,13 @@ export function GanttEditPanel({
         .single()
       data = fallback.data
       error = fallback.error
+    }
+
+    if (error) {
+      console.error('Phase save error:', error)
+      setError(error.message || 'Failed to save changes. Please try again.')
+      setSaving(false)
+      return
     }
 
     if (data) {
@@ -365,42 +374,40 @@ export function GanttEditPanel({
               </div>
             </Field>
 
-            <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
-              <Field label="Progress %">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={form.percent_complete}
-                  onChange={set('percent_complete')}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </Field>
+            <Field label="Progress %">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={5}
+                value={form.percent_complete}
+                onChange={set('percent_complete')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </Field>
 
-              <Field label="Timeline flags">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={form.is_milestone}
-                      onChange={setChecked('is_milestone')}
-                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>Milestone</span>
-                  </label>
-                  <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={form.is_critical_path}
-                      onChange={setChecked('is_critical_path')}
-                      className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
-                    />
-                    <span>Critical path</span>
-                  </label>
-                </div>
-              </Field>
-            </div>
+            <Field label="Timeline flags">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={form.is_milestone}
+                    onChange={setChecked('is_milestone')}
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>Milestone</span>
+                </label>
+                <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={form.is_critical_path}
+                    onChange={setChecked('is_critical_path')}
+                    className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                  />
+                  <span>Critical path</span>
+                </label>
+              </div>
+            </Field>
 
             <Field label="Notes">
               <textarea
@@ -426,9 +433,14 @@ export function GanttEditPanel({
       </div>
 
       {canEdit && (
-        <div className="border-t border-slate-100 px-5 py-4">
+        <div className="border-t border-slate-100 px-5 py-4 space-y-2">
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              {error}
+            </div>
+          )}
           <Button className="w-full" onClick={handleSave} loading={saving}>
-            {saved ? 'Saved' : <><Save size={14} /> Save changes</>}
+            {saved ? '✓ Saved' : <><Save size={14} /> Save changes</>}
           </Button>
         </div>
       )}
