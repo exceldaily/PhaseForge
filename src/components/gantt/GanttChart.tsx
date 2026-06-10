@@ -656,6 +656,7 @@ function ProjectSummaryRow({
     <div
       className="relative cursor-pointer border-b border-slate-200 bg-slate-50 transition-colors hover:bg-slate-100/80"
       style={{ height: rowHeight }}
+      data-bar
       onClick={onToggleCollapse}
     >
       <GridLines totalDays={totalDays} pixelsPerDay={pixelsPerDay} zoom={zoom} />
@@ -792,6 +793,7 @@ function GanttPhaseRow({
             opacity: isDragging ? 0.9 : 1,
           }}
           title={barTitle}
+          data-bar
           onClick={onSelect}
           onMouseDown={(event) => onMouseDown(event, 'move')}
         >
