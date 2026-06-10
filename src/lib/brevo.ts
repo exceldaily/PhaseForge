@@ -3,10 +3,15 @@
  * Handles transactional emails for signup, invites, password resets, and notifications
  */
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY
+const BREVO_API_KEY = process.env.BREVO_API_KEY || ''
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
-const SENDER_EMAIL = 'noreply@phaseforge.com'
+const SENDER_EMAIL = 'exceldaily7@gmail.com'
 const SENDER_NAME = 'PhaseForge'
+
+// Log on init (for debugging)
+if (!process.env.BREVO_API_KEY) {
+  console.warn('[Brevo] Warning: BREVO_API_KEY not set in environment')
+}
 
 interface EmailPayload {
   sender: { email: string; name: string }
