@@ -13,6 +13,7 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
   const [role, setRole] = useState('member')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("They'll receive an email shortly")
   const [error, setError] = useState('')
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -24,8 +25,15 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
 
     setLoading(false)
     if (result.error) { setError(result.error); return }
+    setSuccessMessage(result.message || "They'll receive an email shortly")
     setSuccess(true)
-    setTimeout(() => { setOpen(false); setSuccess(false); setEmail(''); setRole('member') }, 2500)
+    setTimeout(() => {
+      setOpen(false)
+      setSuccess(false)
+      setSuccessMessage("They'll receive an email shortly")
+      setEmail('')
+      setRole('member')
+    }, 3000)
   }
 
   return (
@@ -40,7 +48,7 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
               <span className="text-2xl">✓</span>
             </div>
             <p className="font-medium text-slate-900">Invitation sent!</p>
-            <p className="text-sm text-slate-500 mt-1">They&apos;ll receive an email shortly</p>
+            <p className="text-sm text-slate-500 mt-1">{successMessage}</p>
           </div>
         ) : (
           <form onSubmit={handleInvite} className="space-y-4">

@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getFriendlyAuthError, normalizeAuthEmail, validatePassword } from '@/lib/auth/password'
 
 export async function createWorkspace(formData: {
   fullName: string
@@ -9,19 +10,36 @@ export async function createWorkspace(formData: {
   password: string
 }) {
   const supabase = await createClient()
+  const admin = createAdminClient()
+  const email = normalizeAuthEmail(formData.email)
+  const fullName = formData.fullName.trim()
+  const companyName = formData.companyName.trim()
+
+  if (!fullName) return { error: 'Please enter your name.' }
+  if (!companyName) return { error: 'Please enter your company name.' }
+
+  const passwordError = validatePassword(formData.password)
+  if (passwordError) return { error: passwordError }
+
+  const { data: existingUser } = await admin
+    .from('profiles')
+    .select('id')
+    .ilike('email', email)
+    .maybeSingle()
+
+  if (existingUser) {
+    return { error: 'An account with this email already exists. Try signing in or resetting your password.' }
+  }
 
   // 1. Sign up the user first
   const { data: auth, error: authErr } = await supabase.auth.signUp({
-    email: formData.email,
+    email,
     password: formData.password,
-    options: { data: { full_name: formData.fullName } },
+    options: { data: { full_name: fullName } },
   })
 
-  if (authErr) return { error: authErr.message }
+  if (authErr) return { error: getFriendlyAuthError(authErr.message) }
   if (!auth.user) return { error: 'Failed to create user' }
-
-  // 2. Use service-role client to bypass RLS for company/profile creation
-  const admin = createAdminClient()
 
   // Guard against duplicate company creation on retries / already-set-up users:
   // if this user already has a profile with a company, reuse it.
@@ -35,14 +53,14 @@ export async function createWorkspace(formData: {
     return { success: true, session: Boolean(auth.session) }
   }
 
-  const slug = formData.companyName
+  const slug = companyName
     .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9-]/g, '')
 
   const { data: company, error: companyErr } = await admin
     .from('companies')
-    .insert({ name: formData.companyName, slug: `${slug}-${Date.now()}` })
+    .insert({ name: companyName, slug: `${slug}-${Date.now()}` })
     .select()
     .single()
 
@@ -52,8 +70,8 @@ export async function createWorkspace(formData: {
   const { error: profileErr } = await admin.from('profiles').upsert({
     id: auth.user.id,
     company_id: company.id,
-    full_name: formData.fullName,
-    email: formData.email,
+    full_name: fullName,
+    email,
     role: 'owner',
   })
 

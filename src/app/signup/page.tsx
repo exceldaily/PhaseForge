@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createWorkspace } from './actions'
 import { GantticLogo } from '@/components/branding/GantticLogo'
+import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/auth/password'
 
 export default function SignupPage() {
   const router = useRouter()
-  const [form, setForm] = useState({ fullName: '', companyName: '', email: '', password: '' })
+  const [form, setForm] = useState({ fullName: '', companyName: '', email: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState(false)
@@ -23,7 +24,19 @@ export default function SignupPage() {
     setLoading(true)
     setError('')
 
-    const result = await createWorkspace(form)
+    const passwordError = validatePassword(form.password, form.confirmPassword)
+    if (passwordError) {
+      setError(passwordError)
+      setLoading(false)
+      return
+    }
+
+    const result = await createWorkspace({
+      fullName: form.fullName,
+      companyName: form.companyName,
+      email: form.email,
+      password: form.password,
+    })
 
     if (result.error) {
       setError(result.error)
@@ -100,7 +113,11 @@ export default function SignupPage() {
             <Input id="fullName" label="Your name" placeholder="Jane Smith" value={form.fullName} onChange={set('fullName')} icon={<User size={16} />} required />
             <Input id="companyName" label="Company name" placeholder="Acme Construction" value={form.companyName} onChange={set('companyName')} icon={<Building2 size={16} />} required />
             <Input id="email" type="email" label="Work email" placeholder="jane@acme.com" value={form.email} onChange={set('email')} icon={<Mail size={16} />} required />
-            <Input id="password" type="password" label="Password" placeholder="Min. 8 characters" value={form.password} onChange={set('password')} icon={<Lock size={16} />} required minLength={8} />
+            <Input id="password" type="password" label="Password" placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`} value={form.password} onChange={set('password')} icon={<Lock size={16} />} required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
+            <Input id="confirmPassword" type="password" label="Confirm password" placeholder="Re-enter your password" value={form.confirmPassword} onChange={set('confirmPassword')} icon={<Lock size={16} />} required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
+            <p className="text-xs text-slate-500 -mt-1">
+              Use at least {MIN_PASSWORD_LENGTH} characters and make sure both password fields match before creating the workspace.
+            </p>
             {error && (
               <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">{error}</div>
             )}

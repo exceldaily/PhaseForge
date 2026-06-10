@@ -6,6 +6,7 @@ import { Lock, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { Input } from '@/components/ui/Input'
+import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/auth/password'
 
 type PageState = 'loading' | 'ready' | 'success' | 'expired'
 
@@ -49,8 +50,8 @@ export default function ResetPasswordPage() {
     e.preventDefault()
     setError('')
 
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
-    if (password !== confirm) { setError('Passwords do not match.'); return }
+    const passwordError = validatePassword(password, confirm)
+    if (passwordError) { setError(passwordError); return }
 
     setSaving(true)
     const { error: updateError } = await createClient().auth.updateUser({ password })
@@ -107,12 +108,12 @@ export default function ResetPasswordPage() {
               <h1 className="text-2xl font-bold text-slate-900 mb-1">Set new password</h1>
               <p className="text-slate-500 text-sm mb-8">Choose a strong password for your account.</p>
               <form onSubmit={handleSubmit} className="space-y-5">
-                <Input id="password" type="password" label="New password" placeholder="Min. 8 characters"
+                <Input id="password" type="password" label="New password" placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                   value={password} onChange={(e) => setPassword(e.target.value)}
-                  icon={<Lock size={16} />} required minLength={8} />
+                  icon={<Lock size={16} />} required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
                 <Input id="confirm" type="password" label="Confirm new password" placeholder="Repeat your password"
                   value={confirm} onChange={(e) => setConfirm(e.target.value)}
-                  icon={<Lock size={16} />} required />
+                  icon={<Lock size={16} />} required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
                 {error && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
                 )}

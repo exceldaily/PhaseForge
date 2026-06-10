@@ -8,6 +8,23 @@ import { checkMemberLimit } from '@/lib/planLimits'
 interface SendInviteResult {
   success?: boolean
   error?: string
+  message?: string
+}
+
+const INVITE_RESEND_COOLDOWN_MINUTES = 15
+
+function getFriendlyInviteError(message: string) {
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes('email rate limit exceeded')) {
+    return `Invitation emails are being sent too quickly right now. Please wait about ${INVITE_RESEND_COOLDOWN_MINUTES} minutes and try again.`
+  }
+
+  if (normalized.includes('already registered')) {
+    return 'That email already has an account. Ask them to sign in, or move them into this workspace from the admin console if needed.'
+  }
+
+  return message
 }
 
 async function getAppOrigin(): Promise<string> {
@@ -51,6 +68,37 @@ export async function sendInvite(
     const normalizedEmail = email.trim().toLowerCase()
     const origin = await getAppOrigin()
     const admin = createAdminClient()
+    const resendCutoff = new Date(Date.now() - INVITE_RESEND_COOLDOWN_MINUTES * 60 * 1000).toISOString()
+
+    const { data: existingMember } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('company_id', companyId)
+      .ilike('email', normalizedEmail)
+      .maybeSingle()
+
+    if (existingMember) {
+      return { error: 'That user is already a member of this workspace.' }
+    }
+
+    const { data: pendingInvite } = await admin
+      .from('invitations')
+      .select('id, created_at, expires_at, role')
+      .eq('company_id', companyId)
+      .eq('email', normalizedEmail)
+      .is('accepted_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .gte('created_at', resendCutoff)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (pendingInvite) {
+      return {
+        success: true,
+        message: `An invitation for ${normalizedEmail} was already sent recently. Ask them to check their inbox or wait ${INVITE_RESEND_COOLDOWN_MINUTES} minutes before resending.`,
+      }
+    }
 
     // Send the Supabase-native invite email. This creates the auth user (if
     // new) and emails a confirmation link. company_id + role flow through
@@ -64,8 +112,7 @@ export async function sendInvite(
     )
 
     if (inviteErr) {
-      // Common case: the email already has an account.
-      return { error: inviteErr.message }
+      return { error: getFriendlyInviteError(inviteErr.message) }
     }
 
     // Record the invitation for audit / pending-list display.
@@ -82,7 +129,7 @@ export async function sendInvite(
       { onConflict: 'token' }
     )
 
-    return { success: true }
+    return { success: true, message: `Invitation sent to ${normalizedEmail}.` }
   } catch (err) {
     console.error('sendInvite error:', err)
     return { error: err instanceof Error ? err.message : 'Failed to send invite' }
