@@ -11,21 +11,14 @@ import { GanttChart } from '@/components/gantt/GanttChart'
 import { PhaseList } from '@/components/phases/PhaseList'
 import { Badge } from '@/components/ui/Badge'
 import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
+import { ActivityTimeline } from '@/components/projects/ActivityTimeline'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
-import { Phase, Profile, Project, ProjectPriority } from '@/types/app'
+import { Phase, Profile, Project, ProjectPriority, ActivityLog } from '@/types/app'
 import { cn } from '@/lib/utils'
 
 type Tab = 'gantt' | 'tasks' | 'activity' | 'files'
-
-interface ActivityLog {
-  id: string
-  action: string
-  created_at: string
-  actor?: { full_name: string; avatar_url: string | null } | null
-  payload?: Record<string, unknown>
-}
 
 interface ProjectDetailShellProps {
   project: Project & { phases: Phase[] }
@@ -206,34 +199,10 @@ export function ProjectDetailShell({
 
       {/* ACTIVITY */}
       {activeTab === 'activity' && (
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto p-6 space-y-4">
-            <h2 className="text-sm font-semibold text-slate-700">Project Activity</h2>
-            {activityLogs.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white py-16 text-center">
-                <Activity size={28} className="mx-auto text-slate-300 mb-3" />
-                <p className="text-slate-400 text-sm">No activity recorded yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {activityLogs.map(log => (
-                  <div key={log.id} className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                      {log.actor?.full_name?.charAt(0) ?? '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-800">
-                        <span className="font-medium">{log.actor?.full_name ?? 'Someone'}</span>
-                        {' '}<span className="text-slate-500">{formatAction(log.action)}</span>
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {new Date(log.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        <div className="flex-1 overflow-hidden">
+          <div className="max-w-3xl mx-auto h-full flex flex-col p-6">
+            <h2 className="text-sm font-semibold text-slate-700 mb-4">Project Edit History</h2>
+            <ActivityTimeline logs={activityLogs} members={Object.fromEntries(members.map(m => [m.id, m.full_name]))} />
           </div>
         </div>
       )}
