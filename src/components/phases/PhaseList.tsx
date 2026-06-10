@@ -1,9 +1,10 @@
 'use client'
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, ListPlus } from 'lucide-react'
 import { Phase, Profile } from '@/types/app'
 import { PhaseRow } from './PhaseRow'
 import { PhaseForm } from './PhaseForm'
+import { BulkPhaseAdd } from './BulkPhaseAdd'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -23,6 +24,7 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
   const router = useRouter()
   const [phases, setPhases] = useState(initialPhases)
   const [showForm, setShowForm] = useState(false)
+  const [showBulk, setShowBulk] = useState(false)
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null)
 
   const handleDelete = async (phaseId: string) => {
@@ -43,6 +45,12 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
       setPhases(p => [...p, phase])
       setShowForm(false)
     }
+    router.refresh()
+  }
+
+  const handleBulkSave = (newPhases: Phase[]) => {
+    setPhases(p => [...p, ...newPhases])
+    setShowBulk(false)
     router.refresh()
   }
 
@@ -81,14 +89,31 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
 
   return (
     <div>
-      {phases.length === 0 && !showForm && (
+      {phases.length === 0 && !showForm && !showBulk && (
         <div className="px-6 py-12 text-center">
           <p className="text-slate-400 text-sm mb-3">No phases yet. Add your first phase to get started.</p>
           {canEdit && (
-            <Button size="sm" onClick={() => setShowForm(true)}>
-              <Plus size={15} /> Add Phase
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Button size="sm" onClick={() => setShowForm(true)}>
+                <Plus size={15} /> Add Phase
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setShowBulk(true)}>
+                <ListPlus size={15} /> Bulk add
+              </Button>
+            </div>
           )}
+        </div>
+      )}
+
+      {showBulk && (
+        <div className="border-b border-slate-100 p-4">
+          <BulkPhaseAdd
+            projectId={projectId}
+            currentUserId={currentUserId}
+            startSortOrder={phases.length}
+            onSave={handleBulkSave}
+            onCancel={() => setShowBulk(false)}
+          />
         </div>
       )}
 
@@ -133,10 +158,13 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
         </div>
       )}
 
-      {canEdit && phases.length > 0 && !showForm && !editingPhase && (
-        <div className="px-6 py-3 border-t border-slate-100">
+      {canEdit && phases.length > 0 && !showForm && !showBulk && !editingPhase && (
+        <div className="flex items-center gap-2 px-6 py-3 border-t border-slate-100">
           <Button variant="ghost" size="sm" onClick={() => setShowForm(true)}>
             <Plus size={15} /> Add Phase
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowBulk(true)}>
+            <ListPlus size={15} /> Bulk add
           </Button>
         </div>
       )}
