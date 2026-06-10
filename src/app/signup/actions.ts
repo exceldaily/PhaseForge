@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getFriendlyAuthError, normalizeAuthEmail, validatePassword } from '@/lib/auth/password'
+import { sendWelcomeEmail } from '@/lib/brevo'
 
 export async function createWorkspace(formData: {
   fullName: string
@@ -76,6 +77,9 @@ export async function createWorkspace(formData: {
   })
 
   if (profileErr) return { error: profileErr.message }
+
+  // Send welcome email (fire and forget; don't block signup on email failure)
+  sendWelcomeEmail(email, fullName).catch(err => console.error('Welcome email failed:', err))
 
   // session is present only when email confirmation is OFF.
   // When ON, the workspace still exists and the user finishes after confirming.

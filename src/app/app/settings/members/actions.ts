@@ -5,6 +5,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkMemberLimit } from '@/lib/planLimits'
+import { sendInviteEmail } from '@/lib/brevo'
 
 interface SendInviteResult {
   success?: boolean
@@ -135,6 +136,14 @@ export async function sendInvite(
     const publicAuth = createPublicAuthClient()
     const resendCutoff = new Date(Date.now() - INVITE_RESEND_COOLDOWN_MINUTES * 60 * 1000).toISOString()
 
+    // Get company name and inviter name for the email
+    const [{ data: company }, { data: inviterProfile }] = await Promise.all([
+      admin.from('companies').select('name').eq('id', companyId).single(),
+      admin.from('profiles').select('full_name').eq('id', user.id).single(),
+    ])
+    const companyName = company?.name || 'PhaseForge'
+    const inviterName = inviterProfile?.full_name || user.email || 'A team member'
+
     const { data: existingMember } = await admin
       .from('profiles')
       .select('id')
@@ -225,6 +234,12 @@ export async function sendInvite(
 
           await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
 
+          // Send branded Brevo email (fire and forget)
+          const inviteLink = origin ? `${origin}/invite/accept` : 'https://phaseforge.vercel.app/invite/accept'
+          sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName).catch(err =>
+            console.error('Invite email failed:', err)
+          )
+
           return {
             success: true,
             message: `${normalizedEmail} already had an account, so we restored access and sent them a sign-in link.`,
@@ -237,6 +252,12 @@ export async function sendInvite(
 
     // Record the invitation for audit / pending-list display.
     await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
+
+    // Send branded Brevo email with role context (fire and forget)
+    const inviteLink = origin ? `${origin}/invite/accept` : 'https://phaseforge.vercel.app/invite/accept'
+    sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName).catch(err =>
+      console.error('Invite email failed:', err)
+    )
 
     return { success: true, message: `Invitation sent to ${normalizedEmail}.` }
   } catch (err) {
