@@ -93,6 +93,7 @@ export interface RawRow {
   start: string
   end: string
   indent: number
+  project?: string   // set when the sheet has an explicit Project column
 }
 
 export function parseTextToRows(lines: string[]): RawRow[] {
@@ -143,6 +144,29 @@ export function detectProjects(rows: RawRow[], fileName?: string): DetectedProje
   const defaultProjectName = fileName
     ? fileName.replace(/\.[^/.]+$/, '').trim() || 'Imported Schedule'
     : 'Imported Schedule'
+
+  // If rows carry an explicit Project column, split into one project per value.
+  if (rows.some(r => r.project)) {
+    const groups = new Map<string, RawRow[]>()
+    for (const row of rows) {
+      const key = (row.project || defaultProjectName).trim()
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(row)
+    }
+
+    return [...groups.entries()].map(([name, groupRows]) => {
+      const dates = groupRows.flatMap(r => [r.start, r.end]).filter(Boolean).sort()
+      return {
+        id: crypto.randomUUID(),
+        name,
+        start_date: dates[0],
+        end_date: dates[dates.length - 1],
+        phases: groupRows.map(r => ({ name: r.name, start_date: r.start, end_date: r.end, indent: 0 })),
+        accepted: true,
+        status: 'mobilization',
+      }
+    }).filter(p => p.phases.length > 0)
+  }
 
   // If everything is the same indent, treat the whole file as one project
   if (maxLevel === 0) {
@@ -228,42 +252,77 @@ export function detectProjects(rows: RawRow[], fileName?: string): DetectedProje
 
 // ─── Table row parser (Excel / CSV) ──────────────────────────────────────────
 
-function detectColumns(headers: string[]): { nameIdx: number; startIdx: number; endIdx: number } | null {
-  const h = headers.map(h => String(h || '').toLowerCase().trim())
-  const nameIdx = h.findIndex(c => c.includes('name') || c.includes('task') || c.includes('description') || c.includes('phase') || c.includes('activity') || c === 'item')
-  const startIdx = h.findIndex(c => c.includes('start') || c.includes('begin') || c.includes('from'))
-  const endIdx = h.findIndex(c => c.includes('end') || c.includes('finish') || c.includes('due') || c.includes('complete'))
-  if (nameIdx === -1 || startIdx === -1 || endIdx === -1) return null
-  return { nameIdx, startIdx, endIdx }
+interface DetectedColumns {
+  taskIdx: number
+  phaseIdx: number
+  genericNameIdx: number
+  projectIdx: number
+  typeIdx: number
+  startIdx: number
+  endIdx: number
+}
+
+function detectColumns(headers: string[]): DetectedColumns | null {
+  const h = headers.map(c => String(c || '').toLowerCase().trim())
+  const find = (pred: (c: string) => boolean) => h.findIndex(pred)
+  const notCount = (c: string) => !c.includes('count') // avoid "Phase Count" / "Task Count"
+
+  // A dedicated Project/Job/Site column lets us split one sheet into many projects.
+  const projectIdx = find(c => notCount(c) && (c === 'project' || c === 'job' || c === 'site' || (c.includes('project') && !c.includes('summary'))))
+  const taskIdx = find(c => notCount(c) && c.includes('task'))
+  const phaseIdx = find(c => notCount(c) && c.includes('phase'))
+  const genericNameIdx = find(c => notCount(c) && (c.includes('name') || c.includes('description') || c.includes('activity') || c === 'item'))
+  const startIdx = find(c => c.includes('start') || c.includes('begin') || c.includes('from'))
+  const endIdx = find(c => c.includes('end') || c.includes('finish') || c.includes('due') || c.includes('complete'))
+  const typeIdx = find(c => c === 'type')
+
+  const hasName = taskIdx !== -1 || phaseIdx !== -1 || genericNameIdx !== -1
+  if (!hasName || startIdx === -1 || endIdx === -1) return null
+  return { taskIdx, phaseIdx, genericNameIdx, projectIdx, typeIdx, startIdx, endIdx }
 }
 
 export function parseTableRows(rows: (string | number | null)[][]): RawRow[] {
   if (rows.length < 2) return []
 
-  let headerRowIdx = 0
-  for (let i = 0; i < Math.min(10, rows.length); i++) {
-    if (rows[i].filter(c => c !== null && c !== '').length >= 3) { headerRowIdx = i; break }
+  // Find the real header row — scan past any title/metadata preamble until a
+  // row both looks like a header (≥3 cells) AND yields recognizable columns.
+  let cols: DetectedColumns | null = null
+  let headerRowIdx = -1
+  for (let i = 0; i < Math.min(15, rows.length); i++) {
+    if (rows[i].filter(c => c !== null && c !== '').length < 3) continue
+    const candidate = detectColumns(rows[i].map(c => String(c ?? '')))
+    if (candidate) { cols = candidate; headerRowIdx = i; break }
   }
-
-  const headers = rows[headerRowIdx].map(c => String(c ?? ''))
-  const cols = detectColumns(headers)
   if (!cols) return []
 
   const result: RawRow[] = []
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const row = rows[i]
-    const rawName = row[cols.nameIdx]
-    const name = String(rawName ?? '').trim()
+
+    // Skip project-summary rows (Type === 'Project') so they don't become phases.
+    if (cols.typeIdx !== -1) {
+      const t = String(row[cols.typeIdx] ?? '').toLowerCase().trim()
+      if (t === 'project') continue
+    }
+
+    // Phase name: prefer the most specific (Task), then Phase, then a generic name.
+    const taskVal = cols.taskIdx !== -1 ? String(row[cols.taskIdx] ?? '').trim() : ''
+    const phaseVal = cols.phaseIdx !== -1 ? String(row[cols.phaseIdx] ?? '').trim() : ''
+    const genVal = cols.genericNameIdx !== -1 ? String(row[cols.genericNameIdx] ?? '').trim() : ''
+    const rawName = taskVal || phaseVal || genVal
+    const name = rawName.replace(/\s+/g, ' ').trim()
     if (!name || name.length < 2) continue
 
     const start = normaliseDate(row[cols.startIdx] as string | number | null)
     const end = normaliseDate(row[cols.endIdx] as string | number | null)
     if (!start || !end) continue
 
+    const project = cols.projectIdx !== -1 ? String(row[cols.projectIdx] ?? '').trim() || undefined : undefined
+
     const leading = String(rawName).match(/^(\s+)/)
     const indent = leading ? Math.floor(leading[1].length / 2) : 0
 
-    result.push({ name, start, end, indent })
+    result.push({ name, start, end, indent, project })
   }
   return result
 }

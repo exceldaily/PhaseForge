@@ -60,24 +60,39 @@ export async function POST(req: NextRequest) {
       // Multi-tab workbook → one (or more) project(s) per tab, named after the
       // tab. Tabs with no usable schedule rows (e.g. a "Summary" tab) are skipped.
       if (sheetNames.length > 1) {
-        const projects = []
+        const collected = []
         let totalTasks = 0
 
         for (const name of sheetNames) {
           const sheetRows = readSheet(name)
           if (sheetRows.length === 0) continue
           totalTasks += sheetRows.length
-          // Use the tab name as the project name (detectProjects falls back to
-          // it for flat tabs, or splits further if a tab has its own hierarchy).
-          projects.push(...detectProjects(sheetRows, name))
+          // A tab with a Project column splits into multiple projects; otherwise
+          // it becomes a single project named after the tab.
+          collected.push(...detectProjects(sheetRows, name))
         }
 
-        if (projects.length === 0) {
+        if (collected.length === 0) {
           return NextResponse.json({
             error: 'No schedule data found in any tab. Each tab needs task names with Start Date and End Date columns.',
           }, { status: 422 })
         }
 
+        // De-duplicate: a workbook may describe the same project both in a master
+        // "All Tasks" tab and in its own per-project tab. Collapse by a normalized
+        // name (tolerant of Excel's 31-char tab-name truncation), keeping the
+        // version with the most phases.
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24)
+        const byKey = new Map<string, (typeof collected)[number]>()
+        for (const proj of collected) {
+          const key = norm(proj.name)
+          const existing = byKey.get(key)
+          if (!existing || proj.phases.length > existing.phases.length) {
+            byKey.set(key, proj)
+          }
+        }
+
+        const projects = [...byKey.values()]
         return NextResponse.json({ projects, totalTasks })
       }
 
