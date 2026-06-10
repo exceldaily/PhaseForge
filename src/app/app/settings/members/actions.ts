@@ -248,17 +248,13 @@ export async function sendInvite(
     // Create invitation record and get token
     const token = await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
 
-    // Build the invite link with token (and temp password if new user)
-    let inviteLink = origin
+    // Build the invite link with token
+    const inviteLink = origin
       ? `${origin}/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
       : `https://phaseforge.vercel.app/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
 
-    if (tempPassword) {
-      inviteLink += `&tempPassword=${encodeURIComponent(tempPassword)}`
-    }
-
     // Send branded Brevo email
-    const emailResult = await sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName, tempPassword)
+    const emailResult = await sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName)
 
     if (!emailResult.success) {
       console.error('[SendInvite] Brevo email failed:', {

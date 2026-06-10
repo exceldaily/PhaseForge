@@ -87,39 +87,53 @@ export async function acceptInvite(token?: string, email?: string, tempPassword?
 export async function setInvitePassword(
   password: string,
   token?: string,
-  email?: string,
-  tempPassword?: string
+  email?: string
 ): Promise<{ success?: boolean; error?: string }> {
   try {
     if (!password || password.length < 8) {
       return { error: 'Password must be at least 8 characters' }
     }
 
-    const supabase = await createClient()
     const admin = createAdminClient()
 
-    // If we have token/email/tempPassword, sign in with temp password first
-    if (token && email && tempPassword) {
-      // Sign in with temp password
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase(),
-        password: tempPassword,
-      })
+    // Find the user by email
+    let authUserId: string | null = null
 
-      if (signInErr) {
-        return { error: 'Invalid temporary password. Please try again or request a new invite.' }
+    if (email) {
+      // Search for the user by email
+      let page = 1
+      while (page <= 10) {
+        const { data, error } = await admin.auth.admin.listUsers({
+          page,
+          perPage: 200,
+        })
+
+        if (error) {
+          return { error: 'Failed to find user account' }
+        }
+
+        const foundUser = data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase())
+        if (foundUser) {
+          authUserId = foundUser.id
+          break
+        }
+
+        if (data.users.length < 200) {
+          break
+        }
+
+        page += 1
       }
     }
 
-    // Now we should be authenticated
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return { error: 'Not authenticated. Please try again.' }
+    if (!authUserId) {
+      return { error: 'User account not found. Please request a new invite.' }
     }
 
-    // Update user password
-    const { error: updateErr } = await supabase.auth.updateUser({ password })
+    // Update user password directly using admin client (no auth required)
+    const { error: updateErr } = await admin.auth.admin.updateUserById(authUserId, {
+      password,
+    })
 
     if (updateErr) {
       return { error: updateErr.message }
@@ -132,6 +146,18 @@ export async function setInvitePassword(
         .update({ accepted_at: new Date().toISOString() })
         .eq('token', token)
         .eq('email', email.toLowerCase())
+    }
+
+    // Sign them in with their new password
+    const supabase = await createClient()
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: email!.toLowerCase(),
+      password,
+    })
+
+    if (signInErr) {
+      // Password was set but sign in failed - still a success, they can sign in manually
+      console.error('Auto sign-in failed:', signInErr)
     }
 
     return { success: true }

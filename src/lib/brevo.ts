@@ -87,8 +87,7 @@ export async function sendInviteEmail(
   inviteLink: string,
   companyName: string,
   role: string,
-  invitedBy: string,
-  tempPassword?: string
+  invitedBy: string
 ) {
   const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -106,12 +105,9 @@ export async function sendInviteEmail(
         </a>
       </p>
 
-      ${tempPassword ? `
-      <p style="margin-top: 20px; color: #0f172a; font-size: 13px; background-color: #f0fdf4; border-left: 3px solid #10b981; padding: 10px 12px;">
-        <strong>Temporary password:</strong> <code style="background: white; padding: 2px 4px; font-family: monospace; border-radius: 3px;">${tempPassword}</code><br/>
-        You'll be prompted to create a new password after clicking the link above.
+      <p style="margin-top: 20px; color: #0f172a; font-size: 14px;">
+        Clicking the link above will take you to set up your password and complete your account setup.
       </p>
-      ` : ''}
 
       <p style="margin-top: 20px; color: #94a3b8; font-size: 14px;">
         This link expires in 7 days. If you didn't expect this invitation, you can safely ignore this email.
