@@ -62,7 +62,13 @@ export default function InviteAcceptPage() {
     setSaving(true)
     setState('confirming')
 
-    const result = await setInvitePassword(password)
+    // Extract invite params from URL
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token') || undefined
+    const email = params.get('email') || undefined
+    const tempPassword = params.get('tempPassword') || undefined
+
+    const result = await setInvitePassword(password, token, email, tempPassword)
     setSaving(false)
 
     if (result.error) {

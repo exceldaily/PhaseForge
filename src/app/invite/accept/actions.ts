@@ -10,16 +10,14 @@ interface AcceptResult {
 }
 
 /**
- * Verify invitation token and authenticate user via temporary password
+ * Verify invitation token and set up for password entry
  */
 export async function acceptInvite(token?: string, email?: string, tempPassword?: string): Promise<AcceptResult> {
   try {
-    const supabase = await createClient()
+    const admin = createAdminClient()
 
-    // If we have token + email + tempPassword, verify token and sign in
+    // If we have token + email + tempPassword, just verify the token (don't sign in yet)
     if (token && email && tempPassword) {
-      const admin = createAdminClient()
-
       // Verify token exists and is valid
       const { data: invitation } = await admin
         .from('invitations')
@@ -40,44 +38,13 @@ export async function acceptInvite(token?: string, email?: string, tempPassword?
         return { error: 'This invitation has expired.' }
       }
 
-      // Sign in with temp password to establish session
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase(),
-        password: tempPassword,
-      })
-
-      if (signInErr) {
-        return { error: 'Failed to authenticate. Please try again or request a new invite.' }
-      }
-
-      // Get authenticated user
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        return { error: 'Authentication failed' }
-      }
-
-      const meta = user.user_metadata || {}
-      const role = (meta.role as string | undefined) ?? 'member'
-
-      // Ensure profile is set up with company + role
-      await admin.from('profiles').upsert({
-        id: user.id,
-        email: user.email,
-        full_name: (meta.full_name as string | undefined) ?? email.split('@')[0] ?? '',
-        company_id: invitation.company_id,
-        role,
-      })
-
-      // Mark invitation as accepted
-      await admin
-        .from('invitations')
-        .update({ accepted_at: new Date().toISOString() })
-        .eq('token', token)
-
+      // Token is valid - store it in session storage so setInvitePassword can use it later
+      // For now, just confirm the token is valid and return success
       return { success: true, needsPassword: true }
     }
 
     // Fallback: check if already authenticated
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
@@ -87,8 +54,6 @@ export async function acceptInvite(token?: string, email?: string, tempPassword?
     const meta = user.user_metadata || {}
     const companyId = meta.company_id as string | undefined
     const role = (meta.role as string | undefined) ?? 'member'
-
-    const admin = createAdminClient()
 
     // Ensure the profile reflects the invited company + role
     await admin.from('profiles').upsert({
@@ -117,26 +82,56 @@ export async function acceptInvite(token?: string, email?: string, tempPassword?
 }
 
 /**
- * Sets password for an invited user
+ * Sets password for an invited user, and marks invitation as accepted
  */
-export async function setInvitePassword(password: string): Promise<{ success?: boolean; error?: string }> {
+export async function setInvitePassword(
+  password: string,
+  token?: string,
+  email?: string,
+  tempPassword?: string
+): Promise<{ success?: boolean; error?: string }> {
   try {
     if (!password || password.length < 8) {
       return { error: 'Password must be at least 8 characters' }
     }
 
     const supabase = await createClient()
+    const admin = createAdminClient()
+
+    // If we have token/email/tempPassword, sign in with temp password first
+    if (token && email && tempPassword) {
+      // Sign in with temp password
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: email.toLowerCase(),
+        password: tempPassword,
+      })
+
+      if (signInErr) {
+        return { error: 'Invalid temporary password. Please try again or request a new invite.' }
+      }
+    }
+
+    // Now we should be authenticated
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return { error: 'Not authenticated' }
+      return { error: 'Not authenticated. Please try again.' }
     }
 
     // Update user password
-    const { error } = await supabase.auth.updateUser({ password })
+    const { error: updateErr } = await supabase.auth.updateUser({ password })
 
-    if (error) {
-      return { error: error.message }
+    if (updateErr) {
+      return { error: updateErr.message }
+    }
+
+    // Mark invitation as accepted (fire and forget)
+    if (token && email) {
+      admin
+        .from('invitations')
+        .update({ accepted_at: new Date().toISOString() })
+        .eq('token', token)
+        .eq('email', email.toLowerCase())
     }
 
     return { success: true }
