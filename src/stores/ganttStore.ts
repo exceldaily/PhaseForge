@@ -5,6 +5,9 @@ import { addDays, differenceInDays, getFitViewRange, getShiftDaysForZoom, getVie
 import { ZOOM_PIXELS_PER_DAY } from '@/lib/constants'
 import { ZoomLevel } from '@/types/app'
 
+export type ShiftMode = 'single' | 'cascade'
+export type ColorMode = 'standard' | 'status' | 'none'
+
 interface GanttState {
   zoom: ZoomLevel
   viewStart: Date
@@ -13,6 +16,8 @@ interface GanttState {
   selectedPhaseId: string | null
   selectedProjectId: string | null
   collapsedProjects: Set<string>
+  shiftMode: ShiftMode
+  colorMode: ColorMode
   setZoom: (zoom: ZoomLevel) => void
   setSelectedPhase: (id: string | null) => void
   setSelectedProject: (id: string | null) => void
@@ -21,6 +26,8 @@ interface GanttState {
   shiftView: (direction: 'backward' | 'forward') => void
   setViewRange: (start: Date, end: Date) => void
   fitViewToRange: (start: Date, end: Date) => void
+  setShiftMode: (mode: ShiftMode) => void
+  setColorMode: (mode: ColorMode) => void
 }
 
 export const useGanttStore = create<GanttState>((set, get) => ({
@@ -31,6 +38,8 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   selectedPhaseId: null,
   selectedProjectId: null,
   collapsedProjects: new Set(),
+  shiftMode: 'single',
+  colorMode: 'standard',
 
   setZoom: (zoom) => {
     const { viewStart, viewEnd } = get()
@@ -79,4 +88,8 @@ export const useGanttStore = create<GanttState>((set, get) => ({
     const fitted = getFitViewRange(zoom, start, end)
     set({ viewStart: fitted.start, viewEnd: fitted.end })
   },
+
+  setShiftMode: (mode) => set({ shiftMode: mode }),
+
+  setColorMode: (mode) => set({ colorMode: mode }),
 }))

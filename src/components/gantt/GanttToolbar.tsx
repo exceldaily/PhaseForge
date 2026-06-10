@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Target, Printer } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Target, Printer, Link2, Palette } from 'lucide-react'
 import { format, parseISO } from '@/lib/dates'
 import { useGanttStore } from '@/stores/ganttStore'
 import { Button } from '@/components/ui/Button'
@@ -38,15 +38,24 @@ export function GanttToolbar({
   onFitTimeline: () => void
   projects?: Project[]
 }) {
-  const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd, collapsedProjects, selectedProjectId } = useGanttStore()
+  const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd, collapsedProjects, selectedProjectId, shiftMode, setShiftMode, colorMode, setColorMode } = useGanttStore()
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [isPrintMenuOpen, setIsPrintMenuOpen] = useState(false)
   const [printScope, setPrintScope] = useState<'current' | 'all' | null>(null)
   const [printStyle, setPrintStyle] = useState<'chart' | 'list'>('chart')
+  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false)
   const datePickerRef = useRef<HTMLDivElement | null>(null)
   const printMenuRef = useRef<HTMLDivElement | null>(null)
+  const colorMenuRef = useRef<HTMLDivElement | null>(null)
+
+  const COLOR_OPTIONS: { value: 'standard' | 'status' | 'none'; label: string; hint: string }[] = [
+    { value: 'standard', label: 'Standard colors', hint: 'Each task its own color' },
+    { value: 'status', label: 'Status colors', hint: 'Color by task status' },
+    { value: 'none', label: 'No coloring', hint: 'Neutral gray — clean print' },
+  ]
+  const colorLabel = COLOR_OPTIONS.find((o) => o.value === colorMode)?.label ?? 'Colors'
   const rangeLabel = getRangeLabel(viewStart, viewEnd, zoom)
 
   const handlePrint = (scope: 'current' | 'all') => {
@@ -62,11 +71,14 @@ export function GanttToolbar({
       if (isPrintMenuOpen && !printMenuRef.current?.contains(event.target as Node)) {
         setIsPrintMenuOpen(false)
       }
+      if (isColorMenuOpen && !colorMenuRef.current?.contains(event.target as Node)) {
+        setIsColorMenuOpen(false)
+      }
     }
 
     document.addEventListener('mousedown', handlePointerDown)
     return () => document.removeEventListener('mousedown', handlePointerDown)
-  }, [isDatePickerOpen, isPrintMenuOpen])
+  }, [isDatePickerOpen, isPrintMenuOpen, isColorMenuOpen])
 
   const handleApplyRange = () => {
     if (!fromDate || !toDate) return
@@ -194,6 +206,57 @@ export function GanttToolbar({
               {label}
             </button>
           ))}
+        </div>
+
+        {/* Move mode: shift only this task, or this + later tasks */}
+        <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm" title="What happens when you drag a task">
+          <button
+            type="button"
+            onClick={() => setShiftMode('single')}
+            className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-all ${
+              shiftMode === 'single' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'
+            }`}
+            title="Moving a task moves only that task"
+          >
+            Move 1
+          </button>
+          <button
+            type="button"
+            onClick={() => setShiftMode('cascade')}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all ${
+              shiftMode === 'cascade' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'
+            }`}
+            title="Moving a task shifts all later tasks in that project too"
+          >
+            <Link2 size={12} /> Shift later
+          </button>
+        </div>
+
+        {/* Color mode */}
+        <div ref={colorMenuRef} className="relative">
+          <Button variant="outline" size="sm" onClick={() => setIsColorMenuOpen((o) => !o)}>
+            <Palette size={14} /> {colorLabel}
+            <ChevronDown size={13} className={`transition-transform ${isColorMenuOpen ? 'rotate-180' : ''}`} />
+          </Button>
+          {isColorMenuOpen && (
+            <div className="absolute right-0 top-full z-20 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+              {COLOR_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => { setColorMode(option.value); setIsColorMenuOpen(false) }}
+                  className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${
+                    colorMode === option.value ? 'bg-indigo-50' : ''
+                  }`}
+                >
+                  <div>
+                    <p className={`font-medium ${colorMode === option.value ? 'text-indigo-700' : 'text-slate-700'}`}>{option.label}</p>
+                    <p className="text-[11px] text-slate-400">{option.hint}</p>
+                  </div>
+                  {colorMode === option.value && <span className="text-xs text-indigo-600">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <Button variant="outline" size="sm" onClick={onFitTimeline} disabled={!canFitTimeline}>

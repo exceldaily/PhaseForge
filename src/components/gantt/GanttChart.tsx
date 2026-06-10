@@ -49,6 +49,8 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     collapsedProjects,
     toggleProjectCollapse,
     fitViewToRange,
+    shiftMode,
+    colorMode,
   } = useGanttStore()
   const [projects, setProjects] = useState(initialProjects)
   const [dragging, setDragging] = useState<{
@@ -210,28 +212,81 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     const phase = projects.find((project) => project.id === snapshot.projectId)?.phases?.find((item) => item.id === snapshot.phaseId)
     if (!phase) return
 
+    // Net days the moved phase shifted (only meaningful for a 'move' drag).
+    const deltaDays = differenceInDays(parseISO(phase.start_date), parseISO(snapshot.origStart))
+
+    // Cascade: when in "move this + later" mode and the bar was moved (not
+    // resized), shift every later phase in the same project by the same delta,
+    // preserving each task's duration.
+    const shouldCascade = shiftMode === 'cascade' && snapshot.mode === 'move' && deltaDays !== 0
+
+    const project = projects.find((p) => p.id === snapshot.projectId)
+    const cascadePhases = shouldCascade && project
+      ? (project.phases || []).filter(
+          (p) => p.id !== snapshot.phaseId && p.start_date >= snapshot.origStart
+        )
+      : []
+
+    // Build the optimistic shifted versions for the cascade set.
+    const cascadeUpdates = cascadePhases.map((p) => ({
+      id: p.id,
+      origStart: p.start_date,
+      origEnd: p.end_date,
+      start_date: format(addDays(parseISO(p.start_date), deltaDays), 'yyyy-MM-dd'),
+      end_date: format(addDays(parseISO(p.end_date), deltaDays), 'yyyy-MM-dd'),
+    }))
+
+    if (cascadeUpdates.length > 0) {
+      setProjects((currentProjects) =>
+        currentProjects.map((proj) => {
+          if (proj.id !== snapshot.projectId) return proj
+          const byId = new Map(cascadeUpdates.map((u) => [u.id, u]))
+          return {
+            ...proj,
+            phases: (proj.phases || []).map((p) => {
+              const u = byId.get(p.id)
+              return u ? { ...p, start_date: u.start_date, end_date: u.end_date } : p
+            }),
+          }
+        })
+      )
+    }
+
     const supabase = createClient()
     const updatedAt = new Date().toISOString()
-    const { error } = await supabase
-      .from('phases')
-      .update({
-        start_date: phase.start_date,
-        end_date: phase.end_date,
-        updated_at: updatedAt,
-      })
-      .eq('id', phase.id)
 
-    if (error) {
+    // Persist the moved phase plus any cascaded phases.
+    const writes = [
+      supabase
+        .from('phases')
+        .update({ start_date: phase.start_date, end_date: phase.end_date, updated_at: updatedAt })
+        .eq('id', phase.id),
+      ...cascadeUpdates.map((u) =>
+        supabase
+          .from('phases')
+          .update({ start_date: u.start_date, end_date: u.end_date, updated_at: updatedAt })
+          .eq('id', u.id)
+      ),
+    ]
+
+    const results = await Promise.all(writes)
+    const failed = results.some((r) => r.error)
+
+    if (failed) {
+      // Revert the moved phase and every cascaded phase to their originals.
       setProjects((currentProjects) =>
-        currentProjects.map((project) => {
-          if (project.id !== snapshot.projectId) return project
+        currentProjects.map((proj) => {
+          if (proj.id !== snapshot.projectId) return proj
+          const revertById = new Map(cascadeUpdates.map((u) => [u.id, u]))
           return {
-            ...project,
-            phases: (project.phases || []).map((p) =>
-              p.id === snapshot.phaseId
-                ? { ...p, start_date: snapshot.origStart, end_date: snapshot.origEnd }
-                : p
-            ),
+            ...proj,
+            phases: (proj.phases || []).map((p) => {
+              if (p.id === snapshot.phaseId) {
+                return { ...p, start_date: snapshot.origStart, end_date: snapshot.origEnd }
+              }
+              const u = revertById.get(p.id)
+              return u ? { ...p, start_date: u.origStart, end_date: u.origEnd } : p
+            }),
           }
         })
       )
@@ -239,7 +294,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     }
 
     await touchProjectAudit(supabase, snapshot.projectId, currentUserId, updatedAt)
-  }, [currentUserId, dragging, projects])
+  }, [currentUserId, dragging, projects, shiftMode])
 
   const handlePhaseUpdate = useCallback((updatedPhase: Phase) => {
     setProjects((currentProjects) => currentProjects.map((project) => ({
