@@ -5,7 +5,7 @@
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY || ''
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
-const SENDER_EMAIL = 'exceldaily7@gmail.com'
+const SENDER_EMAIL = 'noreply@phase-forge.com'
 const SENDER_NAME = 'PhaseForge'
 
 // Log on init (for debugging)
