@@ -46,9 +46,44 @@ export async function POST(req: NextRequest) {
     if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
       const XLSX = await import('xlsx')
       const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false })
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
-      const tableRows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null }) as (string | number | null)[][]
-      rows = parseTableRows(tableRows)
+      const sheetNames = workbook.SheetNames
+
+      const readSheet = (name: string) =>
+        parseTableRows(
+          XLSX.utils.sheet_to_json(workbook.Sheets[name], {
+            header: 1,
+            raw: true,
+            defval: null,
+          }) as (string | number | null)[][]
+        )
+
+      // Multi-tab workbook → one (or more) project(s) per tab, named after the
+      // tab. Tabs with no usable schedule rows (e.g. a "Summary" tab) are skipped.
+      if (sheetNames.length > 1) {
+        const projects = []
+        let totalTasks = 0
+
+        for (const name of sheetNames) {
+          const sheetRows = readSheet(name)
+          if (sheetRows.length === 0) continue
+          totalTasks += sheetRows.length
+          // Use the tab name as the project name (detectProjects falls back to
+          // it for flat tabs, or splits further if a tab has its own hierarchy).
+          projects.push(...detectProjects(sheetRows, name))
+        }
+
+        if (projects.length === 0) {
+          return NextResponse.json({
+            error: 'No schedule data found in any tab. Each tab needs task names with Start Date and End Date columns.',
+          }, { status: 422 })
+        }
+
+        return NextResponse.json({ projects, totalTasks })
+      }
+
+      // Single sheet (or CSV) → unchanged behavior; falls through to the
+      // shared detectProjects(file.name) path below.
+      rows = readSheet(sheetNames[0])
     }
 
     // ── PDF — handled client-side, should not reach here ─────────────────────
