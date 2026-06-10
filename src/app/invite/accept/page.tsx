@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { acceptInvite } from './actions'
 
@@ -26,26 +26,28 @@ export default function InviteAcceptPage() {
       }
 
       setState('done')
-      // Brief pause so the user sees confirmation, then into the app.
       setTimeout(() => router.push('/app/dashboard'), 1200)
     }
 
     run()
-    return () => { cancelled = true }
+
+    return () => {
+      cancelled = true
+    }
   }, [router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#f7efe6] p-8">
       <div className="w-full max-w-md text-center">
         <div className="mb-8 flex justify-center">
-          <GantticLogo variant="lockup" width={200} priority alt="Ganttic logo" />
+          <GantticLogo variant="lockup" width={220} priority alt="PhaseForge logo" />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-2xl border border-[#eadac7] bg-white p-8 shadow-[0_20px_40px_rgba(77,43,15,0.06)]">
           {state === 'working' && (
             <>
-              <Loader2 size={40} className="mx-auto mb-4 animate-spin text-indigo-600" />
-              <h1 className="text-xl font-bold text-slate-900">Setting up your access…</h1>
+              <Loader2 size={40} className="mx-auto mb-4 animate-spin text-[#d78829]" />
+              <h1 className="text-xl font-bold text-slate-900">Setting up your access...</h1>
               <p className="mt-2 text-slate-500">Joining your workspace, one moment.</p>
             </>
           )}
@@ -54,7 +56,7 @@ export default function InviteAcceptPage() {
             <>
               <CheckCircle2 size={40} className="mx-auto mb-4 text-emerald-500" />
               <h1 className="text-xl font-bold text-slate-900">You&apos;re in!</h1>
-              <p className="mt-2 text-slate-500">Redirecting you to your dashboard…</p>
+              <p className="mt-2 text-slate-500">Redirecting you to your dashboard...</p>
             </>
           )}
 
@@ -65,7 +67,7 @@ export default function InviteAcceptPage() {
               <p className="mt-2 text-slate-500">{message}</p>
               <Link
                 href="/login"
-                className="mt-6 inline-block w-full rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
+                className="mt-6 inline-block w-full rounded-lg bg-[linear-gradient(90deg,#b46111_0%,#d78829_42%,#f59e0b_100%)] px-4 py-3 font-medium text-white transition-all hover:brightness-105"
               >
                 Go to sign in
               </Link>

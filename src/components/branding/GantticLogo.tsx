@@ -1,16 +1,17 @@
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import { BRAND_ICON_SRC, BRAND_LOCKUP_SRC } from '@/lib/branding'
 
 const LOGO_ASSETS = {
   icon: {
-    src: '/branding/ganttic-app-icon.png',
-    width: 165,
-    height: 160,
+    src: BRAND_ICON_SRC,
+    width: 360,
+    height: 370,
   },
   lockup: {
-    src: '/branding/ganttic-horizontal-lockup.png',
-    width: 586,
-    height: 170,
+    src: BRAND_LOCKUP_SRC,
+    width: 950,
+    height: 380,
   },
 } as const
 
@@ -26,7 +27,7 @@ export function GantticLogo({
   variant = 'lockup',
   width,
   priority = false,
-  alt = 'Ganttic logo',
+  alt = 'PhaseForge logo',
   className,
 }: GantticLogoProps) {
   const asset = LOGO_ASSETS[variant]

@@ -65,7 +65,7 @@ export async function createCheckoutSession(
     : {
         price_data: {
           currency: 'usd',
-          product_data: { name: `Ganttic ${planType === 'pro' ? 'Pro' : 'Business'}` },
+          product_data: { name: `PhaseForge ${planType === 'pro' ? 'Pro' : 'Business'}` },
           unit_amount: PLAN_PRICING[planType],
           recurring: { interval: 'month' as const },
         },

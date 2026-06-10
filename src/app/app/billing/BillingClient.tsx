@@ -33,7 +33,6 @@ interface BillingClientProps {
     members: number
   }
   invoices: Invoice[]
-  currentUserEmail: string
 }
 
 const TABS = [
@@ -50,7 +49,6 @@ export function BillingClient({
   billingCycleEnd,
   usage,
   invoices,
-  currentUserEmail,
 }: BillingClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>('plan')
 
@@ -98,7 +96,6 @@ export function BillingClient({
             billingCycleStart={billingCycleStart}
             billingCycleEnd={billingCycleEnd}
             companyId={companyId}
-            userEmail={currentUserEmail}
           />
         )}
 

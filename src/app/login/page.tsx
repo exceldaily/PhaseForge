@@ -17,6 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { GantticLogo } from '@/components/branding/GantticLogo'
+import { BRAND_NAME } from '@/lib/branding'
 import { cn } from '@/lib/utils'
 
 const sora = Sora({
@@ -67,30 +68,30 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={cn(manrope.className, 'min-h-screen bg-[#f4f7ff] text-slate-900')}>
+    <div className={cn(manrope.className, 'min-h-screen bg-[#f7efe6] text-slate-900')}>
       <div className="grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
-        <section className="relative hidden overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(40,116,255,0.20),transparent_26%),radial-gradient(circle_at_80%_55%,rgba(45,212,255,0.12),transparent_28%),linear-gradient(180deg,#030918_0%,#071433_48%,#040b1c_100%)] px-10 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-16 xl:py-12">
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:76px_76px] opacity-25" />
-          <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-cyan-500/20 to-transparent" />
-          <div className="absolute -bottom-36 left-[-18%] h-[24rem] w-[54rem] rotate-[8deg] rounded-[999px] border border-cyan-400/10" />
-          <div className="absolute -bottom-44 left-[-10%] h-[28rem] w-[60rem] rotate-[8deg] rounded-[999px] border border-blue-500/20" />
-          <div className="absolute -bottom-52 left-[-4%] h-[31rem] w-[66rem] rotate-[8deg] rounded-[999px] border border-indigo-500/20" />
-          <div className="absolute -bottom-56 left-[4%] h-[33rem] w-[68rem] rotate-[8deg] rounded-[999px] border border-blue-400/15" />
-          <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-cyan-500/15 blur-3xl" />
+        <section className="relative hidden overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,205,110,0.18),transparent_24%),radial-gradient(circle_at_82%_60%,rgba(240,118,27,0.16),transparent_30%),linear-gradient(180deg,#17100d_0%,#261811_45%,#100a08_100%)] px-10 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-16 xl:py-12">
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:76px_76px] opacity-20" />
+          <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-amber-400/30 to-transparent" />
+          <div className="absolute -bottom-36 left-[-18%] h-[24rem] w-[54rem] rotate-[8deg] rounded-[999px] border border-amber-300/10" />
+          <div className="absolute -bottom-44 left-[-10%] h-[28rem] w-[60rem] rotate-[8deg] rounded-[999px] border border-orange-400/15" />
+          <div className="absolute -bottom-52 left-[-4%] h-[31rem] w-[66rem] rotate-[8deg] rounded-[999px] border border-amber-500/15" />
+          <div className="absolute -bottom-56 left-[4%] h-[33rem] w-[68rem] rotate-[8deg] rounded-[999px] border border-orange-300/10" />
+          <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-amber-400/15 blur-3xl" />
 
           <div className="relative">
-            <GantticLogo variant="lockup" width={450} priority alt="Ganttic horizontal logo" />
+            <GantticLogo variant="lockup" width={450} priority alt="PhaseForge horizontal logo" />
           </div>
 
           <div className="relative max-w-xl pt-16">
             <h1 className={cn(sora.className, 'text-5xl font-extrabold leading-[0.95] xl:text-[5.5rem]')}>
               <span className="block text-white">Plan smarter.</span>
-              <span className="mt-3 block bg-[linear-gradient(90deg,#19b6ff_0%,#3957ff_50%,#6b38ff_100%)] bg-clip-text text-transparent">
+              <span className="mt-3 block bg-[linear-gradient(90deg,#ffd574_0%,#ffad33_35%,#f97316_100%)] bg-clip-text text-transparent">
                 Build faster.
               </span>
             </h1>
-            <div className="mt-8 h-1 w-52 rounded-full bg-[linear-gradient(90deg,#246bff_0%,#1fd4ff_100%)] shadow-[0_0_28px_rgba(32,152,255,0.55)]" />
-            <p className="mt-8 max-w-lg text-[1.05rem] leading-9 text-slate-300 xl:text-[1.12rem]">
+            <div className="mt-8 h-1 w-52 rounded-full bg-[linear-gradient(90deg,#fbbf24_0%,#f97316_100%)] shadow-[0_0_28px_rgba(245,158,11,0.4)]" />
+            <p className="mt-8 max-w-lg text-[1.05rem] leading-9 text-stone-300 xl:text-[1.12rem]">
               Professional Gantt chart project management built for teams who deliver.
             </p>
           </div>
@@ -104,32 +105,32 @@ export default function LoginPage() {
                   index < LEFT_METRICS.length - 1 && 'after:absolute after:right-0 after:top-2 after:h-24 after:w-px after:bg-white/12'
                 )}
               >
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/20 bg-white/5 shadow-[0_18px_40px_rgba(5,13,38,0.35)] backdrop-blur-xl">
-                  <Icon size={28} className="text-[#13a6ff]" />
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-300/20 bg-white/5 shadow-[0_18px_40px_rgba(18,10,6,0.35)] backdrop-blur-xl">
+                  <Icon size={28} className="text-[#ffb648]" />
                 </div>
                 <p className={cn(sora.className, 'text-4xl font-bold tracking-tight text-white')}>{value}</p>
-                <p className="mt-2 text-lg text-slate-300">{label}</p>
+                <p className="mt-2 text-lg text-stone-300">{label}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(73,120,255,0.12),transparent_26%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] px-6 py-8 sm:px-10 lg:px-14">
-          <div className="absolute right-[-10rem] top-[-10rem] h-[26rem] w-[26rem] rounded-full border border-indigo-100" />
-          <div className="absolute right-[-16rem] top-[-4rem] h-[34rem] w-[34rem] rounded-full border border-indigo-50" />
-          <div className="absolute bottom-[-12rem] right-[-10rem] h-[28rem] w-[28rem] rounded-full border border-indigo-100" />
+        <section className="relative overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(244,179,75,0.16),transparent_28%),linear-gradient(180deg,#fffaf4_0%,#f8ede1_100%)] px-6 py-8 sm:px-10 lg:px-14">
+          <div className="absolute right-[-10rem] top-[-10rem] h-[26rem] w-[26rem] rounded-full border border-amber-200/70" />
+          <div className="absolute right-[-16rem] top-[-4rem] h-[34rem] w-[34rem] rounded-full border border-orange-100/80" />
+          <div className="absolute bottom-[-12rem] right-[-10rem] h-[28rem] w-[28rem] rounded-full border border-amber-200/70" />
 
           <div className="relative mx-auto flex min-h-full max-w-[470px] flex-col justify-center">
             <div className="mb-12 flex items-center gap-3 lg:hidden">
-              <GantticLogo variant="icon" width={44} priority alt="Ganttic app icon" />
-              <span className={cn(sora.className, 'text-xl font-bold tracking-tight text-slate-900')}>Ganttic</span>
+              <GantticLogo variant="icon" width={44} priority alt="PhaseForge app icon" />
+              <span className={cn(sora.className, 'text-xl font-bold tracking-tight text-slate-900')}>{BRAND_NAME}</span>
             </div>
 
-            <div className="rounded-[2rem] border border-white/60 bg-white/78 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:p-8 lg:border-none lg:bg-transparent lg:p-0 lg:shadow-none">
+            <div className="rounded-[2rem] border border-white/75 bg-white/82 p-6 shadow-[0_30px_80px_rgba(77,43,15,0.10)] backdrop-blur-2xl sm:p-8 lg:border-none lg:bg-transparent lg:p-0 lg:shadow-none">
               <h1 className={cn(sora.className, 'text-4xl font-bold tracking-tight text-slate-900 sm:text-[2.8rem]')}>
                 Welcome back
               </h1>
-              <p className="mt-3 text-lg text-[#50638f]">Sign in to your workspace</p>
+              <p className="mt-3 text-lg text-[#7b5a3a]">Sign in to your workspace</p>
 
               <form onSubmit={handleLogin} className="mt-12 space-y-6">
                 <Input
@@ -140,7 +141,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   icon={<Mail size={19} />}
-                  className="h-14 rounded-2xl border-slate-200 bg-white/95 pl-14 text-base text-slate-800 shadow-[0_14px_34px_rgba(15,23,42,0.06)]"
+                  className="h-14 rounded-2xl border-[#e7cfb4] bg-white/95 pl-14 text-base text-slate-800 shadow-[0_14px_34px_rgba(77,43,15,0.06)] focus:ring-[#d78829]"
                   required
                 />
                 <div>
@@ -152,11 +153,11 @@ export default function LoginPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     icon={<Lock size={19} />}
-                    className="h-14 rounded-2xl border-slate-200 bg-white/95 pl-14 text-base text-slate-800 shadow-[0_14px_34px_rgba(15,23,42,0.06)]"
+                    className="h-14 rounded-2xl border-[#e7cfb4] bg-white/95 pl-14 text-base text-slate-800 shadow-[0_14px_34px_rgba(77,43,15,0.06)] focus:ring-[#d78829]"
                     required
                   />
                   <div className="mt-2 flex justify-end">
-                    <Link href="/forgot-password" className="text-sm text-[#3348ff] hover:text-[#2337dd] transition-colors">
+                    <Link href="/forgot-password" className="text-sm text-[#c16b11] hover:text-[#9f5408] transition-colors">
                       Forgot password?
                     </Link>
                   </div>
@@ -171,7 +172,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="group flex h-14 w-full items-center justify-between rounded-2xl bg-[linear-gradient(90deg,#2238ff_0%,#3d49ff_38%,#6932ff_100%)] px-6 text-lg font-semibold text-white shadow-[0_24px_45px_rgba(53,66,255,0.32)] transition-all hover:translate-y-[-1px] hover:shadow-[0_28px_58px_rgba(53,66,255,0.4)] disabled:cursor-not-allowed disabled:opacity-70"
+                  className="group flex h-14 w-full items-center justify-between rounded-2xl bg-[linear-gradient(90deg,#b46111_0%,#d78829_42%,#f59e0b_100%)] px-6 text-lg font-semibold text-white shadow-[0_24px_45px_rgba(180,97,17,0.28)] transition-all hover:translate-y-[-1px] hover:shadow-[0_28px_58px_rgba(180,97,17,0.38)] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <span className="w-6" />
                   <span>{loading ? 'Signing in...' : 'Sign in'}</span>
@@ -179,29 +180,29 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <p className="mt-10 text-center text-base text-[#5c6d94]">
+              <p className="mt-10 text-center text-base text-[#7b5a3a]">
                 Don&apos;t have an account?{' '}
-                <Link href="/signup" className="font-semibold text-[#3348ff] transition-colors hover:text-[#2337dd]">
+                <Link href="/signup" className="font-semibold text-[#c16b11] transition-colors hover:text-[#9f5408]">
                   Create one
                 </Link>
               </p>
             </div>
 
-            <div className="mt-10 grid gap-4 border-t border-slate-200/80 pt-8 sm:grid-cols-3">
+            <div className="mt-10 grid gap-4 border-t border-[#eadac7] pt-8 sm:grid-cols-3">
               {SECURITY_POINTS.map(({ icon: Icon, title, subtitle }, index) => (
                 <div
                   key={title}
                   className={cn(
                     'flex items-start gap-3',
-                    index < SECURITY_POINTS.length - 1 && 'sm:border-r sm:border-slate-200 sm:pr-3'
+                    index < SECURITY_POINTS.length - 1 && 'sm:border-r sm:border-[#eadac7] sm:pr-3'
                   )}
                 >
-                  <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <Icon size={19} className="text-slate-700" />
+                  <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[#eadac7] bg-white shadow-sm">
+                    <Icon size={19} className="text-[#b46111]" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{title}</p>
-                    <p className="mt-1 text-sm text-[#687899]">{subtitle}</p>
+                    <p className="mt-1 text-sm text-[#7b5a3a]">{subtitle}</p>
                   </div>
                 </div>
               ))}

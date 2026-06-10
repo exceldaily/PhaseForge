@@ -1,25 +1,26 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { PwaRegister } from '@/components/PwaRegister'
+import { BRAND_DESCRIPTION, BRAND_ICON_SRC, BRAND_NAME, BRAND_THEME_COLOR } from '@/lib/branding'
 
 export const metadata: Metadata = {
-  title: 'Ganttic - Project Management',
-  description: 'Professional Gantt chart project management for construction teams',
+  title: `${BRAND_NAME} - Project Management`,
+  description: BRAND_DESCRIPTION,
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Ganttic',
+    title: BRAND_NAME,
   },
   icons: {
-    icon: '/branding/ganttic-app-icon.png',
-    shortcut: '/branding/ganttic-app-icon.png',
-    apple: '/branding/ganttic-app-icon.png',
+    icon: BRAND_ICON_SRC,
+    shortcut: BRAND_ICON_SRC,
+    apple: BRAND_ICON_SRC,
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#4f46e5',
+  themeColor: BRAND_THEME_COLOR,
   width: 'device-width',
   initialScale: 1,
   minimumScale: 1,

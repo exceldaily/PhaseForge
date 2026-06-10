@@ -74,7 +74,7 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
     let filename: string
 
     if (reportType === 'projects') {
-      filename = 'ganttic-projects.csv'
+      filename = 'phaseforge-projects.csv'
       rows = [
         ['Project Name', 'Customer', 'Location', 'Status', 'Priority', 'Start Date', 'End Date', 'Duration (days)', 'PM', 'Superintendent', 'Phases'],
         ...filteredProjects.map(p => [
@@ -89,7 +89,7 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
         ]),
       ]
     } else if (reportType === 'phases') {
-      filename = 'ganttic-phases.csv'
+      filename = 'phaseforge-phases.csv'
       rows = [
         ['Project', 'Phase Name', 'Status', 'Start Date', 'End Date', 'Duration (days)', 'Assigned To', 'Trade'],
         ...allPhases.map(ph => [
@@ -102,7 +102,7 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
         ]),
       ]
     } else {
-      filename = 'ganttic-schedule.csv'
+      filename = 'phaseforge-schedule.csv'
       rows = [
         ['Project', 'Phase', 'Start Date', 'End Date', 'Duration (days)', 'Status', 'Assigned'],
         ...allPhases

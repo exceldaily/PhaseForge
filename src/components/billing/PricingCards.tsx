@@ -13,7 +13,6 @@ interface PricingCardsProps {
   billingCycleStart: string | null
   billingCycleEnd: string | null
   companyId: string
-  userEmail: string
 }
 
 const PLANS = [
@@ -70,7 +69,6 @@ export function PricingCards({
   billingCycleStart,
   billingCycleEnd,
   companyId,
-  userEmail,
 }: PricingCardsProps) {
   const [upgrading, setUpgrading] = useState<string | null>(null)
 
@@ -80,7 +78,7 @@ export function PricingCards({
     try {
       setUpgrading(plan)
       const url = await createCheckoutSession(companyId, plan as 'pro' | 'business', window.location.href)
-      window.location.href = url
+      window.location.assign(url)
     } catch (error) {
       alert(`Failed to start checkout: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setUpgrading(null)
@@ -183,7 +181,7 @@ export function PricingCards({
       {/* Support note */}
       <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
         <p className="text-sm text-slate-700">
-          Need something custom? <a href="mailto:support@ganttic.com" className="text-indigo-600 hover:underline">Contact our sales team</a> for Enterprise plans.
+          Need something custom? <span className="font-medium text-slate-900">Contact the sales team</span> for Enterprise plans.
         </p>
       </div>
     </div>

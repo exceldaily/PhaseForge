@@ -1,6 +1,6 @@
-// Ganttic Service Worker — enables PWA installability on Windows & macOS
+// PhaseForge Service Worker - enables PWA installability on Windows & macOS
 
-const CACHE_VERSION = 'ganttic-v1'
+const CACHE_VERSION = 'phaseforge-v2'
 const OFFLINE_PAGE = '/'
 
 self.addEventListener('install', (event) => {

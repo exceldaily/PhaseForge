@@ -21,7 +21,6 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    // PKCE flow: token_hash in query string
     const params = new URLSearchParams(window.location.search)
     const tokenHash = params.get('token_hash')
     const type = params.get('type')
@@ -33,17 +32,20 @@ export default function ResetPasswordPage() {
       return
     }
 
-    // Implicit flow: PASSWORD_RECOVERY event from URL hash
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setState('ready')
+      if (event === 'PASSWORD_RECOVERY') {
+        setState('ready')
+      }
     })
 
-    // Fallback timeout — if nothing fires, link is expired/missing
     const timer = setTimeout(() => {
-      setState((prev) => prev === 'loading' ? 'expired' : prev)
+      setState((prev) => (prev === 'loading' ? 'expired' : prev))
     }, 4000)
 
-    return () => { subscription.unsubscribe(); clearTimeout(timer) }
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timer)
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,75 +53,107 @@ export default function ResetPasswordPage() {
     setError('')
 
     const passwordError = validatePassword(password, confirm)
-    if (passwordError) { setError(passwordError); return }
+    if (passwordError) {
+      setError(passwordError)
+      return
+    }
 
     setSaving(true)
     const { error: updateError } = await createClient().auth.updateUser({ password })
     setSaving(false)
 
-    if (updateError) { setError(updateError.message); return }
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
 
     setState('success')
     setTimeout(() => router.push('/app/dashboard'), 2000)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#f7efe6] px-4">
       <div className="w-full max-w-md">
-        <div className="flex justify-center mb-8">
-          <GantticLogo variant="lockup" width={180} priority alt="Ganttic" />
+        <div className="mb-8 flex justify-center">
+          <GantticLogo variant="lockup" width={210} priority alt="PhaseForge" />
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+        <div className="rounded-2xl border border-[#eadac7] bg-white p-8 shadow-[0_20px_40px_rgba(77,43,15,0.06)]">
           {state === 'loading' && (
-            <div className="text-center py-8">
-              <div className="h-8 w-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin mx-auto mb-4" />
-              <p className="text-slate-500 text-sm">Verifying your reset link…</p>
+            <div className="py-8 text-center">
+              <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#d78829] border-t-transparent" />
+              <p className="text-sm text-slate-500">Verifying your reset link...</p>
             </div>
           )}
 
           {state === 'expired' && (
-            <div className="text-center py-4">
-              <div className="h-14 w-14 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-4">
+            <div className="py-4 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-100">
                 <Lock size={24} className="text-rose-600" />
               </div>
-              <h2 className="text-lg font-bold text-slate-900 mb-2">Link expired or invalid</h2>
-              <p className="text-slate-500 text-sm mb-6">
+              <h2 className="mb-2 text-lg font-bold text-slate-900">Link expired or invalid</h2>
+              <p className="mb-6 text-sm text-slate-500">
                 Password reset links expire after 60 minutes. Request a new one below.
               </p>
-              <a href="/forgot-password" className="inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
+              <a
+                href="/forgot-password"
+                className="inline-block rounded-xl bg-[linear-gradient(90deg,#b46111_0%,#d78829_42%,#f59e0b_100%)] px-6 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-105"
+              >
                 Request new link
               </a>
             </div>
           )}
 
           {state === 'success' && (
-            <div className="text-center py-4">
-              <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <div className="py-4 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
                 <ShieldCheck size={26} className="text-emerald-600" />
               </div>
-              <h2 className="text-lg font-bold text-slate-900 mb-2">Password updated!</h2>
-              <p className="text-slate-500 text-sm">Taking you to your dashboard…</p>
+              <h2 className="mb-2 text-lg font-bold text-slate-900">Password updated!</h2>
+              <p className="text-sm text-slate-500">Taking you to your dashboard...</p>
             </div>
           )}
 
           {state === 'ready' && (
             <>
-              <h1 className="text-2xl font-bold text-slate-900 mb-1">Set new password</h1>
-              <p className="text-slate-500 text-sm mb-8">Choose a strong password for your account.</p>
+              <h1 className="mb-1 text-2xl font-bold text-slate-900">Set new password</h1>
+              <p className="mb-8 text-sm text-slate-500">Choose a strong password for your account.</p>
               <form onSubmit={handleSubmit} className="space-y-5">
-                <Input id="password" type="password" label="New password" placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                  value={password} onChange={(e) => setPassword(e.target.value)}
-                  icon={<Lock size={16} />} required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
-                <Input id="confirm" type="password" label="Confirm new password" placeholder="Repeat your password"
-                  value={confirm} onChange={(e) => setConfirm(e.target.value)}
-                  icon={<Lock size={16} />} required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
+                <Input
+                  id="password"
+                  type="password"
+                  label="New password"
+                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  icon={<Lock size={16} />}
+                  className="border-[#e7cfb4] focus:ring-[#d78829]"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  autoComplete="new-password"
+                />
+                <Input
+                  id="confirm"
+                  type="password"
+                  label="Confirm new password"
+                  placeholder="Repeat your password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  icon={<Lock size={16} />}
+                  className="border-[#e7cfb4] focus:ring-[#d78829]"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  autoComplete="new-password"
+                />
                 {error && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
                 )}
-                <button type="submit" disabled={saving}
-                  className="w-full h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-                  {saving ? 'Saving…' : 'Update password'}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="h-11 w-full rounded-xl bg-[linear-gradient(90deg,#b46111_0%,#d78829_42%,#f59e0b_100%)] text-sm font-semibold text-white transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? 'Saving...' : 'Update password'}
                 </button>
               </form>
             </>

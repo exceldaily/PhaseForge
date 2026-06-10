@@ -50,7 +50,6 @@ export default async function BillingPage() {
           members: members?.length || 0,
         }}
         invoices={invoices || []}
-        currentUserEmail={user.email || ''}
       />
     </div>
   )

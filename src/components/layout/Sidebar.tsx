@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
-  Settings, Users, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
+  Settings, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -73,9 +73,9 @@ export function Sidebar({ isSuperAdmin = false, mobileOpen = false, onMobileClos
           className={cn('flex items-center', collapsed ? 'justify-center' : 'justify-start')}
         >
           {collapsed ? (
-            <GantticLogo variant="icon" width={34} priority alt="Ganttic app icon" />
+            <GantticLogo variant="icon" width={34} priority alt="PhaseForge app icon" />
           ) : (
-            <GantticLogo variant="lockup" width={180} priority alt="Ganttic horizontal logo" />
+            <GantticLogo variant="lockup" width={180} priority alt="PhaseForge horizontal logo" />
           )}
         </Link>
       </div>

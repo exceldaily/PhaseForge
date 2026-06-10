@@ -23,40 +23,44 @@ export default function ForgotPasswordPage() {
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
 
     setLoading(false)
-    if (resetError) { setError(resetError.message); return }
+    if (resetError) {
+      setError(resetError.message)
+      return
+    }
+
     setSent(true)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#f7efe6] px-4">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <GantticLogo variant="lockup" width={180} priority alt="Ganttic" />
+          <GantticLogo variant="lockup" width={210} priority alt="PhaseForge" />
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+        <div className="rounded-2xl border border-[#eadac7] bg-white p-8 shadow-[0_20px_40px_rgba(77,43,15,0.06)]">
           {sent ? (
             <div className="text-center py-4">
-              <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
                 <Mail size={26} className="text-emerald-600" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900 mb-2">Check your email</h1>
-              <p className="text-slate-500 text-sm mb-6">
-                We sent a password reset link to{' '}
-                <span className="font-medium text-slate-700">{email}</span>.
+              <h1 className="mb-2 text-xl font-bold text-slate-900">Check your email</h1>
+              <p className="mb-6 text-sm text-slate-500">
+                We sent a password reset link to <span className="font-medium text-slate-700">{email}</span>.
                 The link expires in 60 minutes.
               </p>
               <p className="text-xs text-slate-400">
                 Didn&apos;t receive it? Check your spam folder or{' '}
-                <button onClick={() => setSent(false)} className="text-indigo-600 hover:underline font-medium">
+                <button onClick={() => setSent(false)} className="font-medium text-[#b46111] hover:underline">
                   try again
-                </button>.
+                </button>
+                .
               </p>
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-slate-900 mb-1">Forgot password?</h1>
-              <p className="text-slate-500 text-sm mb-8">Enter your email and we&apos;ll send you a reset link.</p>
+              <h1 className="mb-1 text-2xl font-bold text-slate-900">Forgot password?</h1>
+              <p className="mb-8 text-sm text-slate-500">Enter your email and we&apos;ll send you a reset link.</p>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <Input
@@ -67,6 +71,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   icon={<Mail size={16} />}
+                  className="border-[#e7cfb4] focus:ring-[#d78829]"
                   required
                 />
                 {error && (
@@ -75,9 +80,9 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="h-11 w-full rounded-xl bg-[linear-gradient(90deg,#b46111_0%,#d78829_42%,#f59e0b_100%)] text-sm font-semibold text-white transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? 'Sending…' : 'Send reset link'}
+                  {loading ? 'Sending...' : 'Send reset link'}
                 </button>
               </form>
             </>
@@ -85,7 +90,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors">
+          <Link href="/login" className="inline-flex items-center gap-1.5 text-sm text-slate-500 transition-colors hover:text-slate-800">
             <ArrowLeft size={14} /> Back to sign in
           </Link>
         </div>

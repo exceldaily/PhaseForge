@@ -1,0 +1,6 @@
+export const BRAND_NAME = 'PhaseForge'
+export const BRAND_DESCRIPTION = 'Professional Gantt chart project management for construction teams'
+export const BRAND_ICON_SRC = '/branding/phaseforge-app-icon.png'
+export const BRAND_LOCKUP_SRC = '/branding/phaseforge-horizontal-lockup.png'
+export const BRAND_THEME_COLOR = '#d78829'
+export const BRAND_THEME_DARK = '#17100d'
