@@ -13,7 +13,7 @@ interface SendInviteResult {
   message?: string
 }
 
-const INVITE_RESEND_COOLDOWN_MINUTES = 15
+const INVITE_RESEND_COOLDOWN_MINUTES = 1
 const AUTH_USER_LOOKUP_PAGE_SIZE = 200
 
 function getFriendlyInviteError(message: string) {
