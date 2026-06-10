@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { createClient } from '@/lib/supabase/client'
-import { checkMemberLimit } from '@/lib/planLimits'
+import { sendInvite } from '@/app/app/settings/members/actions'
 
 export function InviteMemberButton({ companyId }: { companyId: string }) {
   const [open, setOpen] = useState(false)
@@ -21,26 +20,12 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
     setLoading(true)
     setError('')
 
-    const usage = await checkMemberLimit(companyId)
-    if (!usage.allowed) {
-      setError(usage.reason ?? 'Member limit reached.')
-      setLoading(false)
-      return
-    }
+    const result = await sendInvite(companyId, email, role)
 
-    const supabase = createClient()
-    const token = crypto.randomUUID()
-    const { error } = await supabase.from('invitations').insert({
-      company_id: companyId,
-      email,
-      role,
-      token,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    })
     setLoading(false)
-    if (error) { setError(error.message); return }
+    if (result.error) { setError(result.error); return }
     setSuccess(true)
-    setTimeout(() => { setOpen(false); setSuccess(false); setEmail(''); setRole('member') }, 2000)
+    setTimeout(() => { setOpen(false); setSuccess(false); setEmail(''); setRole('member') }, 2500)
   }
 
   return (

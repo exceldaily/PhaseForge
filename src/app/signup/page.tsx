@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [form, setForm] = useState({ fullName: '', companyName: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [confirmEmail, setConfirmEmail] = useState(false)
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }))
@@ -26,6 +27,14 @@ export default function SignupPage() {
 
     if (result.error) {
       setError(result.error)
+      setLoading(false)
+      return
+    }
+
+    // If email confirmation is required, there's no session yet — redirecting
+    // into a protected route would bounce to /login and look like a lockout.
+    if (result.success && !result.session) {
+      setConfirmEmail(true)
       setLoading(false)
       return
     }
@@ -65,6 +74,25 @@ export default function SignupPage() {
             <span className="font-bold text-slate-900 text-lg">Ganttic</span>
           </div>
 
+          {confirmEmail ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-100">
+                <Mail size={26} className="text-indigo-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-2">Check your email</h1>
+              <p className="text-slate-500">
+                We sent a confirmation link to <span className="font-medium text-slate-700">{form.email}</span>.
+                Click it to activate your account, then sign in to access your new workspace.
+              </p>
+              <Link
+                href="/login"
+                className="mt-6 inline-block w-full rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
+              >
+                Go to sign in
+              </Link>
+            </div>
+          ) : (
+          <>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Create your workspace</h1>
           <p className="text-slate-500 mb-8">Get your team up and running today</p>
 
@@ -85,6 +113,8 @@ export default function SignupPage() {
             Already have an account?{' '}
             <Link href="/login" className="text-indigo-600 font-medium hover:underline">Sign in</Link>
           </p>
+          </>
+          )}
         </div>
       </div>
     </div>

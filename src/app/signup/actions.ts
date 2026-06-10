@@ -1,6 +1,6 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function createWorkspace(formData: {
   fullName: string
@@ -20,13 +20,25 @@ export async function createWorkspace(formData: {
   if (authErr) return { error: authErr.message }
   if (!auth.user) return { error: 'Failed to create user' }
 
-  // 2. Use service role client to bypass RLS for company creation
-  const admin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // 2. Use service-role client to bypass RLS for company/profile creation
+  const admin = createAdminClient()
 
-  const slug = formData.companyName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  // Guard against duplicate company creation on retries / already-set-up users:
+  // if this user already has a profile with a company, reuse it.
+  const { data: existingProfile } = await admin
+    .from('profiles')
+    .select('company_id')
+    .eq('id', auth.user.id)
+    .maybeSingle()
+
+  if (existingProfile?.company_id) {
+    return { success: true, session: Boolean(auth.session) }
+  }
+
+  const slug = formData.companyName
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
 
   const { data: company, error: companyErr } = await admin
     .from('companies')
@@ -36,8 +48,8 @@ export async function createWorkspace(formData: {
 
   if (companyErr) return { error: companyErr.message }
 
-  // 3. Create profile
-  await admin.from('profiles').upsert({
+  // 3. Create / backfill profile (owner of their new company)
+  const { error: profileErr } = await admin.from('profiles').upsert({
     id: auth.user.id,
     company_id: company.id,
     full_name: formData.fullName,
@@ -45,5 +57,9 @@ export async function createWorkspace(formData: {
     role: 'owner',
   })
 
-  return { success: true }
+  if (profileErr) return { error: profileErr.message }
+
+  // session is present only when email confirmation is OFF.
+  // When ON, the workspace still exists and the user finishes after confirming.
+  return { success: true, session: Boolean(auth.session) }
 }
