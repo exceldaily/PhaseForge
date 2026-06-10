@@ -175,51 +175,61 @@ export async function sendInvite(
       }
     }
 
-    // Check if user already exists in this company
-    const existingAuthUser = await findAuthUserByEmail(admin, normalizedEmail)
-
-    let authUserId = existingAuthUser?.id
+    // Try to create a new auth user; if they already exist, update them instead
+    let authUserId: string
     let tempPassword: string | undefined
+    let authUserMetadata: Record<string, any> = {}
 
-    if (!existingAuthUser) {
-      // Create new auth user with a random temporary password (Brevo will contain actual invite link)
-      tempPassword = crypto.randomUUID()
-      const { data, error: createErr } = await admin.auth.admin.createUser({
-        email: normalizedEmail,
-        password: tempPassword,
-        user_metadata: {
-          company_id: companyId,
-          role,
-        },
-      })
+    // Create new auth user with a random temporary password
+    tempPassword = crypto.randomUUID()
+    const { data, error: createErr } = await admin.auth.admin.createUser({
+      email: normalizedEmail,
+      password: tempPassword,
+      user_metadata: {
+        company_id: companyId,
+        role,
+      },
+    })
 
-      if (createErr) {
+    if (createErr) {
+      // If user already exists, find and update them
+      if (createErr.message.toLowerCase().includes('already exists')) {
+        const existingAuthUser = await findAuthUserByEmail(admin, normalizedEmail)
+
+        if (!existingAuthUser) {
+          return { error: 'User exists but could not be found. Please try again.' }
+        }
+
+        authUserId = existingAuthUser.id
+        authUserMetadata = existingAuthUser.user_metadata ?? {}
+
+        // Update existing user's metadata
+        const { error: updateErr } = await admin.auth.admin.updateUserById(existingAuthUser.id, {
+          user_metadata: {
+            ...authUserMetadata,
+            company_id: companyId,
+            role,
+          },
+        })
+
+        if (updateErr) {
+          return { error: updateErr.message }
+        }
+      } else {
         return { error: createErr.message }
       }
-
+    } else {
+      // New user was created successfully
       if (!data?.user) {
         return { error: 'Failed to create user' }
       }
-
       authUserId = data.user.id
-    } else {
-      // Update existing user's metadata
-      const { error: updateErr } = await admin.auth.admin.updateUserById(existingAuthUser.id, {
-        user_metadata: {
-          ...(existingAuthUser.user_metadata ?? {}),
-          company_id: companyId,
-          role,
-        },
-      })
-
-      if (updateErr) {
-        return { error: updateErr.message }
-      }
+      authUserMetadata = data.user.user_metadata ?? {}
     }
 
     // Ensure profile exists
-    const fullName = existingAuthUser?.user_metadata?.full_name?.trim()
-      ? existingAuthUser.user_metadata.full_name.trim()
+    const fullName = authUserMetadata?.full_name?.trim()
+      ? authUserMetadata.full_name.trim()
       : normalizedEmail.split('@')[0]
 
     const { error: profileErr } = await admin.from('profiles').upsert({
