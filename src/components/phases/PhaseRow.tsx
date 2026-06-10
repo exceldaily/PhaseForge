@@ -15,9 +15,10 @@ interface PhaseRowProps {
   onEdit: () => void
   onDelete: () => void
   onStatusChange: (status: string) => void
+  onShowChecklist?: () => void
 }
 
-export function PhaseRow({ phase, members, canEdit, onEdit, onDelete, onStatusChange }: PhaseRowProps) {
+export function PhaseRow({ phase, members, canEdit, onEdit, onDelete, onStatusChange, onShowChecklist }: PhaseRowProps) {
   const [showMenu, setShowMenu] = useState(false)
   const assignee = members.find(m => m.id === phase.assigned_to)
   const assignedTrade = phase.assigned_trade?.trim()
@@ -114,7 +115,10 @@ export function PhaseRow({ phase, members, canEdit, onEdit, onDelete, onStatusCh
           {showMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-20">
+              <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-20">
+                <button onClick={() => { setShowMenu(false); onShowChecklist?.() }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                  <Wrench size={14} /> Details
+                </button>
                 <button onClick={() => { setShowMenu(false); onEdit() }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
                   <Pencil size={14} /> Edit
                 </button>

@@ -5,6 +5,7 @@ import { Phase, Profile } from '@/types/app'
 import { PhaseRow } from './PhaseRow'
 import { PhaseForm } from './PhaseForm'
 import { BulkPhaseAdd } from './BulkPhaseAdd'
+import { PhaseChecklistModal } from './PhaseChecklistModal'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -26,6 +27,7 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
   const [showForm, setShowForm] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null)
+  const [checklistPhase, setChecklistPhase] = useState<Phase | null>(null)
 
   const handleDelete = async (phaseId: string) => {
     const supabase = createClient()
@@ -140,6 +142,7 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
             onEdit={() => setEditingPhase(phase)}
             onDelete={() => handleDelete(phase.id)}
             onStatusChange={(status) => handleStatusChange(phase.id, status)}
+            onShowChecklist={() => setChecklistPhase(phase)}
           />
         )
       ))}
@@ -167,6 +170,18 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
             <ListPlus size={15} /> Bulk add
           </Button>
         </div>
+      )}
+
+      {checklistPhase && (
+        <PhaseChecklistModal
+          phase={checklistPhase}
+          projectId={projectId}
+          onClose={() => setChecklistPhase(null)}
+          onSave={() => {
+            setChecklistPhase(null)
+            router.refresh()
+          }}
+        />
       )}
     </div>
   )

@@ -9,16 +9,19 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
 import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
+import { updateProjectBoard } from '@/app/app/projects/[id]/actions'
 import { Project } from '@/types/app'
 
 interface Member { id: string; full_name: string; email: string; role: string }
 interface BoardColumn { id: string; name: string; sort_order: number; color: string }
+interface Board { id: string; name: string; board_columns?: BoardColumn[] }
 
 interface ProjectFormProps {
   companyId: string
   members: Member[]
   currentUserId: string
   project?: Project
+  boards?: Board[]
   // v2 board context (when creating from a board)
   defaultBoardId?: string
   defaultColumnId?: string
@@ -33,11 +36,13 @@ const PERMIT_STATUSES = [
   { value: 'denied', label: 'Denied' },
 ]
 
-export function ProjectForm({ companyId, members, currentUserId, project, defaultBoardId, defaultColumnId, boardColumns = [] }: ProjectFormProps) {
+export function ProjectForm({ companyId, members, currentUserId, project, boards = [], defaultBoardId, defaultColumnId, boardColumns = [] }: ProjectFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [newSub, setNewSub] = useState('')
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(project?.board_id || defaultBoardId || null)
+  const [selectedColumnId, setSelectedColumnId] = useState<string | null>(project?.board_column_id || defaultColumnId || null)
   const [form, setForm] = useState({
     name: project?.name || '',
     customer_name: project?.customer_name || '',
@@ -53,6 +58,9 @@ export function ProjectForm({ companyId, members, currentUserId, project, defaul
     notes: project?.notes || '',
     color: project?.color || DEFAULT_PHASE_COLORS[0],
   })
+
+  const selectedBoard = boards.find(b => b.id === selectedBoardId)
+  const columnOptions = selectedBoard?.board_columns || []
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }))
@@ -108,11 +116,16 @@ export function ProjectForm({ companyId, members, currentUserId, project, defaul
           .eq('id', project.id))
       }
 
+      // Update board assignment if changed
+      if (selectedBoardId || selectedColumnId) {
+        await updateProjectBoard(project.id, selectedBoardId, selectedColumnId)
+      }
+
       if (error) { setError(error.message); setLoading(false); return }
       router.push(`/app/projects/${project.id}`)
     } else {
-      const boardFields = defaultBoardId
-        ? { board_id: defaultBoardId, board_column_id: defaultColumnId ?? null }
+      const boardFields = selectedBoardId || defaultBoardId
+        ? { board_id: selectedBoardId || defaultBoardId, board_column_id: selectedColumnId || defaultColumnId || null }
         : {}
 
       let { data, error } = await supabase.from('projects').insert({
@@ -127,7 +140,8 @@ export function ProjectForm({ companyId, members, currentUserId, project, defaul
 
       if (error) { setError(error.message); setLoading(false); return }
       // Return to the board if we came from one
-      router.push(defaultBoardId ? `/app/boards/${defaultBoardId}` : `/app/projects/${data.id}`)
+      const boardRedirect = selectedBoardId || defaultBoardId
+      router.push(boardRedirect ? `/app/boards/${boardRedirect}` : `/app/projects/${data.id}`)
     }
     router.refresh()
   }
@@ -148,6 +162,46 @@ export function ProjectForm({ companyId, members, currentUserId, project, defaul
           <Input id="end_date" type="date" label="End date *" value={form.end_date} onChange={set('end_date')} required />
         </div>
       </section>
+
+      {/* Board / Workspace */}
+      {boards.length > 0 && (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Workspace</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-1.5">Board</label>
+              <select
+                value={selectedBoardId || ''}
+                onChange={(e) => {
+                  setSelectedBoardId(e.target.value || null)
+                  setSelectedColumnId(null) // Reset column when board changes
+                }}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">No board</option>
+                {boards.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            {selectedBoard && columnOptions.length > 0 && (
+              <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1.5">Column</label>
+                <select
+                  value={selectedColumnId || ''}
+                  onChange={(e) => setSelectedColumnId(e.target.value || null)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Auto (first column)</option>
+                  {columnOptions.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Team */}
       <section className="space-y-4">

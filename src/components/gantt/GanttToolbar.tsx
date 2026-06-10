@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Target, Printer, Link2, Palette } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Target, Printer, Link2, Palette, Plus } from 'lucide-react'
+import { GanttAddPhaseModal } from './GanttAddPhaseModal'
 import { format, parseISO } from '@/lib/dates'
 import { useGanttStore } from '@/stores/ganttStore'
 import { Button } from '@/components/ui/Button'
@@ -46,6 +47,7 @@ export function GanttToolbar({
   const [printScope, setPrintScope] = useState<'current' | 'all' | null>(null)
   const [printStyle, setPrintStyle] = useState<'chart' | 'list'>('chart')
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false)
+  const [showPhaseModal, setShowPhaseModal] = useState(false)
   const datePickerRef = useRef<HTMLDivElement | null>(null)
   const printMenuRef = useRef<HTMLDivElement | null>(null)
   const colorMenuRef = useRef<HTMLDivElement | null>(null)
@@ -103,6 +105,17 @@ export function GanttToolbar({
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* Add Phase button */}
+        {selectedProjectId && (
+          <button
+            onClick={() => setShowPhaseModal(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-3 py-2 text-xs font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+            title="Add a new phase to the selected project"
+          >
+            <Plus size={14} /> Phase
+          </button>
+        )}
+
         <div ref={datePickerRef} className="relative">
           <button
             type="button"
@@ -342,6 +355,14 @@ export function GanttToolbar({
           viewStart={viewStart}
           viewEnd={viewEnd}
           onClose={() => setPrintScope(null)}
+        />
+      )}
+
+      {showPhaseModal && selectedProjectId && (
+        <GanttAddPhaseModal
+          projectId={selectedProjectId}
+          onClose={() => setShowPhaseModal(false)}
+          onSuccess={() => setShowPhaseModal(false)}
         />
       )}
     </div>
