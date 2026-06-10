@@ -25,25 +25,49 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
   const [includeArchived, setIncludeArchived] = useState(false)
   const deferredSearch = useDeferredValue(search)
 
-  const filteredProjects = useMemo(() => {
+  const q = deferredSearch.trim().toLowerCase()
+
+  // Projects filtered by the non-text filters (archived / status / priority).
+  const baseProjects = useMemo(() => {
     return projects.filter(p => {
       if (!includeArchived && p.is_archived) return false
       if (statusFilter && p.status !== statusFilter) return false
       if (priorityFilter && p.priority !== priorityFilter) return false
-      if (deferredSearch) {
-        const q = deferredSearch.toLowerCase()
-        return p.name.toLowerCase().includes(q) ||
-          (p.customer_name?.toLowerCase().includes(q) ?? false) ||
-          (p.job_location?.toLowerCase().includes(q) ?? false)
-      }
       return true
     })
-  }, [projects, statusFilter, priorityFilter, deferredSearch, includeArchived])
+  }, [projects, statusFilter, priorityFilter, includeArchived])
 
-  const allPhases = useMemo(() =>
-    filteredProjects.flatMap(p =>
+  // Projects report: text search matches project fields.
+  const filteredProjects = useMemo(() => {
+    if (!q) return baseProjects
+    return baseProjects.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.customer_name?.toLowerCase().includes(q) ?? false) ||
+      (p.job_location?.toLowerCase().includes(q) ?? false)
+    )
+  }, [baseProjects, q])
+
+  // Phases / Schedule reports: text search matches the phase rows themselves
+  // (phase name, project name, assignee, or trade) — so a keyword like
+  // "Install" narrows to matching phases instead of hiding everything.
+  const allPhases = useMemo(() => {
+    const phases = baseProjects.flatMap(p =>
       (p.phases ?? []).map((ph: Phase) => ({ ...ph, projectName: p.name, projectColor: p.color }))
-    ), [filteredProjects])
+    )
+    if (!q) return phases
+    return phases.filter(ph =>
+      ph.name.toLowerCase().includes(q) ||
+      ph.projectName.toLowerCase().includes(q) ||
+      (ph.assigned_trade?.toLowerCase().includes(q) ?? false) ||
+      (ph.assigned_to ? (memberMap[ph.assigned_to] ?? '').toLowerCase().includes(q) : false)
+    )
+  }, [baseProjects, q, memberMap])
+
+  // Distinct projects represented in the (possibly phase-filtered) phase list.
+  const phaseProjectCount = useMemo(
+    () => new Set(allPhases.map(ph => ph.projectName)).size,
+    [allPhases]
+  )
 
   const exportCSV = () => {
     let rows: string[][]
@@ -135,7 +159,8 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
             ))}
           </div>
 
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..."
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder={reportType === 'projects' ? 'Search projects...' : 'Search phases, projects...'}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[180px]" />
 
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
@@ -162,7 +187,7 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
 
       {/* Summary row */}
       <div className="flex items-center gap-6 text-sm text-slate-500">
-        <span><strong className="text-slate-900">{filteredProjects.length}</strong> projects</span>
+        <span><strong className="text-slate-900">{reportType === 'projects' ? filteredProjects.length : phaseProjectCount}</strong> projects</span>
         <span><strong className="text-slate-900">{allPhases.length}</strong> phases</span>
         <span className="ml-auto text-xs text-slate-400">Showing {reportType} report</span>
       </div>
@@ -236,7 +261,8 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
             </table>
           )}
 
-          {filteredProjects.length === 0 && (
+          {((reportType === 'projects' && filteredProjects.length === 0) ||
+            (reportType !== 'projects' && allPhases.length === 0)) && (
             <div className="py-16 text-center text-slate-400 text-sm">No data matches your filters.</div>
           )}
         </div>
