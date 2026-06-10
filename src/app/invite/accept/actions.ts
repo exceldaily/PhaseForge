@@ -5,32 +5,31 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 interface AcceptResult {
   success?: boolean
+  needsPassword?: boolean
   error?: string
 }
 
 /**
  * Finalizes an invited user after they confirm their email.
- * Ensures their profile carries the company_id + role from their auth
- * metadata, and marks the matching invitation as accepted.
+ * Checks if they need to set a password.
  */
 export async function acceptInvite(): Promise<AcceptResult> {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Not authenticated' }
+
+    // Not authenticated yet - invite link hasn't been clicked
+    if (!user) {
+      return { error: 'Please click the invite link in your email to continue.' }
+    }
 
     const meta = user.user_metadata || {}
     const companyId = meta.company_id as string | undefined
     const role = (meta.role as string | undefined) ?? 'member'
 
-    if (!companyId) {
-      // Nothing to attach — user can still proceed to the app.
-      return { success: true }
-    }
-
     const admin = createAdminClient()
 
-    // Ensure the profile reflects the invited company + role.
+    // Ensure the profile reflects the invited company + role
     await admin.from('profiles').upsert({
       id: user.id,
       email: user.email,
@@ -39,8 +38,8 @@ export async function acceptInvite(): Promise<AcceptResult> {
       role,
     })
 
-    // Mark the latest pending invitation for this email/company as accepted.
-    if (user.email) {
+    // Mark the latest pending invitation as accepted
+    if (user.email && companyId) {
       await admin
         .from('invitations')
         .update({ accepted_at: new Date().toISOString() })
@@ -49,9 +48,43 @@ export async function acceptInvite(): Promise<AcceptResult> {
         .is('accepted_at', null)
     }
 
-    return { success: true }
+    // Check if user has a password set
+    // Invited users typically don't have passwords until they set one
+    const needsPassword = !user.user_metadata?.password_set
+
+    return { success: true, needsPassword }
   } catch (err) {
     console.error('acceptInvite error:', err)
     return { error: err instanceof Error ? err.message : 'Failed to accept invite' }
+  }
+}
+
+/**
+ * Sets password for an invited user
+ */
+export async function setInvitePassword(password: string): Promise<{ success?: boolean; error?: string }> {
+  try {
+    if (!password || password.length < 8) {
+      return { error: 'Password must be at least 8 characters' }
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { error: 'Not authenticated' }
+    }
+
+    // Update user password
+    const { error } = await supabase.auth.updateUser({ password })
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('setInvitePassword error:', err)
+    return { error: err instanceof Error ? err.message : 'Failed to set password' }
   }
 }
