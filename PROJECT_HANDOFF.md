@@ -1,6 +1,6 @@
-# GANTTIC Project Handoff Document
+# PhaseForge Project Handoff Document
 
-**Project**: Ganttic - Professional Gantt Chart SaaS Application  
+**Project**: PhaseForge - Professional Gantt Chart SaaS Application  
 **Status**: MVP Complete with Admin Console  
 **Last Updated**: June 1, 2026  
 **Owner**: Brad Harvey (exceldaily7@gmail.com)
@@ -81,7 +81,7 @@ Next.js App Router (React 19 Components)
 ## 3. FOLDER STRUCTURE
 
 ```
-ganttic/
+phaseforge/
 ├── src/
 │   ├── app/                          # Next.js App Router
 │   │   ├── (auth)/                   # Auth pages (login, signup, invite)
@@ -609,13 +609,13 @@ All known issues from development have been resolved. If new bugs are discovered
 ## 13. DEPLOYMENT SETUP
 
 ### GitHub
-- **Repo**: https://github.com/exceldaily/Ganttic.git
+- **Repo**: https://github.com/exceldaily/phaseforge.git
 - **Main branch**: Default deployment branch
 - **Protected branch**: main (requires PR reviews recommended)
 - **Recent commits**: Admin console implementation, print fixes, import features
 
 ### Vercel
-- **Live URL**: https://ganttic.vercel.app
+- **Live URL**: https://phaseforge.vercel.app
 - **Domain**: Custom domain via Vercel dashboard
 - **Auto-deploy**: On push to main branch
 - **Environment**: Production only (no staging env configured)
@@ -748,8 +748,8 @@ npm run lint
 
 1. **Clone & setup**:
    ```bash
-   git clone https://github.com/exceldaily/Ganttic.git
-   cd ganttic
+   git clone https://github.com/exceldaily/phaseforge.git
+   cd phaseforge
    npm install
    cp .env.example .env.local  # Set Supabase credentials
    ```
