@@ -143,6 +143,58 @@ export async function updatePhaseReminders(phaseId: string, reminderNotes: strin
   }
 }
 
+// ── Project update with activity logging ──────────────────────────────
+
+export async function updateProject(projectId: string, updates: Record<string, unknown>) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    // Get old values for activity log
+    const { data: oldProject } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .single()
+
+    if (!oldProject) throw new Error('Project not found')
+
+    // Update the project
+    const { error } = await supabase
+      .from('projects')
+      .update({ ...updates, updated_at: new Date().toISOString(), updated_by: user.id })
+      .eq('id', projectId)
+
+    if (error) throw error
+
+    // Log what changed
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const [key, newValue] of Object.entries(updates)) {
+      const oldValue = (oldProject as Record<string, unknown>)[key]
+      if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+        changes[key] = { from: oldValue, to: newValue }
+      }
+    }
+
+    if (Object.keys(changes).length > 0) {
+      await supabase.from('activity_logs').insert({
+        company_id: (oldProject as Record<string, unknown>).company_id,
+        project_id: projectId,
+        actor_id: user.id,
+        action: 'project_updated',
+        payload: changes,
+      })
+    }
+
+    revalidatePath(`/app/projects/${projectId}`)
+    return { success: true }
+  } catch (err) {
+    logger.error('updateProject', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to update project' }
+  }
+}
+
 // ── Project to board assignment ───────────────────────────────────────────
 
 export async function updateProjectBoard(projectId: string, boardId: string | null, boardColumnId: string | null) {

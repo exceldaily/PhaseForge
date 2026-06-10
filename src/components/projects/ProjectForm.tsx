@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
 import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
-import { updateProjectBoard } from '@/app/app/projects/[id]/actions'
+import { updateProject, updateProjectBoard } from '@/app/app/projects/[id]/actions'
 import { Project } from '@/types/app'
 
 interface Member { id: string; full_name: string; email: string; role: string }
@@ -103,17 +103,12 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
     const supabase = createClient()
 
     if (project) {
-      const updatedAt = new Date().toISOString()
-      let { error } = await supabase
-        .from('projects')
-        .update({ ...form, updated_at: updatedAt, updated_by: currentUserId })
-        .eq('id', project.id)
-
-      if (error && isMissingUpdatedByColumnError(error)) {
-        ;({ error } = await supabase
-          .from('projects')
-          .update({ ...form, updated_at: updatedAt })
-          .eq('id', project.id))
+      // Update project with activity logging
+      const updateResult = await updateProject(project.id, form)
+      if (!updateResult.success) {
+        setError(updateResult.error || 'Failed to update project')
+        setLoading(false)
+        return
       }
 
       // Update board assignment if changed
@@ -121,7 +116,6 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
         await updateProjectBoard(project.id, selectedBoardId, selectedColumnId)
       }
 
-      if (error) { setError(error.message); setLoading(false); return }
       router.push(`/app/projects/${project.id}`)
     } else {
       const boardFields = selectedBoardId || defaultBoardId
