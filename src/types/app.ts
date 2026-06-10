@@ -117,6 +117,7 @@ export interface Phase {
   is_critical_path?: boolean | null
   color: string | null
   notes: string | null
+  reminder_notes?: string | null
   sort_order: number
   created_at: string
   updated_at: string
@@ -124,6 +125,18 @@ export interface Phase {
   assigned_profile?: Profile
   dependencies?: PhaseDependency[]
   board_column?: BoardColumn
+  checklists?: PhaseChecklist[]
+}
+
+export interface PhaseChecklist {
+  id: string
+  phase_id: string
+  title: string
+  description: string | null
+  is_completed: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
 }
 
 export interface PhaseDependency {

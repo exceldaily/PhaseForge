@@ -1,0 +1,175 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { logger } from '@/lib/logger'
+
+// ── Phase creation ────────────────────────────────────────────────────────
+
+export async function createPhaseQuick(projectId: string, data: { name: string; start_date: string; end_date: string }) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: project } = await supabase.from('projects').select('company_id').eq('id', projectId).single()
+    if (!project) throw new Error('Project not found')
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if (!profile || !['owner', 'admin', 'manager'].includes(profile.role)) {
+      throw new Error('Not authorized')
+    }
+
+    const { data: maxSort } = await supabase
+      .from('phases')
+      .select('sort_order')
+      .eq('project_id', projectId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .single()
+
+    const { data: phase, error } = await supabase
+      .from('phases')
+      .insert({
+        project_id: projectId,
+        name: data.name.trim(),
+        start_date: data.start_date,
+        end_date: data.end_date,
+        status: 'not_started',
+        color: '#6366f1',
+        sort_order: (maxSort?.sort_order ?? -1) + 1,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    revalidatePath(`/app/projects/${projectId}`)
+    revalidatePath(`/app/gantt`)
+    return { success: true, phase }
+  } catch (err) {
+    logger.error('createPhaseQuick', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to create phase' }
+  }
+}
+
+// ── Checklist management ──────────────────────────────────────────────────
+
+export async function addPhaseChecklist(phaseId: string, title: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: checklist, error } = await supabase
+      .from('phase_checklists')
+      .insert({
+        phase_id: phaseId,
+        title: title.trim(),
+        is_completed: false,
+        sort_order: 0,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    revalidatePath(`/app/projects`)
+    return { success: true, checklist }
+  } catch (err) {
+    logger.error('addPhaseChecklist', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to add checklist' }
+  }
+}
+
+export async function updatePhaseChecklist(checklistId: string, updates: { is_completed?: boolean; title?: string }) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { error } = await supabase
+      .from('phase_checklists')
+      .update(updates)
+      .eq('id', checklistId)
+
+    if (error) throw error
+
+    revalidatePath(`/app/projects`)
+    return { success: true }
+  } catch (err) {
+    logger.error('updatePhaseChecklist', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to update checklist' }
+  }
+}
+
+export async function deletePhaseChecklist(checklistId: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { error } = await supabase.from('phase_checklists').delete().eq('id', checklistId)
+
+    if (error) throw error
+
+    revalidatePath(`/app/projects`)
+    return { success: true }
+  } catch (err) {
+    logger.error('deletePhaseChecklist', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to delete checklist' }
+  }
+}
+
+export async function updatePhaseReminders(phaseId: string, reminderNotes: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { error } = await supabase
+      .from('phases')
+      .update({ reminder_notes: reminderNotes || null, updated_at: new Date().toISOString(), updated_by: user.id })
+      .eq('id', phaseId)
+
+    if (error) throw error
+
+    revalidatePath(`/app/projects`)
+    return { success: true }
+  } catch (err) {
+    logger.error('updatePhaseReminders', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to update reminders' }
+  }
+}
+
+// ── Project to board assignment ───────────────────────────────────────────
+
+export async function updateProjectBoard(projectId: string, boardId: string | null, boardColumnId: string | null) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { error } = await supabase
+      .from('projects')
+      .update({
+        board_id: boardId,
+        board_column_id: boardColumnId,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      })
+      .eq('id', projectId)
+
+    if (error) throw error
+
+    revalidatePath(`/app/projects`)
+    revalidatePath(`/app/projects/${projectId}`)
+    if (boardId) revalidatePath(`/app/boards/${boardId}`)
+
+    return { success: true }
+  } catch (err) {
+    logger.error('updateProjectBoard', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to update board' }
+  }
+}
