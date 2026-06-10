@@ -3,11 +3,13 @@
 import { useMemo, useState } from 'react'
 
 const PAGE_SIZE = 25
-import { Profile } from '@/types/app'
+import { Profile, UserRole } from '@/types/app'
 import { ChevronDown, Trash2, Lock, Shield, Edit, Unlock } from 'lucide-react'
-import { deactivateUser, deleteUser, promoteToSuperAdmin, demoteFromSuperAdmin, updateUserProfile, reactivateUser } from '@/app/admin/actions'
+import { deactivateUser, deleteUser, promoteToSuperAdmin, demoteFromSuperAdmin, updateUserProfile, reactivateUser, updateUserRole } from '@/app/admin/actions'
 import { Badge } from '@/components/ui/Badge'
 import { CompanySelectorModal } from '@/components/admin/CompanySelectorModal'
+
+const ROLES: UserRole[] = ['owner', 'manager', 'member']
 
 interface User extends Profile {
   company?: { name: string; slug: string } | null
@@ -32,6 +34,7 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
   const [editData, setEditData] = useState<{ full_name?: string; email?: string; job_title?: string }>({})
   const [page, setPage] = useState(1)
   const [selectingCompanyUserId, setSelectingCompanyUserId] = useState<string | null>(null)
+  const [changingRoleUserId, setChangingRoleUserId] = useState<string | null>(null)
 
   const filteredUsers = useMemo(() => {
     const q = searchTerm.toLowerCase()
@@ -144,6 +147,19 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
     )
   }
 
+  const handleChangeRole = async (userId: string, newRole: UserRole) => {
+    setActionInProgress(userId)
+    try {
+      await updateUserRole(userId, newRole)
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u))
+      setChangingRoleUserId(null)
+    } catch (error) {
+      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setActionInProgress(null)
+    }
+  }
+
   return (
     <div className="p-6">
       {/* Search */}
@@ -250,6 +266,31 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
                           >
                             <Edit size={16} /> Edit
                           </button>
+                          {changingRoleUserId === user.id ? (
+                            <div className="px-4 py-2 border-b border-slate-100">
+                              <p className="text-xs text-slate-500 mb-2 font-medium">Select role:</p>
+                              <div className="flex flex-col gap-1">
+                                {ROLES.map(role => (
+                                  <button
+                                    key={role}
+                                    onClick={() => handleChangeRole(user.id, role)}
+                                    disabled={actionInProgress === user.id || role === user.role}
+                                    className="w-full text-left px-2 py-1 text-xs hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed rounded capitalize"
+                                  >
+                                    {role}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setChangingRoleUserId(user.id)}
+                              disabled={actionInProgress === user.id}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-100 text-sm text-slate-700 flex items-center gap-2 border-b border-slate-100"
+                            >
+                              <Shield size={16} /> Change Role
+                            </button>
+                          )}
                           <button
                             onClick={() => setSelectingCompanyUserId(user.id)}
                             disabled={actionInProgress === user.id}

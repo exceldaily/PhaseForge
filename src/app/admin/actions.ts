@@ -381,3 +381,48 @@ export async function updateUserCompany(userId: string, newCompanyId: string | n
     throw error
   }
 }
+
+export async function updateUserRole(userId: string, newRole: string) {
+  try {
+    const actorId = await requireSuperAdmin()
+    const admin = createAdminClient()
+
+    // Validate role
+    const validRoles = ['owner', 'manager', 'member']
+    if (!validRoles.includes(newRole)) {
+      throw new Error(`Invalid role: ${newRole}`)
+    }
+
+    // Get user details before update
+    const { data: user } = await admin
+      .from('profiles')
+      .select('email, role')
+      .eq('id', userId)
+      .single()
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    const oldRole = user.role
+
+    // Update user
+    const { error } = await admin
+      .from('profiles')
+      .update({ role: newRole })
+      .eq('id', userId)
+
+    if (error) throw error
+
+    // Log action
+    await logAdminAction(actorId, 'update_user_role', 'user', userId, user.email, {
+      old_role: oldRole,
+      new_role: newRole,
+    })
+
+    return { success: true, message: `User role changed from ${oldRole} to ${newRole}` }
+  } catch (error) {
+    logger.error('Error updating user role', error)
+    throw error
+  }
+}
