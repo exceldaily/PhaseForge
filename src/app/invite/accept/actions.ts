@@ -130,9 +130,10 @@ export async function setInvitePassword(
       return { error: 'User account not found. Please request a new invite.' }
     }
 
-    // Update user password directly using admin client (no auth required)
+    // Update user password and mark as confirmed (they proved they have the email by clicking the link)
     const { error: updateErr } = await admin.auth.admin.updateUserById(authUserId, {
       password,
+      email_confirm: true,
     })
 
     if (updateErr) {
