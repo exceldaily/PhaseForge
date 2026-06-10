@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { checkBoardLimit } from '@/lib/planLimits'
 import { BOARD_COLUMN_MIN, BOARD_COLUMN_MAX, DEFAULT_BOARD_COLUMNS } from '@/lib/constants'
 import { logger } from '@/lib/logger'
@@ -32,7 +33,7 @@ async function requireRole(roles: string[]) {
 
 export async function createBoard(formData: FormData) {
   try {
-    const { supabase, userId, companyId } = await requireRole(['owner', 'admin', 'manager'])
+    const { userId, companyId } = await requireRole(['owner', 'admin', 'manager'])
     const name  = String(formData.get('name') ?? '').trim()
     const color = String(formData.get('color') ?? '#6366f1')
     const description = String(formData.get('description') ?? '').trim() || null
@@ -42,7 +43,12 @@ export async function createBoard(formData: FormData) {
     const usage = await checkBoardLimit(companyId)
     if (!usage.allowed) throw new Error(usage.reason)
 
-    const { data: board, error: boardError } = await supabase
+    // Role + company are already authorized above via requireRole(). Perform the
+    // writes with the service-role client (scoped to the validated companyId) to
+    // avoid brittle RLS edge cases on insert. Mirrors the signup/invite pattern.
+    const admin = createAdminClient()
+
+    const { data: board, error: boardError } = await admin
       .from('boards')
       .insert({ company_id: companyId, name, description, color, created_by: userId })
       .select()
@@ -57,7 +63,8 @@ export async function createBoard(formData: FormData) {
       sort_order: i,
       is_done: c.is_done,
     }))
-    await supabase.from('board_columns').insert(cols)
+    const { error: colError } = await admin.from('board_columns').insert(cols)
+    if (colError) throw colError
 
     revalidatePath('/app/boards')
     return { success: true, boardId: board.id }
