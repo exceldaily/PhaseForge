@@ -8,17 +8,17 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-05-27.dahlia',
 })
 
-// Plan pricing in cents (for Stripe API)
+// Plan pricing in cents (used as a fallback only if no price ID is configured)
 export const PLAN_PRICING: Record<string, number> = {
   pro: 4900,      // $49/month
   business: 19900, // $199/month
 }
 
-// Stripe product IDs (these should be created in Stripe dashboard)
-// For test mode, these can be test product IDs
-export const STRIPE_PRODUCT_IDS: Record<string, string> = {
-  pro: process.env.STRIPE_PRODUCT_PRO_ID || 'prod_test_pro',
-  business: process.env.STRIPE_PRODUCT_BUSINESS_ID || 'prod_test_business',
+// Stripe Price IDs created in the Stripe dashboard. Using these directly is
+// the source of truth for amount/interval — no separate product IDs needed.
+export const STRIPE_PRICE_IDS: Record<string, string | undefined> = {
+  pro: process.env.STRIPE_PRICE_PRO_ID,
+  business: process.env.STRIPE_PRICE_BUSINESS_ID,
 }
 
 export async function getOrCreateStripeCustomer(
@@ -56,23 +56,27 @@ export async function createCheckoutSession(
   planType: 'pro' | 'business',
   returnUrl: string
 ) {
+  const priceId = STRIPE_PRICE_IDS[planType]
+
+  // Prefer the configured Stripe Price (real product/price in the dashboard).
+  // Fall back to an inline price only if no price ID is configured.
+  const lineItem = priceId
+    ? { price: priceId, quantity: 1 }
+    : {
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `Ganttic ${planType === 'pro' ? 'Pro' : 'Business'}` },
+          unit_amount: PLAN_PRICING[planType],
+          recurring: { interval: 'month' as const },
+        },
+        quantity: 1,
+      }
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
     payment_method_types: ['card'],
-    line_items: [
-      {
-        price_data: {
-          currency: 'usd',
-          product: STRIPE_PRODUCT_IDS[planType],
-          unit_amount: PLAN_PRICING[planType],
-          recurring: {
-            interval: 'month',
-          },
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: [lineItem],
     success_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: returnUrl,
   })
