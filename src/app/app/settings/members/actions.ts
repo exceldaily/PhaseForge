@@ -247,10 +247,18 @@ export async function sendInvite(
       inviteLink += `&tempPassword=${encodeURIComponent(tempPassword)}`
     }
 
-    // Send branded Brevo email (fire and forget)
-    sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName, tempPassword).catch(err =>
-      console.error('Invite email failed:', err)
-    )
+    // Send branded Brevo email
+    const emailResult = await sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName, tempPassword)
+
+    if (!emailResult.success) {
+      console.error('[SendInvite] Brevo email failed:', {
+        email: normalizedEmail,
+        error: emailResult.error,
+        brevoApiKey: process.env.BREVO_API_KEY ? 'SET' : 'NOT SET',
+      })
+    } else {
+      console.log('[SendInvite] Email sent successfully:', { email: normalizedEmail, messageId: emailResult.messageId })
+    }
 
     return { success: true, message: `Invitation sent to ${normalizedEmail}.` }
   } catch (err) {
