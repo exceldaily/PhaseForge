@@ -102,13 +102,18 @@ export async function deleteUser(userId: string, reason?: string) {
       throw new Error('User not found')
     }
 
-    // Delete user (they'll need to re-signup)
-    const { error } = await admin
-      .from('profiles')
-      .delete()
-      .eq('id', userId)
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(userId)
 
-    if (error) throw error
+    if (authDeleteError) {
+      const { error: profileDeleteError } = await admin
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+
+      if (profileDeleteError) {
+        throw authDeleteError
+      }
+    }
 
     // Log action
     await logAdminAction(actorId, 'delete_user', 'user', userId, user.email, { reason })

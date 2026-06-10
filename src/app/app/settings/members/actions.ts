@@ -1,6 +1,7 @@
 'use server'
 
 import { headers } from 'next/headers'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkMemberLimit } from '@/lib/planLimits'
@@ -12,6 +13,7 @@ interface SendInviteResult {
 }
 
 const INVITE_RESEND_COOLDOWN_MINUTES = 15
+const AUTH_USER_LOOKUP_PAGE_SIZE = 200
 
 function getFriendlyInviteError(message: string) {
   const normalized = message.toLowerCase()
@@ -36,6 +38,68 @@ async function getAppOrigin(): Promise<string> {
   const host = h.get('x-forwarded-host') ?? h.get('host')
   const proto = h.get('x-forwarded-proto') ?? 'https'
   return host ? `${proto}://${host}` : ''
+}
+
+function createPublicAuthClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
+}
+
+async function findAuthUserByEmail(admin: ReturnType<typeof createAdminClient>, email: string) {
+  let page = 1
+
+  while (page <= 10) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: AUTH_USER_LOOKUP_PAGE_SIZE,
+    })
+
+    if (error) {
+      throw error
+    }
+
+    const foundUser = data.users.find((user) => user.email?.toLowerCase() === email)
+    if (foundUser) {
+      return foundUser
+    }
+
+    if (data.users.length < AUTH_USER_LOOKUP_PAGE_SIZE) {
+      break
+    }
+
+    page += 1
+  }
+
+  return null
+}
+
+async function recordInvitation(
+  admin: ReturnType<typeof createAdminClient>,
+  companyId: string,
+  normalizedEmail: string,
+  role: string,
+  inviterId: string
+) {
+  const token = crypto.randomUUID()
+  await admin.from('invitations').upsert(
+    {
+      company_id: companyId,
+      email: normalizedEmail,
+      role,
+      token,
+      invited_by: inviterId,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    { onConflict: 'token' }
+  )
 }
 
 export async function sendInvite(
@@ -68,6 +132,7 @@ export async function sendInvite(
     const normalizedEmail = email.trim().toLowerCase()
     const origin = await getAppOrigin()
     const admin = createAdminClient()
+    const publicAuth = createPublicAuthClient()
     const resendCutoff = new Date(Date.now() - INVITE_RESEND_COOLDOWN_MINUTES * 60 * 1000).toISOString()
 
     const { data: existingMember } = await admin
@@ -112,22 +177,66 @@ export async function sendInvite(
     )
 
     if (inviteErr) {
+      if (inviteErr.message.toLowerCase().includes('already registered')) {
+        const authUser = await findAuthUserByEmail(admin, normalizedEmail)
+
+        if (authUser) {
+          const fullName =
+            typeof authUser.user_metadata?.full_name === 'string' && authUser.user_metadata.full_name.trim()
+              ? authUser.user_metadata.full_name.trim()
+              : normalizedEmail.split('@')[0]
+
+          const { error: authUpdateErr } = await admin.auth.admin.updateUserById(authUser.id, {
+            user_metadata: {
+              ...(authUser.user_metadata ?? {}),
+              company_id: companyId,
+              role,
+            },
+          })
+
+          if (authUpdateErr) {
+            return { error: getFriendlyInviteError(authUpdateErr.message) }
+          }
+
+          const { error: profileErr } = await admin.from('profiles').upsert({
+            id: authUser.id,
+            company_id: companyId,
+            email: normalizedEmail,
+            full_name: fullName,
+            role,
+            is_active: true,
+          })
+
+          if (profileErr) {
+            return { error: profileErr.message }
+          }
+
+          const { error: magicLinkErr } = await publicAuth.auth.signInWithOtp({
+            email: normalizedEmail,
+            options: {
+              shouldCreateUser: false,
+              emailRedirectTo: origin ? `${origin}/invite/accept` : undefined,
+            },
+          })
+
+          if (magicLinkErr) {
+            return { error: getFriendlyInviteError(magicLinkErr.message) }
+          }
+
+          await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
+
+          return {
+            success: true,
+            message: `${normalizedEmail} already had an account, so we restored access and sent them a sign-in link.`,
+          }
+        }
+      }
+
       return { error: getFriendlyInviteError(inviteErr.message) }
     }
 
     // Record the invitation for audit / pending-list display.
-    const token = crypto.randomUUID()
-    await admin.from('invitations').upsert(
-      {
-        company_id: companyId,
-        email: normalizedEmail,
-        role,
-        token,
-        invited_by: user.id,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      { onConflict: 'token' }
-    )
+    await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
 
     return { success: true, message: `Invitation sent to ${normalizedEmail}.` }
   } catch (err) {
