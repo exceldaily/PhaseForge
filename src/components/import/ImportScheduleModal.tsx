@@ -19,6 +19,25 @@ interface ImportScheduleModalProps {
 
 type Step = 'upload' | 'confirm' | 'importing' | 'done'
 
+// Mirrors the status → column mapping from the v2 board architecture back-fill,
+// matched against column names on the company's default board.
+const STATUS_COLUMN_NAMES: Record<string, string> = {
+  queue: 'Queue',
+  planning: 'Queue',
+  on_hold: 'Queue',
+  mobilization: 'Mobilization',
+  construction_initiated: 'In Progress',
+  pct_30: 'In Progress',
+  pct_60: 'In Progress',
+  pct_90: 'In Progress',
+  active: 'In Progress',
+  final_punchlist: 'Final Punchlist',
+  closeout: 'Closeout',
+  closed: 'Closed',
+  completed: 'Closed',
+  cancelled: 'Closed',
+}
+
 export function ImportScheduleModal({ open, onClose, companyId, currentUserId }: ImportScheduleModalProps) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -144,7 +163,29 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
     const supabase = createClient()
     let lastProjectId = ''
 
+    // Imported projects land on the company's default board so they show up
+    // on board views instead of floating unassigned.
+    const { data: defaultBoard } = await supabase
+      .from('boards')
+      .select('id, board_columns(id, name, sort_order)')
+      .eq('company_id', companyId)
+      .eq('is_default', true)
+      .limit(1)
+      .maybeSingle()
+    const boardColumns = (defaultBoard?.board_columns ?? [])
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+    const columnIdForStatus = (status: string) => {
+      const wanted = (STATUS_COLUMN_NAMES[status] ?? '').toLowerCase()
+      return boardColumns.find(c => c.name.toLowerCase() === wanted)?.id ?? boardColumns[0]?.id ?? null
+    }
+
     for (const proj of acceptedProjects) {
+      const status = proj.status || 'mobilization'
+      const boardFields = defaultBoard
+        ? { board_id: defaultBoard.id, board_column_id: columnIdForStatus(status) }
+        : {}
+
       let { data: newProject, error: projErr } = await supabase.from('projects').insert({
         name: proj.name,
         company_id: companyId,
@@ -152,9 +193,10 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
         updated_by: currentUserId,
         start_date: proj.start_date,
         end_date: proj.end_date,
-        status: proj.status || 'mobilization',
+        status,
         priority: 'medium',
         color: DEFAULT_PHASE_COLORS[detectedProjects.indexOf(proj) % DEFAULT_PHASE_COLORS.length],
+        ...boardFields,
       }).select().single()
 
       if (projErr && isMissingUpdatedByColumnError(projErr)) {
@@ -164,9 +206,10 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
           created_by: currentUserId,
           start_date: proj.start_date,
           end_date: proj.end_date,
-          status: proj.status || 'mobilization',
+          status,
           priority: 'medium',
           color: DEFAULT_PHASE_COLORS[detectedProjects.indexOf(proj) % DEFAULT_PHASE_COLORS.length],
+          ...boardFields,
         }).select().single()
 
         newProject = retryResult.data
