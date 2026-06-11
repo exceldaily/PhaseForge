@@ -26,6 +26,8 @@ interface ProjectFormProps {
   defaultBoardId?: string
   defaultColumnId?: string
   boardColumns?: BoardColumn[]
+  boardVisibleFields?: string[]
+  boardCustomStages?: string[]
 }
 
 const PERMIT_STATUSES = [
@@ -36,7 +38,11 @@ const PERMIT_STATUSES = [
   { value: 'denied', label: 'Denied' },
 ]
 
-export function ProjectForm({ companyId, members, currentUserId, project, boards = [], defaultBoardId, defaultColumnId, boardColumns = [] }: ProjectFormProps) {
+const DEFAULT_STAGES = [
+  'queue', 'mobilization', 'construction_initiated', 'pct_30', 'pct_60', 'pct_90', 'final_punchlist', 'closeout', 'closed'
+]
+
+export function ProjectForm({ companyId, members, currentUserId, project, boards = [], defaultBoardId, defaultColumnId, boardColumns = [], boardVisibleFields = [], boardCustomStages = [] }: ProjectFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -61,6 +67,11 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
 
   const selectedBoard = boards.find(b => b.id === selectedBoardId)
   const columnOptions = selectedBoard?.board_columns || []
+
+  // Check if board customization is active
+  const hasCustomization = boardVisibleFields && boardVisibleFields.length > 0
+  const shouldShowField = (fieldId: string) => !hasCustomization || boardVisibleFields.includes(fieldId)
+  const stages = boardCustomStages && boardCustomStages.length > 0 ? boardCustomStages : DEFAULT_STAGES
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }))
@@ -282,15 +293,11 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Status</h3>
         <div className="grid md:grid-cols-3 gap-4">
           <Select id="status" label="Project Stage" value={form.status} onChange={set('status')}>
-            <option value="queue">Queue</option>
-            <option value="mobilization">Mobilization</option>
-            <option value="construction_initiated">Construction Initiated</option>
-            <option value="pct_30">30% Constructed</option>
-            <option value="pct_60">60% Constructed</option>
-            <option value="pct_90">90% Constructed</option>
-            <option value="final_punchlist">Final Punchlist</option>
-            <option value="closeout">Closeout</option>
-            <option value="closed">Closed</option>
+            {stages.map(stage => (
+              <option key={stage} value={stage}>
+                {stage.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+              </option>
+            ))}
           </Select>
           <Select id="priority" label="Priority" value={form.priority} onChange={set('priority')}>
             <option value="low">Low</option>

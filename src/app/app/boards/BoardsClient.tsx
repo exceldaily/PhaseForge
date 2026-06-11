@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, Settings, Layers, Lock, ChevronRight } from 'lucide-react'
 import { createBoard } from './actions'
+import { BoardFieldCustomizer } from '@/components/boards/BoardFieldCustomizer'
 import { Board, BoardColumn } from '@/types/app'
 import { cn } from '@/lib/utils'
 
@@ -42,9 +43,18 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
   const [newDesc, setNewDesc] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [customizingFields, setCustomizingFields] = useState(false)
+  const [visibleFields, setVisibleFields] = useState<string[]>([])
+  const [customStages, setCustomStages] = useState<string[]>([])
 
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const atLimit = !usage.boards.unlimited && usage.boards.current >= usage.boards.limit
+
+  const handleCustomizationSave = (fields: string[], stages: string[]) => {
+    setVisibleFields(fields)
+    setCustomStages(stages)
+    setCustomizingFields(false)
+  }
 
   const handleCreate = async () => {
     if (!newName.trim()) return
@@ -54,11 +64,15 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
     fd.set('name', newName.trim())
     fd.set('color', newColor)
     fd.set('description', newDesc.trim())
+    fd.set('visibleFields', JSON.stringify(visibleFields))
+    fd.set('customStages', JSON.stringify(customStages))
     const result = await createBoard(fd)
     setSaving(false)
     if (!result.success) { setError(result.error ?? 'Failed'); return }
     setCreating(false)
     setNewName(''); setNewDesc(''); setNewColor(BOARD_COLORS[0])
+    setVisibleFields([])
+    setCustomStages([])
     window.location.href = `/app/boards/${result.boardId}`
   }
 
@@ -115,46 +129,63 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
 
       {/* Create form */}
       {creating && (
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-800">Create New Board</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Board Name *</label>
-              <input
-                autoFocus
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                placeholder="e.g. Construction Board, Service Board"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-slate-800">Create New Board</h2>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Board Name *</label>
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  placeholder="e.g. Construction Board, Service Board"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Description</label>
+                <input
+                  value={newDesc}
+                  onChange={e => setNewDesc(e.target.value)}
+                  placeholder="Optional description"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Description</label>
-              <input
-                value={newDesc}
-                onChange={e => setNewDesc(e.target.value)}
-                placeholder="Optional description"
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-slate-500">Color:</span>
+              {BOARD_COLORS.map(c => (
+                <button key={c} onClick={() => setNewColor(c)}
+                  className={cn('h-6 w-6 rounded-full border-2 transition-all', newColor === c ? 'border-slate-900 scale-110' : 'border-transparent')}
+                  style={{ backgroundColor: c }} />
+              ))}
             </div>
+            {error && <p className="text-sm text-rose-600">{error}</p>}
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-slate-500">Color:</span>
-            {BOARD_COLORS.map(c => (
-              <button key={c} onClick={() => setNewColor(c)}
-                className={cn('h-6 w-6 rounded-full border-2 transition-all', newColor === c ? 'border-slate-900 scale-110' : 'border-transparent')}
-                style={{ backgroundColor: c }} />
-            ))}
-          </div>
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+
+          {/* Field Customizer */}
+          <BoardFieldCustomizer onSave={handleCustomizationSave} />
+
+          {/* Action buttons */}
           <div className="flex gap-2">
-            <button onClick={handleCreate} disabled={saving || !newName.trim()}
-              className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+            <button
+              onClick={handleCreate}
+              disabled={saving || !newName.trim() || visibleFields.length === 0 || customStages.length === 0}
+              className="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
               {saving ? 'Creating…' : 'Create Board'}
             </button>
-            <button onClick={() => { setCreating(false); setNewName(''); setError('') }}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+            <button
+              onClick={() => {
+                setCreating(false)
+                setNewName('')
+                setError('')
+                setVisibleFields([])
+                setCustomStages([])
+              }}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            >
               Cancel
             </button>
           </div>

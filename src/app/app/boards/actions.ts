@@ -37,20 +37,38 @@ export async function createBoard(formData: FormData) {
     const name  = String(formData.get('name') ?? '').trim()
     const color = String(formData.get('color') ?? '#6366f1')
     const description = String(formData.get('description') ?? '').trim() || null
+    const visibleFieldsStr = String(formData.get('visibleFields') ?? '[]')
+    const customStagesStr = String(formData.get('customStages') ?? '[]')
 
     if (!name) throw new Error('Board name is required')
 
     const usage = await checkBoardLimit(companyId)
     if (!usage.allowed) throw new Error(usage.reason)
 
-    // Role + company are already authorized above via requireRole(). Perform the
-    // writes with the service-role client (scoped to the validated companyId) to
-    // avoid brittle RLS edge cases on insert. Mirrors the signup/invite pattern.
+    let visibleFields = []
+    let customStages = []
+    try {
+      visibleFields = JSON.parse(visibleFieldsStr)
+      customStages = JSON.parse(customStagesStr)
+    } catch {
+      // Use defaults if parsing fails
+      visibleFields = ['client_name', 'job_location', 'project_manager', 'superintendent', 'subcontractors', 'priority', 'permit_status']
+      customStages = ['queue', 'mobilization', 'construction_initiated', 'pct_30', 'pct_60', 'pct_90', 'final_punchlist', 'closeout', 'closed']
+    }
+
     const admin = createAdminClient()
 
     const { data: board, error: boardError } = await admin
       .from('boards')
-      .insert({ company_id: companyId, name, description, color, created_by: userId })
+      .insert({
+        company_id: companyId,
+        name,
+        description,
+        color,
+        created_by: userId,
+        visible_fields: visibleFields,
+        custom_stages: customStages,
+      })
       .select()
       .single()
     if (boardError) throw boardError
@@ -88,6 +106,27 @@ export async function updateBoard(boardId: string, updates: { name?: string; des
   } catch (err) {
     logger.error('updateBoard', err)
     return { success: false, error: errMessage(err, 'Failed to update board') }
+  }
+}
+
+export async function updateBoardCustomization(boardId: string, visibleFields: string[], customStages: string[]) {
+  try {
+    const { supabase } = await requireRole(['owner', 'admin'])
+    const { error } = await supabase
+      .from('boards')
+      .update({
+        visible_fields: visibleFields,
+        custom_stages: customStages,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', boardId)
+    if (error) throw error
+    revalidatePath('/app/boards')
+    revalidatePath(`/app/boards/${boardId}`)
+    return { success: true }
+  } catch (err) {
+    logger.error('updateBoardCustomization', err)
+    return { success: false, error: errMessage(err, 'Failed to update customization') }
   }
 }
 
