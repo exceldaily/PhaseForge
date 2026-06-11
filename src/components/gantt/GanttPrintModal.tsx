@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { GantticLogo } from '@/components/branding/GantticLogo'
 import { addDays, differenceInDays, format, formatDate, getTimelineHeaders, parseISO } from '@/lib/dates'
 import { getClippedBarPosition } from '@/lib/gantt'
 import { Project, ZoomLevel } from '@/types/app'
@@ -92,16 +93,19 @@ export function GanttPrintModal({
           </button>
         </div>
 
-        <div className="gantt-print-header border-b border-slate-200 px-8 pb-6 pt-6">
-          <h1 className="text-3xl font-bold text-slate-900">
-            {style === 'chart' ? 'Gantt Chart' : 'Project Schedule'}
-          </h1>
-          <p className="mt-2 text-sm font-medium text-slate-600">
-            {scope === 'all' ? 'All Projects' : 'Current Project'}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">
-            {format(viewStart, 'MMM d, yyyy')} - {format(viewEnd, 'MMM d, yyyy')}
-          </p>
+        <div className="gantt-print-header flex items-start justify-between gap-6 border-b border-slate-200 px-8 pb-6 pt-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              {style === 'chart' ? 'Gantt Chart' : 'Project Schedule'}
+            </h1>
+            <p className="mt-2 text-sm font-medium text-slate-600">
+              {scope === 'all' ? 'All Projects' : 'Current Project'}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              {format(viewStart, 'MMM d, yyyy')} - {format(viewEnd, 'MMM d, yyyy')}
+            </p>
+          </div>
+          <GantticLogo variant="lockup" width={170} alt="PhaseForge logo" />
         </div>
 
         {projectsToPrint.length === 0 && (
