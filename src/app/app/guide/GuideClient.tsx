@@ -178,7 +178,7 @@ const SECTIONS: GuideSection[] = [
     items: [
       { heading: 'Analytics', text: 'Completion rate, overdue projects, projects by status and priority, phase status donut, phase health stats, average project/phase durations, and per-member workload charts.' },
       { heading: 'Reports', text: 'Three report types — Projects, Phases, Schedule — with text search, status and priority filters, a board filter, and an "include archived" toggle.' },
-      { heading: 'Export & print', text: 'Any filtered report exports to CSV or prints cleanly. What you filter is what you export.' },
+      { heading: 'Export & print', text: 'Any filtered report exports to CSV, and Print opens a clean landscape print sheet (matching the Gantt\'s print style) with a preview before the print dialog. What you filter is what you export.' },
     ],
   },
   {

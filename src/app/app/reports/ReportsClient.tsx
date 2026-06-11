@@ -4,6 +4,7 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import { Download, Printer, Filter } from 'lucide-react'
 import { BoardFilter } from '@/components/boards/BoardFilter'
 import { BoardOption } from '@/lib/boardFilter'
+import { ReportPrintModal } from './ReportPrintModal'
 import { PROJECT_STATUS_LABELS, PRIORITY_LABELS, PHASE_STATUS_LABELS, KANBAN_COLUMNS } from '@/lib/constants'
 import { formatDate, differenceInDays, parseISO } from '@/lib/dates'
 import { Project, Phase, ProjectStatus, PhaseStatus } from '@/types/app'
@@ -27,6 +28,7 @@ export function ReportsClient({ projects, members, boards, selectedBoardId }: Re
   const [priorityFilter, setPriorityFilter] = useState('')
   const [search, setSearch] = useState('')
   const [includeArchived, setIncludeArchived] = useState(false)
+  const [printing, setPrinting] = useState(false)
   const deferredSearch = useDeferredValue(search)
 
   const q = deferredSearch.trim().toLowerCase()
@@ -130,13 +132,23 @@ export function ReportsClient({ projects, members, boards, selectedBoardId }: Re
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {printing && (
+        <ReportPrintModal
+          reportType={reportType}
+          projects={projects}
+          filteredProjects={filteredProjects}
+          phases={allPhases}
+          memberMap={memberMap}
+          onClose={() => setPrinting(false)}
+        />
+      )}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
           <p className="text-slate-500 mt-1 text-sm">Filter, preview, and export your project data.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => window.print()}
+          <button onClick={() => setPrinting(true)}
             className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
             <Printer size={15} /> Print
           </button>
