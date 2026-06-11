@@ -1,9 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
 import { InviteMemberButton } from '@/components/settings/InviteMemberButton'
-import { ROLE_LABELS, ROLE_COLORS as ROLE_COLOR_MAP } from '@/lib/constants'
+import { MembersClient } from './MembersClient'
 import { Profile } from '@/types/app'
 
 export default async function MembersPage() {
@@ -33,23 +31,13 @@ export default async function MembersPage() {
         {canManage && <InviteMemberButton companyId={profile.company_id} />}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="divide-y divide-slate-100">
-          {(members as Profile[]).map(member => (
-            <div key={member.id} className="flex items-center gap-4 px-6 py-4">
-              <Avatar name={member.full_name} avatarUrl={member.avatar_url} size="md" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-900">{member.full_name}</p>
-                <p className="text-sm text-slate-400">{member.email}</p>
-              </div>
-              {member.job_title && <p className="text-sm text-slate-500 hidden md:block">{member.job_title}</p>}
-              <Badge className={ROLE_COLOR_MAP[member.role] ?? 'bg-slate-100 text-slate-600'}>
-                {ROLE_LABELS[member.role] ?? member.role}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      </div>
+      <MembersClient
+        members={members as Profile[]}
+        currentUserId={user.id}
+        currentUserRole={profile.role}
+        companyId={profile.company_id}
+        canManage={canManage}
+      />
     </div>
   )
 }

@@ -271,3 +271,111 @@ export async function sendInvite(
     return { error: err instanceof Error ? err.message : 'Failed to send invite' }
   }
 }
+
+/**
+ * Update a user's role in the organization
+ */
+export async function updateUserRole(
+  userId: string,
+  newRole: string,
+  companyId: string
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Not authenticated' }
+
+    // Verify the current user is an owner
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .eq('company_id', companyId)
+      .single()
+
+    if (profile?.role !== 'owner') {
+      return { error: 'Only organization owners can change member roles.' }
+    }
+
+    // Can't change the owner's role
+    const { data: targetUser } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .eq('company_id', companyId)
+      .single()
+
+    if (targetUser?.role === 'owner') {
+      return { error: 'Cannot change the owner\'s role.' }
+    }
+
+    // Update the role
+    const admin = createAdminClient()
+    const { error: updateErr } = await admin.from('profiles').update({ role: newRole }).eq('id', userId).eq('company_id', companyId)
+
+    if (updateErr) {
+      return { error: updateErr.message }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('updateUserRole error:', err)
+    return { error: err instanceof Error ? err.message : 'Failed to update role' }
+  }
+}
+
+/**
+ * Delete a user from the organization
+ */
+export async function deleteUser(
+  userId: string,
+  companyId: string
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Not authenticated' }
+
+    // Verify the current user is an owner
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .eq('company_id', companyId)
+      .single()
+
+    if (profile?.role !== 'owner') {
+      return { error: 'Only organization owners can remove members.' }
+    }
+
+    // Can't delete yourself
+    if (userId === user.id) {
+      return { error: 'You cannot remove yourself from the organization.' }
+    }
+
+    // Can't delete the owner
+    const { data: targetUser } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .eq('company_id', companyId)
+      .single()
+
+    if (targetUser?.role === 'owner') {
+      return { error: 'Cannot remove the organization owner.' }
+    }
+
+    // Delete the user from the organization
+    const admin = createAdminClient()
+    const { error: deleteErr } = await admin.from('profiles').delete().eq('id', userId).eq('company_id', companyId)
+
+    if (deleteErr) {
+      return { error: deleteErr.message }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('deleteUser error:', err)
+    return { error: err instanceof Error ? err.message : 'Failed to delete user' }
+  }
+}
