@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getFriendlyAuthError, normalizeAuthEmail, validatePassword } from '@/lib/auth/password'
 import { sendWelcomeEmail } from '@/lib/brevo'
+import { createUniqueSlug } from '@/lib/slugs'
 
 export async function createWorkspace(formData: {
   fullName: string
@@ -54,14 +55,9 @@ export async function createWorkspace(formData: {
     return { success: true, session: Boolean(auth.session) }
   }
 
-  const slug = companyName
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-
   const { data: company, error: companyErr } = await admin
     .from('companies')
-    .insert({ name: companyName, slug: `${slug}-${Date.now()}` })
+    .insert({ name: companyName, slug: createUniqueSlug(companyName, 'company') })
     .select()
     .single()
 

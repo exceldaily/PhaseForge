@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, Pencil, Trash2, X, Check, Users, FolderKanban } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ROLE_LABELS } from '@/lib/constants'
+import { createUniqueSlug } from '@/lib/slugs'
 import { cn } from '@/lib/utils'
 
 interface TeamMemberRow  { profile_id: string }
@@ -37,17 +38,21 @@ export function TeamsClient({ teams: init, members, projects, companyId, canEdit
   const [error, setError] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const memberMap  = Object.fromEntries(members.map(m => [m.id, m]))
-  const projectMap = Object.fromEntries(projects.map(p => [p.id, p]))
-
   // ── Create ─────────────────────────────────────────────────────────────────
   const createTeam = async () => {
     if (!newName.trim()) return
     setSaving(true)
+    setError('')
     const supabase = createClient()
+    const trimmedName = newName.trim()
     const { data, error } = await supabase
       .from('teams')
-      .insert({ name: newName.trim(), color: newColor, company_id: companyId })
+      .insert({
+        name: trimmedName,
+        slug: createUniqueSlug(trimmedName, 'team'),
+        color: newColor,
+        company_id: companyId,
+      })
       .select('*, team_members(profile_id), project_teams(project_id)')
       .single()
     setSaving(false)
