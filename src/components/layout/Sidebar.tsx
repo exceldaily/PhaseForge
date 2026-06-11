@@ -82,7 +82,7 @@ export function Sidebar({ isSuperAdmin = false, mobileOpen = false, onMobileClos
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/app/dashboard' && pathname.startsWith(href))
           return (
