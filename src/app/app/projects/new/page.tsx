@@ -20,7 +20,7 @@ export default async function NewProjectPage({
   const [membersRes, boardRes] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, role').eq('company_id', profile.company_id).eq('is_active', true),
     params.board
-      ? supabase.from('boards').select('id, name, board_columns(id, name, sort_order, color)').eq('id', params.board).single()
+      ? supabase.from('boards').select('id, name, visible_fields, custom_stages, board_columns(id, name, sort_order, color)').eq('id', params.board).single()
       : Promise.resolve({ data: null }),
   ])
 
@@ -44,6 +44,8 @@ export default async function NewProjectPage({
         defaultBoardId={params.board}
         defaultColumnId={params.column}
         boardColumns={board?.board_columns ?? []}
+        boardVisibleFields={board?.visible_fields ?? []}
+        boardCustomStages={board?.custom_stages ?? []}
       />
     </div>
   )

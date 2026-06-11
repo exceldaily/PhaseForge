@@ -161,8 +161,12 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
           <div className="md:col-span-2">
             <Input id="name" label="Project name *" placeholder="Downtown Office Renovation" value={form.name} onChange={set('name')} required />
           </div>
+          {shouldShowField('client_name') && (
           <Input id="customer_name" label="Client / Customer" placeholder="ABC Corp" value={form.customer_name} onChange={set('customer_name')} />
+          )}
+          {shouldShowField('job_location') && (
           <Input id="job_location" label="Job location" placeholder="123 Main St, City, State" value={form.job_location} onChange={set('job_location')} />
+          )}
           <Input id="start_date" type="date" label="Start date *" value={form.start_date} onChange={set('start_date')} required />
           <Input id="end_date" type="date" label="End date *" value={form.end_date} onChange={set('end_date')} required />
         </div>
@@ -209,6 +213,7 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
       )}
 
       {/* Team */}
+      {(shouldShowField('project_manager') || shouldShowField('superintendent') || shouldShowField('subcontractors')) && (
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Team</h3>
         <div className="grid md:grid-cols-2 gap-4">
@@ -287,6 +292,7 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
           )}
         </div>
       </section>
+      )}
 
       {/* Status & Priority */}
       <section className="space-y-4">
