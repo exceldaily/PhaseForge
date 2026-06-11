@@ -115,7 +115,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
           With a single board selected, show that board's own columns. */}
       {view === 'kanban' && (
         selectedBoardId && selectedBoardColumns && selectedBoardColumns.length > 0 ? (
-          <div className="flex h-[calc(100vh-240px)] min-h-[420px] flex-col">
+          <div className="relative">
             <BoardColumnsKanban
               boardId={selectedBoardId}
               columns={selectedBoardColumns}
