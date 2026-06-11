@@ -10,7 +10,11 @@ import {
   Lock,
   Mail,
   ShieldCheck,
-  Play,
+  GanttChartSquare,
+  Users2,
+  Zap,
+  Calendar,
+  ChevronDown,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
@@ -99,19 +103,56 @@ export default function LoginPage() {
               Professional Gantt charts and real-time collaboration. Built for teams that deliver on time, every time.
             </p>
 
-            {/* CTA Button - Alternative to form */}
-            <div className="mt-12 flex flex-wrap gap-4">
+            {/* CTA Section */}
+            <div className="mt-12">
               <Link
                 href="/signup"
                 className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-orange-600 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-orange-500/30 transition-all hover:scale-105 hover:shadow-orange-500/50"
               >
-                <span>Start Free</span>
+                <span>Start Free Trial</span>
                 <ArrowRight size={20} />
               </Link>
-              <button className="inline-flex items-center gap-3 rounded-2xl border-2 border-white/30 px-8 py-4 text-lg font-semibold text-white backdrop-blur-sm transition-all hover:border-white/50 hover:bg-white/10">
-                <Play size={18} className="fill-current" />
-                <span>Watch Demo</span>
-              </button>
+              <p className="mt-3 text-sm text-stone-300">No credit card required • 14-day free access</p>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="mt-16 grid grid-cols-2 gap-6 max-w-lg">
+              <div className="flex gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
+                  <GanttChartSquare size={24} className="text-amber-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Professional Gantt</p>
+                  <p className="text-sm text-stone-400">Drag-and-drop scheduling</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
+                  <Users2 size={24} className="text-amber-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Team Collaboration</p>
+                  <p className="text-sm text-stone-400">Real-time updates</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
+                  <Zap size={24} className="text-amber-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Instant Insights</p>
+                  <p className="text-sm text-stone-400">Analytics & reporting</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
+                  <Calendar size={24} className="text-amber-300" />
+                </div>
+                <div>
+                  <p className="font-semibold text-white">Smart Planning</p>
+                  <p className="text-sm text-stone-400">Budget-aware scheduling</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -127,7 +168,14 @@ export default function LoginPage() {
             </div>
             <div>
               <p className={cn(sora.className, 'text-3xl font-bold text-amber-300 md:text-4xl')}>94%</p>
-              <p className="mt-2 text-sm text-stone-300">On-Time</p>
+              <p className="mt-2 text-sm text-stone-300">On-Time Delivery</p>
+            </div>
+          </div>
+
+          {/* Scroll Indicator */}
+          <div className="mt-12 hidden lg:flex justify-center">
+            <div className="animate-bounce text-stone-400">
+              <ChevronDown size={24} />
             </div>
           </div>
         </section>
