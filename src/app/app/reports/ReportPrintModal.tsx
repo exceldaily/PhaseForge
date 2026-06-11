@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { GantticLogo } from '@/components/branding/GantticLogo'
 import { differenceInDays, format, formatDate, parseISO } from '@/lib/dates'
 import { PHASE_STATUS_LABELS, PROJECT_STATUS_LABELS } from '@/lib/constants'
 import { Phase, PhaseStatus, Project, ProjectStatus } from '@/types/app'
@@ -98,10 +99,13 @@ export function ReportPrintModal({
           </button>
         </div>
 
-        <div className="report-print-header border-b border-slate-200 px-8 pb-6 pt-6">
-          <h1 className="text-3xl font-bold text-slate-900">{REPORT_TITLES[reportType]}</h1>
-          <p className="mt-2 text-sm font-medium text-slate-600">{subtitle}</p>
-          <p className="mt-1 text-sm text-slate-500">Generated {format(new Date(), 'MMM d, yyyy')}</p>
+        <div className="report-print-header flex items-start justify-between gap-6 border-b border-slate-200 px-8 pb-6 pt-6">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">{REPORT_TITLES[reportType]}</h1>
+            <p className="mt-2 text-sm font-medium text-slate-600">{subtitle}</p>
+            <p className="mt-1 text-sm text-slate-500">Generated {format(new Date(), 'MMM d, yyyy')}</p>
+          </div>
+          <GantticLogo variant="lockup" width={170} alt="PhaseForge logo" />
         </div>
 
         {isEmpty && (
