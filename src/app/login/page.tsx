@@ -65,21 +65,15 @@ export default function LoginPage() {
 
   return (
     <div className={cn(manrope.className, 'min-h-screen bg-slate-900 text-white overflow-hidden')}>
-      {/* Video Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="h-full w-full object-cover"
-        >
-          <source src="/PhaseForge-Video.mp4" type="video/mp4" />
-        </video>
-        {/* Gradient Overlay - Dark on edges, lighter in center */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/70" />
-        {/* Bottom gradient for form area */}
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent" />
+      {/* Animated Gradient Background */}
+      <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-slate-900 via-orange-900/20 to-slate-950">
+        {/* Animated orbs */}
+        <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-orange-500/20 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-40 -right-40 h-80 w-80 rounded-full bg-amber-500/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 h-96 w-96 rounded-full bg-indigo-500/10 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+
+        {/* Grid pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:80px_80px] opacity-40" />
       </div>
 
       {/* Content */}
