@@ -11,9 +11,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   Plus, Settings, Settings2, GanttChartSquare, MoreHorizontal,
-  Edit, Search, X, GripVertical,
+  Edit, Search, X, GripVertical, Trash2,
 } from 'lucide-react'
-import { moveProjectToColumn, updateBoardColumn } from '../actions'
+import { moveProjectToColumn, updateBoardColumn, addBoardColumn, deleteBoardColumn } from '../actions'
 import { Board, BoardColumn, Project, ProjectPriority } from '@/types/app'
 import { formatDate } from '@/lib/dates'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
@@ -147,6 +147,10 @@ export function BoardColumnsKanban({
   const [showColSettings, setShowColSettings] = useState(false)
   const [columnError, setColumnError] = useState('')
   const [savingColumnIds, setSavingColumnIds] = useState<string[]>([])
+  const [deletingColumnIds, setDeletingColumnIds] = useState<string[]>([])
+  const [addingColumn, setAddingColumn] = useState(false)
+  const [newColName, setNewColName] = useState('')
+  const [newColColor, setNewColColor] = useState(COLUMN_COLORS[0])
 
   const localProjects = useMemo(
     () =>
@@ -232,6 +236,46 @@ export function BoardColumnsKanban({
     }
   }
 
+  const handleAddColumn = async () => {
+    const trimmedName = newColName.trim()
+    if (!trimmedName) {
+      setColumnError('Column name is required.')
+      return
+    }
+
+    setAddingColumn(true)
+    setColumnError('')
+
+    const result = await addBoardColumn(boardId, { name: trimmedName, color: newColColor })
+
+    if (result.success) {
+      setNewColName('')
+      setNewColColor(COLUMN_COLORS[0])
+      // Reload would happen via revalidation from the server action
+    } else {
+      setColumnError(result.error ?? 'Failed to add column.')
+    }
+
+    setAddingColumn(false)
+  }
+
+  const handleDeleteColumn = async (columnId: string) => {
+    if (!confirm('Delete this column? Projects in it will move to the first remaining column.')) {
+      return
+    }
+
+    setDeletingColumnIds(current => [...current, columnId])
+    setColumnError('')
+
+    const result = await deleteBoardColumn(columnId, boardId)
+
+    setDeletingColumnIds(current => current.filter(id => id !== columnId))
+
+    if (!result.success) {
+      setColumnError(result.error ?? 'Failed to delete column.')
+    }
+  }
+
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveId(null)
     const projectId = String(e.active.id)
@@ -272,6 +316,7 @@ export function BoardColumnsKanban({
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {orderedColumns.map(column => {
               const isSaving = savingColumnIds.includes(column.id)
+              const isDeleting = deletingColumnIds.includes(column.id)
               const sourceColumn = columns.find(item => item.id === column.id)
 
               return (
@@ -279,7 +324,23 @@ export function BoardColumnsKanban({
                   key={column.id}
                   className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
                 >
-                  <div className="h-1.5 w-full rounded-full" style={{ backgroundColor: column.color }} />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="h-1.5 flex-1 rounded-full" style={{ backgroundColor: column.color }} />
+                    {!isDeleting && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteColumn(column.id)}
+                        className="text-slate-400 hover:text-rose-600 transition-colors"
+                        disabled={isDeleting}
+                        aria-label={`Delete ${column.name}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                    {isDeleting && (
+                      <span className="text-[10px] text-slate-400">Deleting...</span>
+                    )}
+                  </div>
                   <input
                     value={column.name}
                     onChange={event => updateColumnLocally(column.id, { name: event.target.value })}
@@ -298,7 +359,8 @@ export function BoardColumnsKanban({
                         event.currentTarget.blur()
                       }
                     }}
-                    className="w-full border-0 bg-transparent px-1 text-xs font-semibold text-slate-800 focus:rounded focus:border focus:border-indigo-300 focus:bg-white focus:outline-none"
+                    disabled={isDeleting}
+                    className="w-full border-0 bg-transparent px-1 text-xs font-semibold text-slate-800 focus:rounded focus:border focus:border-indigo-300 focus:bg-white focus:outline-none disabled:opacity-50"
                   />
                   <div className="flex flex-wrap gap-1">
                     {COLUMN_COLORS.map(color => (
@@ -306,7 +368,8 @@ export function BoardColumnsKanban({
                         key={color}
                         type="button"
                         onClick={() => void persistColumnUpdate(column.id, { color })}
-                        className="h-4 w-4 rounded-full border-2 transition-all"
+                        disabled={isDeleting}
+                        className="h-4 w-4 rounded-full border-2 transition-all disabled:opacity-50"
                         style={{
                           backgroundColor: color,
                           borderColor: column.color === color ? '#0f172a' : 'transparent',
@@ -319,16 +382,56 @@ export function BoardColumnsKanban({
                       type="checkbox"
                       checked={column.is_done}
                       onChange={event => void persistColumnUpdate(column.id, { is_done: event.target.checked })}
-                      className="rounded"
+                      disabled={isDeleting}
+                      className="rounded disabled:opacity-50"
                     />
                     Mark as done
                   </label>
                   <p className="text-[10px] text-slate-400">
-                    {isSaving ? 'Saving...' : column.is_done ? 'Done column' : 'Active column'}
+                    {isDeleting ? 'Deleting...' : isSaving ? 'Saving...' : column.is_done ? 'Done column' : 'Active column'}
                   </p>
                 </div>
               )
             })}
+
+            {/* Add column card */}
+            <div className="flex flex-col gap-3 rounded-xl border-2 border-dashed border-slate-300 bg-white p-3">
+              <div className="h-1.5 w-full rounded-full bg-slate-200" />
+              <input
+                type="text"
+                value={newColName}
+                onChange={event => setNewColName(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') void handleAddColumn()
+                }}
+                placeholder="New column name"
+                disabled={addingColumn}
+                className="w-full border-0 bg-transparent px-1 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:rounded focus:border focus:border-indigo-300 focus:bg-white focus:outline-none disabled:opacity-50"
+              />
+              <div className="flex flex-wrap gap-1">
+                {COLUMN_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewColColor(color)}
+                    disabled={addingColumn}
+                    className="h-4 w-4 rounded-full border-2 transition-all disabled:opacity-50"
+                    style={{
+                      backgroundColor: color,
+                      borderColor: newColColor === color ? '#0f172a' : 'transparent',
+                    }}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleAddColumn()}
+                disabled={addingColumn || !newColName.trim()}
+                className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-2 text-xs font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus size={12} /> {addingColumn ? 'Adding...' : 'Add Column'}
+              </button>
+            </div>
           </div>
         </div>
       )}
