@@ -17,7 +17,7 @@ interface MembersClientProps {
   canManage: boolean
 }
 
-const ROLES = ['owner', 'admin', 'manager', 'member', 'viewer']
+const ROLES = ['owner', 'manager', 'member']
 
 export function MembersClient({ members, currentUserId, currentUserRole, companyId, canManage }: MembersClientProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
