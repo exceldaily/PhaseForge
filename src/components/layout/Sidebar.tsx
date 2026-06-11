@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
-  BarChart2, FileText, UsersRound, Building2, Layers, CreditCard,
+  BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/app/organization', label: 'Organization', icon: Building2 },
   { href: '/app/teams',        label: 'Teams',        icon: UsersRound },
   { href: '/app/settings',     label: 'Settings',     icon: Settings },
+  { href: '/app/guide',        label: 'Guide',        icon: BookOpen },
 ]
 
 interface SidebarProps {

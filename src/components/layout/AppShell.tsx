@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { FirstRunTour } from '@/components/onboarding/WelcomeTour'
 import { Profile } from '@/types/app'
 
 interface AppShellProps {
@@ -29,6 +30,7 @@ export function AppShell({ profile, isSuperAdmin, children }: AppShellProps) {
         <main className="flex-1 overflow-auto">
           {children}
         </main>
+        <FirstRunTour />
       </div>
     </div>
   )
