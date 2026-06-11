@@ -48,7 +48,7 @@ const SECTIONS: GuideSection[] = [
     hrefLabel: 'Open Boards',
     items: [
       { heading: 'Board kanban', text: 'Open a board to see its projects as cards in columns. Drag cards between columns (manager and up), search by project or customer name, and create a project directly inside any column with its + button.' },
-      { heading: 'Columns', text: 'Each board has 3–10 columns (e.g. Queue, Mobilization, In Progress). In board settings you can add, rename, recolor, reorder (drag), and delete columns, and mark a column as "done" for completion tracking. Deleting a column moves its projects to the first column.' },
+      { heading: 'Columns', text: 'Each board has 3–10 columns (e.g. Queue, Mobilization, In Progress). Open a board and click "Customize columns" to add, rename, recolor, or delete columns directly from the kanban view. You can also mark a column as "done" for completion tracking. Deleting a column moves its projects to the first remaining column.' },
       { heading: 'Board settings', text: 'Admins can edit the board\'s name, description, and color, manage columns, link teams, or delete the board (the default board can\'t be deleted; a deleted board\'s projects become unassigned, not deleted).' },
       { heading: 'Field customization', text: 'Boards control which fields appear on project forms. Pick a preset (Construction, Software, General) or choose fields manually — unused fields disappear from New Project forms for that board.' },
       { heading: 'Custom stages', text: 'Boards can define their own project stages, replacing the default construction stages on project forms.' },
