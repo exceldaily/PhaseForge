@@ -53,6 +53,12 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     colorMode,
   } = useGanttStore()
   const [projects, setProjects] = useState(initialProjects)
+
+  // Server refetches (board filter change, router.refresh) hand down a new
+  // project list — adopt it, otherwise the chart keeps showing the first load.
+  useEffect(() => {
+    setProjects(initialProjects)
+  }, [initialProjects])
   const [dragging, setDragging] = useState<{
     phaseId: string
     projectId: string
