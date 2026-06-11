@@ -177,14 +177,13 @@ export async function sendInvite(
 
     // Try to create a new auth user; if they already exist, update them instead
     let authUserId: string
-    let tempPassword: string | undefined
     let authUserMetadata: Record<string, any> = {}
 
-    // Create new auth user with a random temporary password
-    tempPassword = crypto.randomUUID()
+    // Create new auth user with a placeholder password (they'll set their own)
+    const placeholderPassword = crypto.randomUUID()
     const { data, error: createErr } = await admin.auth.admin.createUser({
       email: normalizedEmail,
-      password: tempPassword,
+      password: placeholderPassword,
       user_metadata: {
         company_id: companyId,
         role,
@@ -248,10 +247,10 @@ export async function sendInvite(
     // Create invitation record and get token
     const token = await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
 
-    // Build the invite link with token and temp password
+    // Build the invite link with token and email
     const inviteLink = origin
-      ? `${origin}/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}&tempPassword=${tempPassword}`
-      : `https://phaseforge.vercel.app/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}&tempPassword=${tempPassword}`
+      ? `${origin}/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
+      : `https://phaseforge.vercel.app/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
 
     // Send branded Brevo email
     const emailResult = await sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName)
