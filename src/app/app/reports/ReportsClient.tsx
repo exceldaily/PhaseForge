@@ -2,6 +2,8 @@
 
 import { useDeferredValue, useMemo, useState } from 'react'
 import { Download, Printer, Filter } from 'lucide-react'
+import { BoardFilter } from '@/components/boards/BoardFilter'
+import { BoardOption } from '@/lib/boardFilter'
 import { PROJECT_STATUS_LABELS, PRIORITY_LABELS, PHASE_STATUS_LABELS, KANBAN_COLUMNS } from '@/lib/constants'
 import { formatDate, differenceInDays, parseISO } from '@/lib/dates'
 import { Project, Phase, ProjectStatus, PhaseStatus } from '@/types/app'
@@ -11,11 +13,13 @@ interface Member { id: string; full_name: string }
 interface ReportsClientProps {
   projects: Project[]
   members: Member[]
+  boards: BoardOption[]
+  selectedBoardId: string | null
 }
 
 type ReportType = 'projects' | 'phases' | 'schedule'
 
-export function ReportsClient({ projects, members }: ReportsClientProps) {
+export function ReportsClient({ projects, members, boards, selectedBoardId }: ReportsClientProps) {
   const memberMap = Object.fromEntries(members.map(m => [m.id, m.full_name]))
 
   const [reportType, setReportType] = useState<ReportType>('projects')
@@ -176,6 +180,8 @@ export function ReportsClient({ projects, members }: ReportsClientProps) {
               <option key={p} value={p}>{PRIORITY_LABELS[p as keyof typeof PRIORITY_LABELS]}</option>
             ))}
           </select>
+
+          <BoardFilter boards={boards} selectedBoardId={selectedBoardId} />
 
           <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
             <input type="checkbox" checked={includeArchived} onChange={e => setIncludeArchived(e.target.checked)}

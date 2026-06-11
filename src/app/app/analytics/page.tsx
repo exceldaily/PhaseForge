@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { BoardFilter } from '@/components/boards/BoardFilter'
+import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
 import { differenceInDays, parseISO } from '@/lib/dates'
 import { KANBAN_COLUMNS, PHASE_STATUS_LABELS, PRIORITY_LABELS } from '@/lib/constants'
 import { Phase, PhaseStatus, Project } from '@/types/app'
@@ -21,7 +23,12 @@ const PHASE_COLORS: Record<string, string> = {
   completed: '#10b981', blocked: '#f43f5e', skipped: '#d1d5db',
 }
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ board?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -29,8 +36,28 @@ export default async function AnalyticsPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
+  const { data: boardsData } = await supabase
+    .from('boards')
+    .select('id, name, color')
+    .eq('company_id', profile.company_id)
+    .order('sort_order', { ascending: true })
+    .order('name')
+  const boards = (boardsData ?? []) as BoardOption[]
+  const boardFilter = resolveBoardFilter(params.board, boards)
+
+  let projectsQuery = supabase
+    .from('projects')
+    .select('*, phases(*)')
+    .eq('company_id', profile.company_id)
+    .eq('is_archived', false)
+  if (boardFilter === BOARD_FILTER_NONE) {
+    projectsQuery = projectsQuery.is('board_id', null)
+  } else if (boardFilter) {
+    projectsQuery = projectsQuery.eq('board_id', boardFilter)
+  }
+
   const [projectsRes, membersRes] = await Promise.all([
-    supabase.from('projects').select('*, phases(*)').eq('company_id', profile.company_id).eq('is_archived', false),
+    projectsQuery,
     supabase.from('profiles').select('id, full_name').eq('company_id', profile.company_id).eq('is_active', true),
   ])
 
@@ -98,9 +125,12 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
-        <p className="text-slate-500 mt-1 text-sm">Performance overview across all your active projects.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
+          <p className="text-slate-500 mt-1 text-sm">Performance overview across all your active projects.</p>
+        </div>
+        <BoardFilter boards={boards} selectedBoardId={boardFilter} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

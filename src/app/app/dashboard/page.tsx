@@ -10,8 +10,10 @@ import {
   Gauge,
   Users,
 } from 'lucide-react'
+import { BoardFilter } from '@/components/boards/BoardFilter'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
 import {
   PRIORITY_COLORS,
   PRIORITY_LABELS,
@@ -70,7 +72,12 @@ const ACTIVE_PROJECT_STATUSES: ProjectStatus[] = [
   'active',
 ]
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ board?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -80,13 +87,29 @@ export default async function DashboardPage() {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
+  const { data: boardsData } = await supabase
+    .from('boards')
+    .select('id, name, color')
+    .eq('company_id', profile.company_id)
+    .order('sort_order', { ascending: true })
+    .order('name')
+  const boards = (boardsData ?? []) as BoardOption[]
+  const boardFilter = resolveBoardFilter(params.board, boards)
+
+  let projectsQuery = supabase
+    .from('projects')
+    .select('*, phases(*)')
+    .eq('company_id', profile.company_id)
+    .eq('is_archived', false)
+    .order('updated_at', { ascending: false })
+  if (boardFilter === BOARD_FILTER_NONE) {
+    projectsQuery = projectsQuery.is('board_id', null)
+  } else if (boardFilter) {
+    projectsQuery = projectsQuery.eq('board_id', boardFilter)
+  }
+
   const [projectsRes, membersRes, teamsRes, activityRes] = await Promise.all([
-    supabase
-      .from('projects')
-      .select('*, phases(*)')
-      .eq('company_id', profile.company_id)
-      .eq('is_archived', false)
-      .order('updated_at', { ascending: false }),
+    projectsQuery,
     supabase
       .from('profiles')
       .select('id, full_name, email, avatar_url, role, job_title')
@@ -102,13 +125,12 @@ export default async function DashboardPage() {
       .select('id, action, created_at, project_id, payload, actor:profiles(full_name, avatar_url)')
       .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false })
-      .limit(10),
+      .limit(30),
   ])
 
   const projects = (projectsRes.data ?? []) as ProjectWithPhases[]
   const members = (membersRes.data ?? []) as Profile[]
   const teams = (teamsRes.data ?? []) as TeamRow[]
-  const recentActivity = (activityRes.data ?? []) as DashboardActivity[]
 
   const memberNameMap = Object.fromEntries(
     members.map((member) => [member.id, member.full_name])
@@ -117,6 +139,11 @@ export default async function DashboardPage() {
     string,
     ProjectWithPhases
   >
+
+  // With a board selected, only show activity tied to that board's projects.
+  const recentActivity = ((activityRes.data ?? []) as DashboardActivity[])
+    .filter((log) => !boardFilter || (log.project_id && projectMap[log.project_id]))
+    .slice(0, 10)
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const weekEnd = format(addDays(new Date(), 7), 'yyyy-MM-dd')
@@ -181,7 +208,11 @@ export default async function DashboardPage() {
   const teamCapacity = teams
     .map((team) => {
       const memberIds = new Set(team.team_members.map((member) => member.profile_id))
-      const projectIds = new Set(team.project_teams.map((assignment) => assignment.project_id))
+      const projectIds = new Set(
+        team.project_teams
+          .map((assignment) => assignment.project_id)
+          .filter((projectId) => projectMap[projectId])
+      )
       const teamOpenPhases = allPhases.filter(
         (phase) =>
           projectIds.has(phase.projectId) &&
@@ -228,13 +259,16 @@ export default async function DashboardPage() {
             Keep the team focused on active jobs, near-term work, and anything that needs attention this week.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm">
-            {activeProjects.length} active project{activeProjects.length !== 1 ? 's' : ''}
-          </span>
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm">
-            {tasksDueThisWeek.length} task{tasksDueThisWeek.length !== 1 ? 's' : ''} due this week
-          </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <BoardFilter boards={boards} selectedBoardId={boardFilter} />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm">
+              {activeProjects.length} active project{activeProjects.length !== 1 ? 's' : ''}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm">
+              {tasksDueThisWeek.length} task{tasksDueThisWeek.length !== 1 ? 's' : ''} due this week
+            </span>
+          </div>
         </div>
       </div>
 

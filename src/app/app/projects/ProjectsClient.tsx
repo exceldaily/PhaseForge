@@ -4,8 +4,10 @@ import Link from 'next/link'
 import { Plus, Search, LayoutGrid, Kanban, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { BoardFilter } from '@/components/boards/BoardFilter'
 import { KanbanBoard } from '@/components/projects/KanbanBoard'
 import { ImportButton } from './ImportButton'
+import { BoardOption } from '@/lib/boardFilter'
 import { PROJECT_STATUS_COLORS, PROJECT_STATUS_LABELS, PRIORITY_COLORS, PRIORITY_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
 import { getProjectLastUpdatedLabel } from '@/lib/projectAudit'
@@ -20,9 +22,11 @@ interface ProjectsClientProps {
   currentUserId: string
   canEdit: boolean
   members: Pick<Profile, 'id' | 'full_name'>[]
+  boards: BoardOption[]
+  selectedBoardId: string | null
 }
 
-export function ProjectsClient({ projects, companyId, currentUserId, canEdit, members }: ProjectsClientProps) {
+export function ProjectsClient({ projects, companyId, currentUserId, canEdit, members, boards, selectedBoardId }: ProjectsClientProps) {
   const [view, setView] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -72,6 +76,8 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
             </button>
           )}
         </div>
+
+        <BoardFilter boards={boards} selectedBoardId={selectedBoardId} />
 
         {view === 'grid' && (
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
