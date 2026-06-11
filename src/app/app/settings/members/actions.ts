@@ -248,10 +248,10 @@ export async function sendInvite(
     // Create invitation record and get token
     const token = await recordInvitation(admin, companyId, normalizedEmail, role, user.id)
 
-    // Build the invite link with token
+    // Build the invite link with token and temp password
     const inviteLink = origin
-      ? `${origin}/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
-      : `https://phaseforge.vercel.app/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}`
+      ? `${origin}/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}&tempPassword=${tempPassword}`
+      : `https://phaseforge.vercel.app/invite/accept?token=${token}&email=${encodeURIComponent(normalizedEmail)}&tempPassword=${tempPassword}`
 
     // Send branded Brevo email
     const emailResult = await sendInviteEmail(normalizedEmail, inviteLink, companyName, role, inviterName)
