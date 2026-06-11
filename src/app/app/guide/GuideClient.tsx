@@ -3,12 +3,18 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart2, BookOpen, Building2, CreditCard, FileText, FolderKanban,
-  GanttChartSquare, Layers, LayoutDashboard, Play, Search, Settings,
-  Upload, UsersRound, X,
+  BarChart2, Bell, BookOpen, Building2, FileText, FolderKanban,
+  GanttChartSquare, Layers, LayoutDashboard, ListChecks, Play, Search,
+  Settings, ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour'
 import { cn } from '@/lib/utils'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KEEP THIS GUIDE CURRENT: this page is the product manual. Any change to a
+// user-facing feature (new page, new button, changed behavior, new limit)
+// MUST be reflected in the SECTIONS below in the same change set.
+// ─────────────────────────────────────────────────────────────────────────────
 
 type GuideSection = {
   id: string
@@ -27,7 +33,7 @@ const SECTIONS: GuideSection[] = [
     title: 'Getting Started',
     summary: 'The 5-minute path from empty workspace to a working schedule.',
     items: [
-      { heading: '1. Check your board', text: 'Your company starts with a default board (yours is Refrigeration). Boards hold projects — open Boards in the sidebar to see it. Create more boards to separate divisions, clients, or types of work.' },
+      { heading: '1. Check your board', text: 'Your company starts with a default board. Boards hold projects — open Boards in the sidebar to see yours. Create more boards to separate divisions, clients, or types of work.' },
       { heading: '2. Add projects', text: 'Use + New Project for one at a time, or Import Schedule on the Projects page to bring in a whole Excel workbook — each tab becomes a project with its phases, and everything lands on your default board.' },
       { heading: '3. Invite your team', text: 'Settings → Members → Invite. Teammates get an email link, set a password, and land in your workspace with the role you chose.' },
       { heading: '4. Work the schedule', text: 'Track day-to-day progress on the Dashboard, adjust dates on the Gantt, and move projects through board columns as jobs progress.' },
@@ -41,10 +47,12 @@ const SECTIONS: GuideSection[] = [
     href: '/app/boards',
     hrefLabel: 'Open Boards',
     items: [
-      { heading: 'Columns', text: 'Each board has 3–10 columns (Queue, Mobilization, In Progress...) that projects move through. Edit them in the board\'s settings — rename, recolor, reorder, or mark a column as "done".' },
+      { heading: 'Board kanban', text: 'Open a board to see its projects as cards in columns. Drag cards between columns (manager and up), search by project or customer name, and create a project directly inside any column with its + button.' },
+      { heading: 'Columns', text: 'Each board has 3–10 columns (e.g. Queue, Mobilization, In Progress). In board settings you can add, rename, recolor, reorder (drag), and delete columns, and mark a column as "done" for completion tracking. Deleting a column moves its projects to the first column.' },
+      { heading: 'Board settings', text: 'Admins can edit the board\'s name, description, and color, manage columns, link teams, or delete the board (the default board can\'t be deleted; a deleted board\'s projects become unassigned, not deleted).' },
       { heading: 'Field customization', text: 'Boards control which fields appear on project forms. Pick a preset (Construction, Software, General) or choose fields manually — unused fields disappear from New Project forms for that board.' },
       { heading: 'Custom stages', text: 'Boards can define their own project stages, replacing the default construction stages on project forms.' },
-      { heading: 'Team visibility', text: 'By default a board is visible to all members. Link it to specific teams and only those team members (plus owners/admins) can see the board — and its projects vanish from every page for everyone else.' },
+      { heading: 'Team visibility & privacy', text: 'By default a board is visible to all members. Link it to specific teams and only those team members (plus owners/admins) can see the board — and its projects disappear from every page, filter, and report for everyone else.' },
     ],
   },
   {
@@ -55,24 +63,39 @@ const SECTIONS: GuideSection[] = [
     href: '/app/projects',
     hrefLabel: 'Open Projects',
     items: [
-      { heading: 'Creating', text: 'New Project asks for name, client, location, dates, PM, superintendent, subcontractors, permit status, and priority. Which fields appear depends on the board\'s field customization.' },
-      { heading: 'Kanban & grid views', text: 'The Projects page shows everything as a kanban board grouped by status, or a card grid. Drag cards between columns to update status, or use the dropdown on each card.' },
-      { heading: 'Status stages', text: 'Construction-flavored stages out of the box: Queue → Mobilization → Construction Initiated → 30/60/90% → Final Punchlist → Closeout → Closed.' },
-      { heading: 'Detail page', text: 'Click any project for its full picture: phases, comments, activity history, and editing. The breadcrumb takes you back to its board.' },
+      { heading: 'Creating & editing', text: 'Projects capture name, client, job location, start/end dates, project manager, superintendent, subcontractors (add as many as needed), permit status (Not Required / Pending / Submitted / Approved / Denied), priority (Low → Critical), notes, color, and board placement. Which fields appear depends on the board\'s field customization.' },
+      { heading: 'Kanban & grid views', text: 'The Projects page shows everything as a kanban grouped by status, or a card grid. Drag cards or use the dropdown on a card to change status. Search by name, client, or location; the grid view adds a status filter.' },
+      { heading: 'Status stages', text: 'Construction-flavored stages out of the box: Queue → Mobilization → Construction Initiated → 30/60/90% Constructed → Final Punchlist → Closeout → Closed (boards can substitute custom stages).' },
+      { heading: 'Project detail page', text: 'Click any project for its hub: a progress bar computed from phase completion, meta strip (client, location, dates, PM), and four tabs — Gantt, Tasks, Activity, and Files. The breadcrumb returns you to its board. Managers and up can edit or delete from the ⋯ menu.' },
+      { heading: 'Activity history', text: 'The Activity tab is a timeline of everything that happened on the project — created, phases added/updated/deleted, comments — with who did it and when.' },
+      { heading: 'Archiving & Files', text: 'Archived projects are hidden from active views but kept for reports (Reports has an "include archived" toggle). File attachments (contracts, drawings, photos) are coming soon — the tab is a placeholder today.' },
     ],
   },
   {
     id: 'phases',
+    icon: ListChecks,
+    title: 'Phases (Tasks)',
+    summary: 'The scheduled chunks of work inside each project.',
+    items: [
+      { heading: 'Adding work', text: 'Add phases one at a time on a project\'s Tasks tab, or bulk-add many at once from multi-line text. Drag rows to reorder.' },
+      { heading: 'What a phase holds', text: 'Name, start/end dates, status (Not Started, In Progress, Blocked, Completed, Skipped), percent complete, an owner (a team member or a trade), color, and notes. Changing status auto-updates percent complete.' },
+      { heading: 'Milestones & critical path', text: 'Flag a phase as a milestone to surface it in the Dashboard\'s Upcoming Milestones card, or mark it critical-path to highlight schedule-driving work.' },
+      { heading: 'Checklists & comments', text: 'Each phase has a checklist for sub-items and a comment thread for coordination right where the work is tracked.' },
+    ],
+  },
+  {
+    id: 'gantt',
     icon: GanttChartSquare,
-    title: 'Phases & Gantt',
-    summary: 'Break projects into scheduled work and manage it on a drag-and-drop timeline.',
+    title: 'Gantt Timeline',
+    summary: 'Every project and phase on one drag-and-drop schedule.',
     href: '/app/gantt',
     hrefLabel: 'Open Gantt',
     items: [
-      { heading: 'Phases', text: 'Each phase has dates, a status (Not Started, In Progress, Blocked, Completed, Skipped), and an owner — assign a team member or a trade. Mark key phases as milestones to surface them on the Dashboard.' },
-      { heading: 'Drag to reschedule', text: 'On the Gantt, drag a bar to move a phase, drag its edges to change duration. Shift mode moves an entire project\'s phases together.' },
-      { heading: 'Zoom & color', text: 'Switch between day, week, and month zoom. Color bars by project or by status to spot blockers at a glance.' },
-      { heading: 'Editing', text: 'Click a phase to open the edit panel — rename, re-date, reassign, or change status without leaving the timeline.' },
+      { heading: 'Navigate', text: 'Zoom by day, week, month, or quarter; jump with the prev/next arrows; "Today" centers on the current date; "Fit Schedule" zooms to your entire date range; or set an exact from/to range. Collapse projects you\'re not working on.' },
+      { heading: 'Drag to reschedule', text: 'Drag a bar to move a phase, drag its edges to change duration. The drag-mode toggle controls ripple: "Move 1" moves only that phase; "Shift later" pushes every later phase in the project along with it.' },
+      { heading: 'Edit in place', text: 'Click a phase to open the edit panel: rename, re-date, change status and percent complete, assign a person or trade, toggle milestone/critical path, recolor, add notes, and comment — without leaving the timeline.' },
+      { heading: 'Color modes & printing', text: 'Color bars by phase color (standard), by status (spot blockers instantly), or none (clean grayscale). The Print menu outputs chart or list style, for the current view or all projects.' },
+      { heading: 'Board filter', text: 'The Board dropdown above the chart narrows the timeline to one board\'s projects.' },
     ],
   },
   {
@@ -100,7 +123,22 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Summary cards', text: 'Active project count, at-risk count, tasks due this week, and average completion across active jobs with a trend sparkline.' },
       { heading: 'At Risk', text: 'Projects past their finish date or finishing within 7 days, with blocked and overdue phase counts so you know why.' },
       { heading: 'Tasks Due This Week', text: 'Phases starting in the next 7 days, grouped by project with owners — your look-ahead schedule.' },
+      { heading: 'Team Capacity & Milestones', text: 'Per-team utilization (members carrying active work) and the next milestone phases with owners and target dates.' },
+      { heading: 'Recent Activity', text: 'The latest changes across your projects — who did what, where, and when.' },
       { heading: 'Board filter', text: 'The Board dropdown at the top focuses the entire dashboard on one board. The same filter is on Gantt, Projects, Analytics, Reports, and Resources — your selection lives in the URL, so you can bookmark a filtered view.' },
+    ],
+  },
+  {
+    id: 'notifications',
+    icon: Bell,
+    title: 'Notifications',
+    summary: 'Stay ahead of overdue work without hunting for it.',
+    href: '/app/notifications',
+    hrefLabel: 'Open Notifications',
+    items: [
+      { heading: 'The bell', text: 'The bell in the top bar shows your unread count and a quick preview of recent notifications; click through for the full inbox.' },
+      { heading: 'What you\'re told about', text: 'Overdue projects, overdue phases, and phases coming due soon — computed automatically from your schedule dates — plus system alerts.' },
+      { heading: 'Managing them', text: 'Dismiss notifications one at a time or mark everything read in one click.' },
     ],
   },
   {
@@ -111,10 +149,10 @@ const SECTIONS: GuideSection[] = [
     href: '/app/teams',
     hrefLabel: 'Open Teams',
     items: [
-      { heading: 'Inviting people', text: 'Settings → Members → Invite by email. Invitees get a branded email, set their own password, and are signed in automatically.' },
-      { heading: 'Roles', text: 'Owner and Admin manage everything including billing and roles. Manager creates boards and projects. Member works on assigned items. Viewer is read-only. Admins change roles from the Admin Console, and every change is logged.' },
-      { heading: 'Teams', text: 'Group members into teams (crews, departments) and link teams to projects. Team Capacity on the Dashboard and Resources use these links to show utilization.' },
-      { heading: 'Board access', text: 'Linking teams to a board restricts it — only those teams see the board and its projects anywhere in the app.' },
+      { heading: 'Inviting people', text: 'Settings → Members → Invite by email with a role (member, manager, or admin). Invitees get a branded email, set their own password, and are signed in automatically.' },
+      { heading: 'Roles', text: 'Owner and Admin manage everything including billing and roles. Manager creates boards and projects and runs the work. Member works on what\'s assigned. Viewer is read-only. Admins change roles from the Admin Console, and every change is logged.' },
+      { heading: 'Teams', text: 'Create color-coded teams (crews, departments), add members, and link projects. Rename or delete teams anytime — deleting a team only removes the grouping, never the people or projects.' },
+      { heading: 'Why link teams', text: 'Team↔project links power the Dashboard\'s Team Capacity card and Resources utilization. Team↔board links restrict who can see a board and its projects.' },
     ],
   },
   {
@@ -125,9 +163,9 @@ const SECTIONS: GuideSection[] = [
     href: '/app/resources',
     hrefLabel: 'Open Resources',
     items: [
-      { heading: 'Workload cards', text: 'Each member\'s active, upcoming, and overdue phases, plus committed days — see at a glance who has room for more.' },
+      { heading: 'Workload cards', text: 'Each member\'s active, upcoming, and overdue phase counts, a stacked capacity bar, committed days, and their next scheduled phases — see at a glance who has room for more.' },
       { heading: 'Unassigned alert', text: 'Phases with no person or trade assigned are called out so nothing falls through the cracks.' },
-      { heading: 'Next up', text: 'Each card lists the member\'s next scheduled phases with start dates.' },
+      { heading: 'Board filter', text: 'Narrow the whole page to one board\'s workload.' },
     ],
   },
   {
@@ -138,23 +176,46 @@ const SECTIONS: GuideSection[] = [
     href: '/app/analytics',
     hrefLabel: 'Open Analytics',
     items: [
-      { heading: 'Analytics', text: 'Completion rate, overdue projects, status and priority breakdowns, phase health, average durations, and team workload charts.' },
-      { heading: 'Reports', text: 'Three report types — Projects, Phases, Schedule — with search, status/priority filters, and an archived toggle.' },
+      { heading: 'Analytics', text: 'Completion rate, overdue projects, projects by status and priority, phase status donut, phase health stats, average project/phase durations, and per-member workload charts.' },
+      { heading: 'Reports', text: 'Three report types — Projects, Phases, Schedule — with text search, status and priority filters, a board filter, and an "include archived" toggle.' },
       { heading: 'Export & print', text: 'Any filtered report exports to CSV or prints cleanly. What you filter is what you export.' },
     ],
   },
   {
-    id: 'settings-admin',
-    icon: Settings,
-    title: 'Settings, Organization & Billing',
-    summary: 'Profile, company info, member management, and your subscription.',
+    id: 'organization-billing',
+    icon: Building2,
+    title: 'Organization & Billing',
+    summary: 'Your company at a glance, and the subscription that powers it.',
+    href: '/app/organization',
+    hrefLabel: 'Open Organization',
+    items: [
+      { heading: 'Organization page', text: 'Company summary (plan, member/team/project counts), a role-structure breakdown, every team with its members and projects, and the full member roster with emails, titles, and role badges.' },
+      { heading: 'Plans', text: 'Free (1 board, 5 projects, 3 members, 1 team), Pro (10 boards, unlimited projects, 25 members, 5 teams), Business, and Enterprise. When you hit a limit, the app tells you which plan removes it.' },
+      { heading: 'Billing page', text: 'Three tabs: Plan (current tier and its limits), Usage (your counts against each limit), and Invoices (history with amounts and paid status). Payments run securely through Stripe; a past-due warning appears if a payment fails.' },
+    ],
+  },
+  {
+    id: 'settings-account',
+    icon: UserCircle,
+    title: 'Settings & Your Account',
+    summary: 'Your profile, your password, and your company\'s member roster.',
     href: '/app/settings',
     hrefLabel: 'Open Settings',
     items: [
-      { heading: 'Settings', text: 'Your profile (name, title, avatar) and Members management — invite, deactivate, and review your roster.' },
-      { heading: 'Organization', text: 'Company-level details and configuration.' },
-      { heading: 'Billing', text: 'Your current plan, usage against plan limits, and upgrades — handled securely through Stripe.' },
-      { heading: 'Admin Console', text: 'Super-admins get an extra Admin section for user management (including role changes), company oversight, and the activity log.' },
+      { heading: 'Profile', text: 'Edit your name and job title; your email and role are shown read-only (only owners/admins change roles).' },
+      { heading: 'Members', text: 'Owners and admins see the full roster and invite new people from Settings → Members.' },
+      { heading: 'Account & password', text: 'Sign-up creates your company workspace and requires email confirmation. Passwords need 8+ characters with upper/lowercase, numbers, and symbols. Forgot it? The login page sends a reset link (valid 60 minutes).' },
+    ],
+  },
+  {
+    id: 'admin',
+    icon: ShieldAlert,
+    title: 'Admin Console',
+    summary: 'Super-admin tools for managing the whole platform.',
+    items: [
+      { heading: 'Overview', text: 'Super-admins get an Admin section in the sidebar with platform totals (users, companies, projects) and recent admin actions.' },
+      { heading: 'User management', text: 'Search all users, edit names/titles, change roles, move users between companies, deactivate/reactivate accounts, promote or demote super-admins, or permanently delete a user.' },
+      { heading: 'Companies & audit', text: 'View every company with member/project counts and change its plan tier. Every admin action lands in the audit log with actor, action, target, and timestamp.' },
     ],
   },
 ]
