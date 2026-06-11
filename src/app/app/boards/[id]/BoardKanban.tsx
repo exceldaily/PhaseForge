@@ -476,7 +476,6 @@ export function BoardColumnsKanban({
             )}
           </DragOverlay>
         </DndContext>
-      </div>
     </div>
   )
 }
