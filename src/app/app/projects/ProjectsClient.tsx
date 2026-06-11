@@ -6,12 +6,13 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { BoardFilter } from '@/components/boards/BoardFilter'
 import { KanbanBoard } from '@/components/projects/KanbanBoard'
+import { BoardColumnsKanban } from '../boards/[id]/BoardKanban'
 import { ImportButton } from './ImportButton'
 import { BoardOption } from '@/lib/boardFilter'
 import { PROJECT_STATUS_COLORS, PROJECT_STATUS_LABELS, PRIORITY_COLORS, PRIORITY_LABELS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
 import { getProjectLastUpdatedLabel } from '@/lib/projectAudit'
-import { Project, ProjectStatus, ProjectPriority, Profile } from '@/types/app'
+import { BoardColumn, Project, ProjectStatus, ProjectPriority, Profile } from '@/types/app'
 import { cn } from '@/lib/utils'
 
 type ViewMode = 'grid' | 'kanban'
@@ -24,9 +25,10 @@ interface ProjectsClientProps {
   members: Pick<Profile, 'id' | 'full_name'>[]
   boards: BoardOption[]
   selectedBoardId: string | null
+  selectedBoardColumns?: BoardColumn[] | null
 }
 
-export function ProjectsClient({ projects, companyId, currentUserId, canEdit, members, boards, selectedBoardId }: ProjectsClientProps) {
+export function ProjectsClient({ projects, companyId, currentUserId, canEdit, members, boards, selectedBoardId, selectedBoardColumns }: ProjectsClientProps) {
   const [view, setView] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -109,16 +111,29 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
         </div>
       </div>
 
-      {/* Kanban board — full width, horizontal scroll */}
+      {/* Kanban board — full width, horizontal scroll.
+          With a single board selected, show that board's own columns. */}
       {view === 'kanban' && (
-        <KanbanBoard
-          projects={projects}
-          canEdit={canEdit}
-          searchQuery={search}
-          companyId={companyId}
-          currentUserId={currentUserId}
-          memberMap={memberMap}
-        />
+        selectedBoardId && selectedBoardColumns && selectedBoardColumns.length > 0 ? (
+          <div className="flex h-[calc(100vh-240px)] min-h-[420px] flex-col">
+            <BoardColumnsKanban
+              boardId={selectedBoardId}
+              columns={selectedBoardColumns}
+              projects={filtered}
+              memberMap={memberMap}
+              canEdit={canEdit}
+            />
+          </div>
+        ) : (
+          <KanbanBoard
+            projects={projects}
+            canEdit={canEdit}
+            searchQuery={search}
+            companyId={companyId}
+            currentUserId={currentUserId}
+            memberMap={memberMap}
+          />
+        )
       )}
 
       {/* Grid view */}

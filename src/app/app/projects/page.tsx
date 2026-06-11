@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
-import { Project } from '@/types/app'
+import { BoardColumn, Project } from '@/types/app'
 import { ProjectsClient } from './ProjectsClient'
 
 export default async function ProjectsPage({
@@ -38,9 +38,15 @@ export default async function ProjectsPage({
     projectsQuery = projectsQuery.eq('board_id', boardFilter)
   }
 
-  const [{ data: projectsRaw }, { data: membersRaw }] = await Promise.all([
+  // With a single board selected, the kanban shows that board's own columns —
+  // fetch them so the client can swap views.
+  const isSingleBoard = Boolean(boardFilter) && boardFilter !== BOARD_FILTER_NONE
+  const [{ data: projectsRaw }, { data: membersRaw }, columnsRes] = await Promise.all([
     projectsQuery,
     supabase.from('profiles').select('id, full_name').eq('company_id', profile.company_id),
+    isSingleBoard
+      ? supabase.from('board_columns').select('*').eq('board_id', boardFilter).order('sort_order')
+      : Promise.resolve({ data: null }),
   ])
 
   return (
@@ -52,6 +58,7 @@ export default async function ProjectsPage({
       members={membersRaw ?? []}
       boards={boards}
       selectedBoardId={boardFilter}
+      selectedBoardColumns={(columnsRes.data ?? null) as BoardColumn[] | null}
     />
   )
 }

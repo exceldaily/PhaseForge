@@ -1,6 +1,6 @@
 'use client'
 
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   DndContext, closestCenter, DragOverlay,
@@ -30,54 +30,21 @@ interface BoardKanbanProps {
 }
 
 export function BoardKanban({ board, columns, projects, memberMap, currentUserId, canEdit, canAdmin }: BoardKanbanProps) {
-  const [localProjects, setLocalProjects] = useState(projects)
-  const [activeId, setActiveId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
 
   const filtered = useMemo(() => {
     const q = deferredSearch.toLowerCase().trim()
     return q
-      ? localProjects.filter(p =>
+      ? projects.filter(p =>
           p.name.toLowerCase().includes(q) ||
           (p.customer_name?.toLowerCase().includes(q) ?? false)
         )
-      : localProjects
-  }, [localProjects, deferredSearch])
+      : projects
+  }, [projects, deferredSearch])
 
-  const activeProject = localProjects.find(p => p.id === activeId) ?? null
-
-  const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id))
-
-  const handleDragEnd = async (e: DragEndEvent) => {
-    setActiveId(null)
-    const projectId = String(e.active.id)
-    const newColumnId = e.over ? String(e.over.id) : null
-    if (!newColumnId) return
-
-    const validColumn = columns.find(c => c.id === newColumnId)
-    if (!validColumn) return
-
-    const project = localProjects.find(p => p.id === projectId)
-    if (!project || project.board_column_id === newColumnId) return
-
-    // Optimistic update
-    setLocalProjects(prev => prev.map(p =>
-      p.id === projectId ? { ...p, board_column_id: newColumnId } : p
-    ))
-
-    const result = await moveProjectToColumn(projectId, newColumnId)
-    if (!result.success) {
-      // Revert
-      setLocalProjects(prev => prev.map(p =>
-        p.id === projectId ? { ...p, board_column_id: project.board_column_id } : p
-      ))
-      alert('Failed to move project. Please try again.')
-    }
-  }
-
-  const totalProjects = localProjects.length
-  const doneCount = localProjects.filter(p => columns.find(c => c.id === p.board_column_id)?.is_done).length
+  const totalProjects = projects.length
+  const doneCount = projects.filter(p => columns.find(c => c.id === p.board_column_id)?.is_done).length
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -126,39 +93,102 @@ export function BoardKanban({ board, columns, projects, memberMap, currentUserId
       </div>
 
       {/* Kanban */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex h-full gap-4 p-4" style={{ minWidth: columns.length * 288 + 32 }}>
-            {columns.map(col => {
-              const colProjects = filtered.filter(p =>
-                p.board_column_id === col.id ||
-                // Fallback: put unassigned projects in first column
-                (!p.board_column_id && col.sort_order === 0)
-              )
+      <BoardColumnsKanban
+        boardId={board.id}
+        columns={columns}
+        projects={filtered}
+        memberMap={memberMap}
+        canEdit={canEdit}
+      />
+    </div>
+  )
+}
 
-              return (
-                <KanbanColumn
-                  key={col.id}
-                  column={col}
-                  projects={colProjects}
-                  memberMap={memberMap}
-                  canEdit={canEdit}
-                  activeId={activeId}
-                  boardId={board.id}
-                />
-              )
-            })}
-          </div>
+// ── Columns view ──────────────────────────────────────────────────────────────
+// The drag-and-drop column area without the board header — reused by the
+// Projects page when a single board is selected in the board filter.
 
-          <DragOverlay>
-            {activeProject && (
-              <div className="w-[272px] rotate-1 opacity-95 shadow-2xl">
-                <ProjectCard project={activeProject} memberMap={memberMap} isDragging />
-              </div>
-            )}
-          </DragOverlay>
-        </DndContext>
-      </div>
+export function BoardColumnsKanban({
+  boardId, columns, projects, memberMap, canEdit,
+}: {
+  boardId: string
+  columns: BoardColumn[]
+  projects: Project[]
+  memberMap: Record<string, string>
+  canEdit: boolean
+}) {
+  const [localProjects, setLocalProjects] = useState(projects)
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  // Adopt new server/filter results; optimistic drag state lives below.
+  useEffect(() => {
+    setLocalProjects(projects)
+  }, [projects])
+
+  const activeProject = localProjects.find(p => p.id === activeId) ?? null
+
+  const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id))
+
+  const handleDragEnd = async (e: DragEndEvent) => {
+    setActiveId(null)
+    const projectId = String(e.active.id)
+    const newColumnId = e.over ? String(e.over.id) : null
+    if (!newColumnId) return
+
+    const validColumn = columns.find(c => c.id === newColumnId)
+    if (!validColumn) return
+
+    const project = localProjects.find(p => p.id === projectId)
+    if (!project || project.board_column_id === newColumnId) return
+
+    // Optimistic update
+    setLocalProjects(prev => prev.map(p =>
+      p.id === projectId ? { ...p, board_column_id: newColumnId } : p
+    ))
+
+    const result = await moveProjectToColumn(projectId, newColumnId)
+    if (!result.success) {
+      // Revert
+      setLocalProjects(prev => prev.map(p =>
+        p.id === projectId ? { ...p, board_column_id: project.board_column_id } : p
+      ))
+      alert('Failed to move project. Please try again.')
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-x-auto overflow-y-hidden">
+      <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="flex h-full gap-4 p-4" style={{ minWidth: columns.length * 288 + 32 }}>
+          {columns.map(col => {
+            const colProjects = localProjects.filter(p =>
+              p.board_column_id === col.id ||
+              // Fallback: put unassigned projects in first column
+              (!p.board_column_id && col.sort_order === 0)
+            )
+
+            return (
+              <KanbanColumn
+                key={col.id}
+                column={col}
+                projects={colProjects}
+                memberMap={memberMap}
+                canEdit={canEdit}
+                activeId={activeId}
+                boardId={boardId}
+              />
+            )
+          })}
+        </div>
+
+        <DragOverlay>
+          {activeProject && (
+            <div className="w-[272px] rotate-1 opacity-95 shadow-2xl">
+              <ProjectCard project={activeProject} memberMap={memberMap} isDragging />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
     </div>
   )
 }
