@@ -297,7 +297,7 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
       {/* Status & Priority */}
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Status</h3>
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className={`grid gap-4 ${shouldShowField('permit_status') ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
           <Select id="status" label="Project Stage" value={form.status} onChange={set('status')}>
             {stages.map(stage => (
               <option key={stage} value={stage}>
@@ -311,9 +311,11 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
             <option value="high">High</option>
             <option value="critical">Critical</option>
           </Select>
+          {shouldShowField('permit_status') && (
           <Select id="permit_status" label="Permit Status" value={form.permit_status} onChange={set('permit_status')}>
             {PERMIT_STATUSES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </Select>
+          )}
         </div>
       </section>
 
