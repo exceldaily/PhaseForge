@@ -138,7 +138,7 @@ export function BoardColumnsKanban({
   const [deletingColumnIds, setDeletingColumnIds] = useState<string[]>([])
   const [addingColumn, setAddingColumn] = useState(false)
   const [newColName, setNewColName] = useState('')
-  const [newColColor, setNewColColor] = useState(COLUMN_COLORS[0])
+  const [newColColor, setNewColColor] = useState<string>(COLUMN_COLORS[0])
 
   const localProjects = useMemo(
     () =>
