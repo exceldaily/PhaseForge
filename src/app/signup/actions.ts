@@ -5,6 +5,36 @@ import { getFriendlyAuthError, normalizeAuthEmail, validatePassword } from '@/li
 import { sendWelcomeEmail } from '@/lib/brevo'
 import { createUniqueSlug } from '@/lib/slugs'
 
+const AUTH_USER_LOOKUP_PAGE_SIZE = 200
+
+async function findAuthUserByEmail(admin: ReturnType<typeof createAdminClient>, email: string) {
+  let page = 1
+
+  while (page <= 10) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: AUTH_USER_LOOKUP_PAGE_SIZE,
+    })
+
+    if (error) {
+      throw error
+    }
+
+    const foundUser = data.users.find((user) => user.email?.toLowerCase() === email)
+    if (foundUser) {
+      return foundUser
+    }
+
+    if (data.users.length < AUTH_USER_LOOKUP_PAGE_SIZE) {
+      break
+    }
+
+    page += 1
+  }
+
+  return null
+}
+
 export async function createWorkspace(formData: {
   fullName: string
   companyName: string
@@ -33,26 +63,17 @@ export async function createWorkspace(formData: {
     return { error: 'An account with this email already exists. Try signing in or resetting your password.' }
   }
 
-  // 1. Sign up the user first
-  const { data: auth, error: authErr } = await supabase.auth.signUp({
-    email,
-    password: formData.password,
-    options: { data: { full_name: fullName } },
-  })
+  const existingAuthUser = await findAuthUserByEmail(admin, email)
+  if (existingAuthUser) {
+    const { data: existingAuthProfile } = await admin
+      .from('profiles')
+      .select('company_id')
+      .eq('id', existingAuthUser.id)
+      .maybeSingle()
 
-  if (authErr) return { error: getFriendlyAuthError(authErr.message) }
-  if (!auth.user) return { error: 'Failed to create user' }
-
-  // Guard against duplicate company creation on retries / already-set-up users:
-  // if this user already has a profile with a company, reuse it.
-  const { data: existingProfile } = await admin
-    .from('profiles')
-    .select('company_id')
-    .eq('id', auth.user.id)
-    .maybeSingle()
-
-  if (existingProfile?.company_id) {
-    return { success: true, session: Boolean(auth.session) }
+    if (existingAuthProfile?.company_id) {
+      return { error: 'An account with this email already exists. Try signing in or resetting your password.' }
+    }
   }
 
   const { data: company, error: companyErr } = await admin
@@ -63,13 +84,73 @@ export async function createWorkspace(formData: {
 
   if (companyErr) return { error: companyErr.message }
 
-  // 3. Create / backfill profile (owner of their new company)
+  if (existingAuthUser) {
+    const { error: updateAuthErr } = await admin.auth.admin.updateUserById(existingAuthUser.id, {
+      password: formData.password,
+      user_metadata: {
+        ...(existingAuthUser.user_metadata ?? {}),
+        full_name: fullName,
+        company_id: company.id,
+        role: 'owner',
+      },
+    })
+
+    if (updateAuthErr) {
+      await admin.from('companies').delete().eq('id', company.id)
+      return { error: getFriendlyAuthError(updateAuthErr.message) }
+    }
+
+    const { error: recoveredProfileErr } = await admin.from('profiles').upsert({
+      id: existingAuthUser.id,
+      company_id: company.id,
+      full_name: fullName,
+      email,
+      role: 'owner',
+      is_active: true,
+    })
+
+    if (recoveredProfileErr) {
+      return { error: recoveredProfileErr.message }
+    }
+
+    const { data: repairedSession } = await supabase.auth.signInWithPassword({
+      email,
+      password: formData.password,
+    })
+
+    sendWelcomeEmail(email, fullName).catch(err => console.error('Welcome email failed:', err))
+
+    return { success: true, session: Boolean(repairedSession.session) }
+  }
+
+  const { data: auth, error: authErr } = await supabase.auth.signUp({
+    email,
+    password: formData.password,
+    options: {
+      data: {
+        full_name: fullName,
+        company_id: company.id,
+        role: 'owner',
+      },
+    },
+  })
+
+  if (authErr) {
+    await admin.from('companies').delete().eq('id', company.id)
+    return { error: getFriendlyAuthError(authErr.message) }
+  }
+  if (!auth.user) {
+    await admin.from('companies').delete().eq('id', company.id)
+    return { error: 'Failed to create user' }
+  }
+
   const { error: profileErr } = await admin.from('profiles').upsert({
     id: auth.user.id,
     company_id: company.id,
     full_name: fullName,
     email,
     role: 'owner',
+    is_active: true,
   })
 
   if (profileErr) return { error: profileErr.message }
