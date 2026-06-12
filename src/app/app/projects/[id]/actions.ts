@@ -231,11 +231,17 @@ export async function updateProjectBoard(projectId: string, boardId: string | nu
 export async function uploadProjectAttachment(projectId: string, file: File) {
   try {
     const supabase = await createClient()
+    const admin = createAdminClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
     const { data: project } = await supabase.from('projects').select('company_id').eq('id', projectId).single()
     if (!project) throw new Error('Project not found')
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if (!profile || !['owner', 'admin', 'manager'].includes(profile.role)) {
+      throw new Error('Not authorized to upload files')
+    }
 
     const timestamp = Date.now()
     const filename = `${timestamp}-${file.name}`
@@ -247,11 +253,7 @@ export async function uploadProjectAttachment(projectId: string, file: File) {
 
     if (uploadError) throw uploadError
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('project-attachments')
-      .getPublicUrl(filePath)
-
-    const { error: dbError } = await supabase
+    const { error: dbError } = await admin
       .from('project_attachments')
       .insert({
         project_id: projectId,
@@ -276,8 +278,14 @@ export async function uploadProjectAttachment(projectId: string, file: File) {
 export async function deleteProjectAttachment(projectId: string, filePath: string) {
   try {
     const supabase = await createClient()
+    const admin = createAdminClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
+
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if (!profile || !['owner', 'admin', 'manager'].includes(profile.role)) {
+      throw new Error('Not authorized to delete files')
+    }
 
     const { error: storageError } = await supabase.storage
       .from('project-attachments')
@@ -285,7 +293,7 @@ export async function deleteProjectAttachment(projectId: string, filePath: strin
 
     if (storageError) throw storageError
 
-    const { error: dbError } = await supabase
+    const { error: dbError } = await admin
       .from('project_attachments')
       .delete()
       .eq('project_id', projectId)

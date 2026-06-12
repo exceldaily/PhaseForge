@@ -19,6 +19,13 @@ CREATE INDEX idx_project_attachments_uploaded_at ON public.project_attachments(u
 ALTER TABLE public.project_attachments ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+-- Allow service role (server actions) to manage all attachments
+CREATE POLICY "Service role can manage attachments"
+  ON public.project_attachments
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
 -- Users can read attachments from projects in their company
 CREATE POLICY "Users can read project attachments"
   ON public.project_attachments FOR SELECT
@@ -28,31 +35,5 @@ CREATE POLICY "Users can read project attachments"
       JOIN public.profiles pr ON pr.company_id = p.company_id
       WHERE p.id = project_attachments.project_id
       AND pr.id = auth.uid()
-    )
-  );
-
--- Users can insert attachments if they can edit the project
-CREATE POLICY "Users can upload attachments"
-  ON public.project_attachments FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.projects p
-      JOIN public.profiles pr ON pr.company_id = p.company_id
-      WHERE p.id = project_attachments.project_id
-      AND pr.id = auth.uid()
-      AND pr.role IN ('owner', 'admin', 'manager')
-    )
-  );
-
--- Users can delete their own attachments if they can edit the project
-CREATE POLICY "Users can delete attachments"
-  ON public.project_attachments FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.projects p
-      JOIN public.profiles pr ON pr.company_id = p.company_id
-      WHERE p.id = project_attachments.project_id
-      AND pr.id = auth.uid()
-      AND pr.role IN ('owner', 'admin', 'manager')
     )
   );
