@@ -60,11 +60,11 @@ export function ProjectDetailShell({
         <div className="flex items-center justify-between gap-3 px-6 pt-4 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <Link
-              href={boardId ? `/app/boards/${boardId}` : '/app/projects'}
+              href="/app/projects"
               className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 transition-colors flex-shrink-0"
             >
               <ArrowLeft size={15} />
-              {boardName ?? 'Projects'}
+              Projects
             </Link>
             <span className="text-slate-300">/</span>
             <div className="flex items-center gap-2 min-w-0">
