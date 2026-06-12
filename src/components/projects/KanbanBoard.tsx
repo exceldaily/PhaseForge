@@ -39,7 +39,8 @@ interface KanbanBoardProps {
   companyId: string
   currentUserId: string
   memberMap: Record<string, string>
-  onCardClick?: (projectId: string) => void
+  selectedProjectId?: string | null
+  onProjectClick?: (projectId: string) => void
 }
 
 const COLUMN_COLORS = [
@@ -87,7 +88,7 @@ function useColumnConfig(companyId: string) {
   return { columns, save }
 }
 
-export function KanbanBoard({ projects, canEdit, searchQuery, companyId, currentUserId, memberMap, onCardClick }: KanbanBoardProps) {
+export function KanbanBoard({ projects, canEdit, searchQuery, companyId, currentUserId, memberMap, onProjectClick }: KanbanBoardProps) {
   const router = useRouter()
   const { columns, save } = useColumnConfig(companyId)
   const [showColSettings, setShowColSettings] = useState(false)
@@ -265,7 +266,7 @@ export function KanbanBoard({ projects, canEdit, searchQuery, companyId, current
                 activeProjectId={activeProjectId}
                 onStatusChange={persistStatusChange}
                 onDelete={handleDelete}
-                onCardClick={onCardClick}
+                onProjectClick={onProjectClick}
               />
             )
           })}
@@ -300,7 +301,7 @@ function KanbanColumn({
   activeProjectId,
   onStatusChange,
   onDelete,
-  onCardClick,
+  onProjectClick,
 }: {
   column: ColumnConfig
   allColumns: ColumnConfig[]
@@ -310,7 +311,7 @@ function KanbanColumn({
   activeProjectId: string | null
   onStatusChange: (projectId: string, status: ProjectStatus) => Promise<void>
   onDelete: (projectId: string) => Promise<void>
-  onCardClick?: (projectId: string) => void
+  onProjectClick?: (projectId: string) => void
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: column.status,
@@ -347,6 +348,7 @@ function KanbanColumn({
             memberMap={memberMap}
             onStatusChange={onStatusChange}
             onDelete={onDelete}
+            onProjectClick={onProjectClick}
           />
         ))}
 
@@ -370,7 +372,7 @@ function DraggableKanbanCard({
   memberMap,
   onStatusChange,
   onDelete,
-  onCardClick,
+  onProjectClick,
 }: {
   project: Project
   canEdit: boolean
@@ -378,7 +380,7 @@ function DraggableKanbanCard({
   memberMap: Record<string, string>
   onStatusChange: (projectId: string, status: ProjectStatus) => Promise<void>
   onDelete: (projectId: string) => Promise<void>
-  onCardClick?: (projectId: string) => void
+  onProjectClick?: (projectId: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
@@ -398,8 +400,8 @@ function DraggableKanbanCard({
         memberMap={memberMap}
         onStatusChange={onStatusChange}
         onDelete={onDelete}
-        onCardClick={onCardClick}
         dragHandle={{ attributes, listeners }}
+        onProjectClick={onProjectClick}
       />
     </div>
   )
@@ -414,7 +416,7 @@ function ProjectCard({
   onDelete,
   dragHandle,
   isDragging = false,
-  onCardClick,
+  onProjectClick,
 }: {
   project: Project
   canEdit: boolean
@@ -424,7 +426,7 @@ function ProjectCard({
   onDelete: (projectId: string) => Promise<void>
   dragHandle?: { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners }
   isDragging?: boolean
-  onCardClick?: (projectId: string) => void
+  onProjectClick?: (projectId: string) => void
 }) {
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -456,15 +458,9 @@ function ProjectCard({
     }
   }
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onCardClick?.(project.id)
-  }
-
   return (
     <div
-      onClick={handleCardClick}
+      onClick={() => onProjectClick?.(project.id)}
       className={cn(
         'group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all cursor-pointer',
         isDragging ? 'shadow-xl ring-1 ring-indigo-200' : 'hover:border-indigo-200 hover:shadow-md'
@@ -474,11 +470,13 @@ function ProjectCard({
 
       <div className="p-4">
         <div className="mb-2 flex items-start justify-between gap-2">
-          <div
+          <Link
+            href={`/app/gantt?project=${project.id}`}
+            onClick={(e) => e.stopPropagation()}
             className="flex-1 text-sm font-semibold leading-snug text-slate-900 transition-colors hover:text-indigo-600"
           >
             {project.name}
-          </div>
+          </Link>
 
           {(canEdit || dragHandle) && (
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -497,10 +495,7 @@ function ProjectCard({
               {canEdit && (
                 <div className="relative">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowMenu((current) => !current)
-                    }}
+                    onClick={() => setShowMenu((current) => !current)}
                     className="rounded p-1 text-slate-300 transition-all hover:bg-slate-100 hover:text-slate-600 opacity-0 group-hover:opacity-100"
                   >
                     <MoreHorizontal size={15} />

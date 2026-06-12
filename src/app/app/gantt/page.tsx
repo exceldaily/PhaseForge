@@ -1,3 +1,5 @@
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { GanttChart } from '@/components/gantt/GanttChart'
@@ -53,8 +55,28 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
     phases: ((p.phases || []) as Phase[]).sort((a, b) => a.sort_order - b.sort_order)
   }))
 
+  const singleProject = params.project ? projectsWithSortedPhases[0] : null
+
   return (
     <div className="h-full flex flex-col">
+      {/* Back button header when viewing a single project */}
+      {singleProject && (
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 flex-shrink-0">
+          <Link
+            href="/app/projects"
+            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 transition-colors flex-shrink-0"
+          >
+            <ArrowLeft size={15} />
+            Projects
+          </Link>
+          <span className="text-slate-300">/</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: singleProject.color }} />
+            <h1 className="text-sm font-semibold text-slate-900 truncate">{singleProject.name}</h1>
+          </div>
+        </div>
+      )}
+
       {boards.length > 0 && (
         <div className="flex items-center justify-end border-b border-slate-200 bg-white px-4 py-2">
           <BoardFilter boards={boards} selectedBoardId={boardFilter} />
