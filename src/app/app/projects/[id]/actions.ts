@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 
 // ── Phase creation ────────────────────────────────────────────────────────
@@ -230,25 +231,45 @@ export async function updateProjectBoard(projectId: string, boardId: string | nu
 export async function uploadProjectAttachment(projectId: string, file: File) {
   try {
     const supabase = await createClient()
+    const admin = createAdminClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const [{ data: profile }, { data: project }] = await Promise.all([
+      supabase.from('profiles').select('role, company_id').eq('id', user.id).single(),
+      supabase.from('projects').select('id, company_id').eq('id', projectId).single(),
+    ])
+
     if (!profile || !['owner', 'admin', 'manager'].includes(profile.role)) {
       throw new Error('Not authorized to upload files')
+    }
+    if (!project) throw new Error('Project not found')
+    if (profile.company_id !== project.company_id) {
+      throw new Error('Not authorized to upload files to this project')
     }
 
     const timestamp = Date.now()
     const filename = `${timestamp}-${file.name}`
     const filePath = `projects/${projectId}/${filename}`
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await admin.storage
       .from('project-attachments')
-      .upload(filePath, file)
+      .upload(filePath, file, {
+        contentType: file.type || undefined,
+        upsert: false,
+      })
 
-    if (uploadError) throw uploadError
+    if (uploadError) {
+      logger.error('uploadProjectAttachment: storage upload failed', {
+        projectId,
+        filePath,
+        userId: user.id,
+        error: uploadError,
+      })
+      throw uploadError
+    }
 
-    const { error: dbError } = await supabase
+    const { error: dbError } = await admin
       .from('project_attachments')
       .insert({
         project_id: projectId,
@@ -259,7 +280,28 @@ export async function uploadProjectAttachment(projectId: string, file: File) {
         uploaded_by: user.id,
       })
 
-    if (dbError) throw dbError
+    if (dbError) {
+      logger.error('uploadProjectAttachment: database insert failed', {
+        projectId,
+        filePath,
+        userId: user.id,
+        error: dbError,
+      })
+
+      const { error: cleanupError } = await admin.storage
+        .from('project-attachments')
+        .remove([filePath])
+
+      if (cleanupError) {
+        logger.warn('uploadProjectAttachment: failed to clean up orphaned storage object', {
+          projectId,
+          filePath,
+          cleanupError,
+        })
+      }
+
+      throw dbError
+    }
 
     revalidatePath(`/app/projects/${projectId}`)
     return { success: true, fileName: file.name, uploadedAt: new Date().toISOString() }
@@ -272,27 +314,52 @@ export async function uploadProjectAttachment(projectId: string, file: File) {
 export async function deleteProjectAttachment(projectId: string, filePath: string) {
   try {
     const supabase = await createClient()
+    const admin = createAdminClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const [{ data: profile }, { data: project }] = await Promise.all([
+      supabase.from('profiles').select('role, company_id').eq('id', user.id).single(),
+      supabase.from('projects').select('id, company_id').eq('id', projectId).single(),
+    ])
+
     if (!profile || !['owner', 'admin', 'manager'].includes(profile.role)) {
       throw new Error('Not authorized to delete files')
     }
+    if (!project) throw new Error('Project not found')
+    if (profile.company_id !== project.company_id) {
+      throw new Error('Not authorized to delete files from this project')
+    }
 
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await admin.storage
       .from('project-attachments')
       .remove([filePath])
 
-    if (storageError) throw storageError
+    if (storageError) {
+      logger.error('deleteProjectAttachment: storage delete failed', {
+        projectId,
+        filePath,
+        userId: user.id,
+        error: storageError,
+      })
+      throw storageError
+    }
 
-    const { error: dbError } = await supabase
+    const { error: dbError } = await admin
       .from('project_attachments')
       .delete()
       .eq('project_id', projectId)
       .eq('file_path', filePath)
 
-    if (dbError) throw dbError
+    if (dbError) {
+      logger.error('deleteProjectAttachment: database delete failed', {
+        projectId,
+        filePath,
+        userId: user.id,
+        error: dbError,
+      })
+      throw dbError
+    }
 
     revalidatePath(`/app/projects/${projectId}`)
     return { success: true }
