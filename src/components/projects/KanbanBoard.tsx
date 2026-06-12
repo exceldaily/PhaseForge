@@ -17,6 +17,7 @@ import { KANBAN_COLUMNS } from '@/lib/constants'
 import { getProjectBoardState } from '@/lib/projectBoard'
 import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { ProjectBoardCard, type ProjectBoardStageOption } from '@/components/projects/ProjectBoardCard'
+import { StickyHScroll } from '@/components/ui/StickyHScroll'
 import { cn } from '@/lib/utils'
 import { Project, ProjectStatus } from '@/types/app'
 import { useRouter } from 'next/navigation'
@@ -293,7 +294,7 @@ export function KanbanBoard({
       )}
 
       <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-5 overflow-x-auto pb-6" style={{ minHeight: 'calc(100vh - 280px)' }}>
+        <StickyHScroll className="pb-2" style={{ minHeight: 'calc(100vh - 280px)' }}>
           {columns.map((column) => {
             const columnProjects = filteredProjects.filter((project) => project.status === column.status)
 
@@ -314,7 +315,7 @@ export function KanbanBoard({
               />
             )
           })}
-        </div>
+        </StickyHScroll>
 
         <DragOverlay>
           {activeProject ? (

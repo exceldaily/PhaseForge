@@ -16,6 +16,7 @@ import { Plus, Search, Settings, Settings2, Trash2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { addBoardColumn, deleteBoardColumn, moveProjectToColumn, updateBoardColumn } from '../actions'
 import { ProjectBoardCard, type ProjectBoardStageOption } from '@/components/projects/ProjectBoardCard'
+import { StickyHScroll } from '@/components/ui/StickyHScroll'
 import { getProjectBoardState } from '@/lib/projectBoard'
 import { COLUMN_COLORS } from '@/lib/constants'
 import { Board, BoardColumn, Project } from '@/types/app'
@@ -421,7 +422,7 @@ export function BoardColumnsKanban({
       )}
 
       <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-5 overflow-x-auto pb-6" style={{ minHeight: 'calc(100vh - 280px)' }}>
+        <StickyHScroll className="pb-2" style={{ minHeight: 'calc(100vh - 280px)' }}>
           {orderedColumns.map((column) => {
             const columnProjects = localProjects.filter((project) =>
               project.board_column_id === column.id ||
@@ -441,7 +442,7 @@ export function BoardColumnsKanban({
               />
             )
           })}
-        </div>
+        </StickyHScroll>
 
         <DragOverlay>
           {activeProject ? (
