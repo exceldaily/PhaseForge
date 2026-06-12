@@ -21,10 +21,32 @@ interface NotificationBellProps {
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  project_overdue: <AlertTriangle size={13} className="text-rose-500 flex-shrink-0" />,
-  phase_overdue:   <AlertTriangle size={13} className="text-rose-400 flex-shrink-0" />,
-  phase_due_soon:  <Clock size={13} className="text-amber-500 flex-shrink-0" />,
-  system:          <Info size={13} className="text-slate-400 flex-shrink-0" />,
+  project_overdue: <AlertTriangle size={13} className="text-rose-500 dark:text-rose-400 flex-shrink-0" />,
+  phase_overdue:   <AlertTriangle size={13} className="text-rose-400 dark:text-rose-300 flex-shrink-0" />,
+  phase_due_soon:  <Clock size={13} className="text-amber-500 dark:text-amber-400 flex-shrink-0" />,
+  mention:         <Bell size={13} className="text-indigo-500 dark:text-indigo-400 flex-shrink-0" />,
+  system:          <Info size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />,
+}
+
+const DISMISSED_NOTIFICATIONS_KEY = 'phaseforge_dismissed_notifications'
+
+function getDismissedNotifications(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const stored = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY)
+    return new Set(stored ? JSON.parse(stored) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function saveDismissedNotifications(ids: Set<string>) {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(Array.from(ids)))
+  } catch {
+    console.warn('Failed to save dismissed notifications')
+  }
 }
 
 export function NotificationBell({ userId, companyId }: NotificationBellProps) {
@@ -32,6 +54,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
   const [items, setItems] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [dismissed, setDismissed] = useState<Set<string>>(getDismissedNotifications())
   const ref = useRef<HTMLDivElement>(null)
 
   // ── Close on outside click ───────────────────────────────────────────────
@@ -60,7 +83,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
 
     const computed: Notification[] = []
     for (const project of projects ?? []) {
-      if (project.end_date < today) {
+      if (project.end_date < today && !dismissed.has(`proj-overdue-${project.id}`)) {
         computed.push({
           id: `proj-overdue-${project.id}`, type: 'project_overdue',
           title: 'Project overdue',
@@ -71,7 +94,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
       }
       for (const phase of project.phases ?? []) {
         if (['completed', 'skipped'].includes(phase.status)) continue
-        if (phase.end_date < today) {
+        if (phase.end_date < today && !dismissed.has(`phase-overdue-${phase.id}`)) {
           computed.push({
             id: `phase-overdue-${phase.id}`, type: 'phase_overdue',
             title: 'Phase overdue',
@@ -79,7 +102,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
             link: `/app/gantt?project=${project.id}`, read: false,
             created_at: new Date().toISOString(),
           })
-        } else if (phase.end_date <= soonDate) {
+        } else if (phase.end_date <= soonDate && !dismissed.has(`phase-soon-${phase.id}`)) {
           computed.push({
             id: `phase-soon-${phase.id}`, type: 'phase_due_soon',
             title: 'Phase due soon',
@@ -112,7 +135,15 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
   const markRead = (id: string) => {
     setItems(prev => prev.filter(n => n.id !== id))
     setUnreadCount(prev => Math.max(0, prev - 1))
-    if (!id.startsWith('proj-') && !id.startsWith('phase-')) {
+
+    // Track dismissed computed notifications
+    if (id.startsWith('proj-') || id.startsWith('phase-')) {
+      const newDismissed = new Set(dismissed)
+      newDismissed.add(id)
+      setDismissed(newDismissed)
+      saveDismissedNotifications(newDismissed)
+    } else {
+      // Mark stored notifications as read in DB
       const supabase = createClient()
       supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
     }
@@ -131,7 +162,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
       <button
         onClick={() => setOpen(o => !o)}
         aria-label="Notifications"
-        className="relative p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+        className="relative p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -142,15 +173,15 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl transition-colors">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <span className="text-sm font-semibold text-slate-900">
-              Notifications {unreadCount > 0 && <span className="ml-1 rounded-full bg-rose-100 px-1.5 py-0.5 text-xs font-bold text-rose-600">{unreadCount}</span>}
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 px-4 py-3">
+            <span className="text-sm font-semibold text-slate-900 dark:text-white">
+              Notifications {unreadCount > 0 && <span className="ml-1 rounded-full bg-rose-100 dark:bg-rose-900/50 px-1.5 py-0.5 text-xs font-bold text-rose-600 dark:text-rose-400">{unreadCount}</span>}
             </span>
             {items.length > 0 && (
               <button onClick={markAllRead}
-                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
+                className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                 <CheckCheck size={12} /> Mark all read
               </button>
             )}
@@ -159,30 +190,30 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
           {/* List */}
           <div className="max-h-72 overflow-y-auto">
             {loading && (
-              <p className="px-4 py-8 text-center text-xs text-slate-400">Loading…</p>
+              <p className="px-4 py-8 text-center text-xs text-slate-400 dark:text-slate-500">Loading…</p>
             )}
             {!loading && items.length === 0 && (
               <div className="px-4 py-10 text-center">
-                <Bell size={24} className="mx-auto mb-2 text-slate-300" />
-                <p className="text-sm font-medium text-slate-500">All caught up!</p>
-                <p className="mt-0.5 text-xs text-slate-400">No unread notifications.</p>
+                <Bell size={24} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">All caught up!</p>
+                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">No unread notifications.</p>
               </div>
             )}
             {!loading && items.map(n => (
-              <div key={n.id} className="group flex items-start gap-3 border-b border-slate-50 px-4 py-3 last:border-0 hover:bg-slate-50">
-                <div className="mt-0.5">{TYPE_ICONS[n.type] ?? <Bell size={13} className="text-slate-400" />}</div>
+              <div key={n.id} className="group flex items-start gap-3 border-b border-slate-50 dark:border-slate-700 px-4 py-3 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <div className="mt-0.5">{TYPE_ICONS[n.type] ?? <Bell size={13} className="text-slate-400 dark:text-slate-500" />}</div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-slate-800">{n.title}</p>
-                  {n.body && <p className="mt-0.5 truncate text-xs text-slate-500">{n.body}</p>}
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{n.title}</p>
+                  {n.body && <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{n.body}</p>}
                   {n.link && (
                     <Link href={n.link} onClick={() => { markRead(n.id); setOpen(false) }}
-                      className="mt-1 inline-block text-xs font-medium text-indigo-600 hover:underline">
+                      className="mt-1 inline-block text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
                       View →
                     </Link>
                   )}
                 </div>
                 <button onClick={() => markRead(n.id)}
-                  className="flex-shrink-0 text-slate-300 opacity-0 transition-opacity hover:text-slate-500 group-hover:opacity-100"
+                  className="flex-shrink-0 text-slate-300 dark:text-slate-600 opacity-0 transition-opacity hover:text-slate-500 dark:hover:text-slate-400 group-hover:opacity-100"
                   aria-label="Dismiss">
                   ✕
                 </button>
@@ -191,9 +222,9 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-100 px-4 py-3">
+          <div className="border-t border-slate-100 dark:border-slate-700 px-4 py-3">
             <Link href="/app/notifications" onClick={() => setOpen(false)}
-              className="text-xs font-medium text-indigo-600 hover:underline">
+              className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
               View all notifications →
             </Link>
           </div>
