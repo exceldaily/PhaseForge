@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
 import { GantticLogo } from '@/components/branding/GantticLogo'
+import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/auth/password'
 import { acceptInvite, setInvitePassword } from './actions'
 
 export default function InviteAcceptPage() {
@@ -49,12 +50,10 @@ export default function InviteAcceptPage() {
       setError('Both fields are required')
       return
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters')
-      return
-    }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
+
+    const passwordError = validatePassword(password, confirmPassword)
+    if (passwordError) {
+      setError(passwordError)
       return
     }
 
@@ -107,9 +106,10 @@ export default function InviteAcceptPage() {
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
+                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                     className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d78829]"
                     disabled={saving}
+                    autoComplete="new-password"
                   />
                 </div>
 
@@ -122,6 +122,7 @@ export default function InviteAcceptPage() {
                     placeholder="Confirm password"
                     className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d78829]"
                     disabled={saving}
+                    autoComplete="new-password"
                   />
                 </div>
 

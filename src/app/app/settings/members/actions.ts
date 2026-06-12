@@ -1,7 +1,6 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkMemberLimit } from '@/lib/planLimits'
@@ -39,19 +38,6 @@ async function getAppOrigin(): Promise<string> {
   const host = h.get('x-forwarded-host') ?? h.get('host')
   const proto = h.get('x-forwarded-proto') ?? 'https'
   return host ? `${proto}://${host}` : ''
-}
-
-function createPublicAuthClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  )
 }
 
 async function findAuthUserByEmail(admin: ReturnType<typeof createAdminClient>, email: string) {
@@ -134,7 +120,6 @@ export async function sendInvite(
     const normalizedEmail = email.trim().toLowerCase()
     const origin = await getAppOrigin()
     const admin = createAdminClient()
-    const publicAuth = createPublicAuthClient()
     const resendCutoff = new Date(Date.now() - INVITE_RESEND_COOLDOWN_MINUTES * 60 * 1000).toISOString()
 
     // Get company name and inviter name for the email
@@ -177,7 +162,7 @@ export async function sendInvite(
 
     // Try to create a new auth user; if they already exist, update them instead
     let authUserId: string
-    let authUserMetadata: Record<string, any> = {}
+    let authUserMetadata: Record<string, unknown> = {}
 
     // Create new auth user with a placeholder password (they'll set their own)
     const placeholderPassword = crypto.randomUUID()
@@ -212,10 +197,10 @@ export async function sendInvite(
         })
 
         if (updateErr) {
-          return { error: updateErr.message }
+          return { error: getFriendlyInviteError(updateErr.message) }
         }
       } else {
-        return { error: createErr.message }
+        return { error: getFriendlyInviteError(createErr.message) }
       }
     } else {
       // New user was created successfully
@@ -227,9 +212,11 @@ export async function sendInvite(
     }
 
     // Ensure profile exists
-    const fullName = authUserMetadata?.full_name?.trim()
-      ? authUserMetadata.full_name.trim()
-      : normalizedEmail.split('@')[0]
+    const candidateFullName =
+      typeof authUserMetadata.full_name === 'string'
+        ? authUserMetadata.full_name.trim()
+        : ''
+    const fullName = candidateFullName || normalizedEmail.split('@')[0]
 
     const { error: profileErr } = await admin.from('profiles').upsert({
       id: authUserId,
@@ -261,14 +248,15 @@ export async function sendInvite(
         error: emailResult.error,
         brevoApiKey: process.env.BREVO_API_KEY ? 'SET' : 'NOT SET',
       })
-    } else {
-      console.log('[SendInvite] Email sent successfully:', { email: normalizedEmail, messageId: emailResult.messageId })
+      await admin.from('invitations').delete().eq('token', token).eq('company_id', companyId)
+      return { error: getFriendlyInviteError(emailResult.error ?? 'Failed to send invitation email.') }
     }
 
+    console.log('[SendInvite] Email sent successfully:', { email: normalizedEmail, messageId: emailResult.messageId })
     return { success: true, message: `Invitation sent to ${normalizedEmail}.` }
   } catch (err) {
     console.error('sendInvite error:', err)
-    return { error: err instanceof Error ? err.message : 'Failed to send invite' }
+    return { error: err instanceof Error ? getFriendlyInviteError(err.message) : 'Failed to send invite' }
   }
 }
 

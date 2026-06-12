@@ -6,6 +6,7 @@ import { ArrowLeft, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { Input } from '@/components/ui/Input'
+import { getFriendlyAuthError, normalizeAuthEmail } from '@/lib/auth/password'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -19,15 +20,17 @@ export default function ForgotPasswordPage() {
     setError('')
 
     const supabase = createClient()
+    const normalizedEmail = normalizeAuthEmail(email)
     const redirectTo = `${window.location.origin}/reset-password`
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo })
 
     setLoading(false)
     if (resetError) {
-      setError(resetError.message)
+      setError(getFriendlyAuthError(resetError.message))
       return
     }
 
+    setEmail(normalizedEmail)
     setSent(true)
   }
 

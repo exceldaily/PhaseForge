@@ -19,6 +19,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { GantticLogo } from '@/components/branding/GantticLogo'
+import { getFriendlyAuthError, normalizeAuthEmail } from '@/lib/auth/password'
 import { BRAND_NAME } from '@/lib/branding'
 import { cn } from '@/lib/utils'
 
@@ -51,10 +52,11 @@ export default function LoginPage() {
     setError('')
 
     const supabase = createClient()
-    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
+    const normalizedEmail = normalizeAuthEmail(email)
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password })
 
     if (loginError) {
-      setError(loginError.message)
+      setError(getFriendlyAuthError(loginError.message))
       setLoading(false)
       return
     }

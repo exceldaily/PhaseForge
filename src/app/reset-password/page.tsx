@@ -6,7 +6,7 @@ import { Lock, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { Input } from '@/components/ui/Input'
-import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/auth/password'
+import { MIN_PASSWORD_LENGTH, getFriendlyAuthError, validatePassword } from '@/lib/auth/password'
 
 type PageState = 'loading' | 'ready' | 'success' | 'expired'
 
@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
     setSaving(false)
 
     if (updateError) {
-      setError(updateError.message)
+      setError(getFriendlyAuthError(updateError.message))
       return
     }
 

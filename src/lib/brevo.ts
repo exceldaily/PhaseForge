@@ -137,7 +137,7 @@ export async function sendPasswordResetEmail(email: string, resetLink: string) {
       </p>
 
       <p style="margin-top: 20px; color: #94a3b8; font-size: 14px;">
-        This link expires in 24 hours. If you didn't request a password reset, please ignore this email.
+        This link expires automatically. If you didn't request a password reset, please ignore this email.
       </p>
     </div>
   `

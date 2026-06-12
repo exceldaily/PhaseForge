@@ -3,12 +3,11 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart2, Bell, BookOpen, Building2, FileText, FolderKanban,
+  BarChart2, Bell, BookOpen, Building2, FolderKanban,
   GanttChartSquare, Layers, LayoutDashboard, ListChecks, Play, Search,
-  Settings, ShieldAlert, Upload, UserCircle, UsersRound, X,
+  ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour'
-import { cn } from '@/lib/utils'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KEEP THIS GUIDE CURRENT: this page is the product manual. Any change to a
@@ -204,7 +203,7 @@ const SECTIONS: GuideSection[] = [
     items: [
       { heading: 'Profile', text: 'Edit your name and job title; your email and role are shown read-only (only owners/admins change roles).' },
       { heading: 'Members', text: 'Owners and admins see the full roster and invite new people from Settings → Members.' },
-      { heading: 'Account & password', text: 'Sign-up creates your company workspace and requires email confirmation. Passwords need 8+ characters with upper/lowercase, numbers, and symbols. Forgot it? The login page sends a reset link (valid 60 minutes).' },
+      { heading: 'Account & password', text: 'Sign-up creates your company workspace and requires email confirmation. Passwords currently need at least 8 characters. Forgot it? The login page sends a reset link to the email on your account.' },
     ],
   },
   {
