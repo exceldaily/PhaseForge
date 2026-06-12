@@ -38,15 +38,15 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
 
 // The ordered Kanban columns (construction stages)
 export const KANBAN_COLUMNS: { status: ProjectStatus; label: string; color: string }[] = [
-  { status: 'queue',                 label: 'Queue',                  color: 'border-slate-400' },
-  { status: 'mobilization',          label: 'Mobilization',          color: 'border-rose-400' },
-  { status: 'construction_initiated',label: 'Construction Initiated', color: 'border-orange-400' },
-  { status: 'pct_30',                label: '30% Constructed',        color: 'border-amber-400' },
-  { status: 'pct_60',                label: '60% Constructed',        color: 'border-yellow-400' },
-  { status: 'pct_90',                label: '90% Constructed',        color: 'border-lime-400' },
-  { status: 'final_punchlist',       label: 'Final Punchlist',        color: 'border-teal-400' },
-  { status: 'closeout',              label: 'Closeout',               color: 'border-emerald-400' },
-  { status: 'closed',                label: 'Closed',                 color: 'border-slate-400' },
+  { status: 'queue',                  label: 'Queue',                   color: '#94a3b8' },
+  { status: 'mobilization',           label: 'Mobilization',            color: '#f43f5e' },
+  { status: 'construction_initiated', label: 'Construction Initiated',  color: '#f97316' },
+  { status: 'pct_30',                 label: '30% Constructed',         color: '#f59e0b' },
+  { status: 'pct_60',                 label: '60% Constructed',         color: '#eab308' },
+  { status: 'pct_90',                 label: '90% Constructed',         color: '#84cc16' },
+  { status: 'final_punchlist',        label: 'Final Punchlist',         color: '#14b8a6' },
+  { status: 'closeout',               label: 'Closeout',                color: '#10b981' },
+  { status: 'closed',                 label: 'Closed',                  color: '#64748b' },
 ]
 
 export const PRIORITY_LABELS: Record<ProjectPriority, string> = {

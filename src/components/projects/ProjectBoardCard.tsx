@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import Link from 'next/link'
 import {
   Activity,
@@ -27,6 +27,16 @@ export interface ProjectBoardStageOption {
   id: string
   label: string
 }
+
+const CARD_ACTION_SELECTOR = [
+  'button',
+  'a',
+  'input',
+  'select',
+  'textarea',
+  'label',
+  '[data-card-action="true"]',
+].join(', ')
 
 interface ProjectBoardCardProps {
   project: Project
@@ -112,9 +122,18 @@ export function ProjectBoardCard({
   const primaryProjectLabel = canEdit ? 'Edit Project' : 'Open Project'
   const showMenuButton = canEdit || Boolean(onDelete)
 
+  const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!onCardClick) return
+
+    const target = event.target as HTMLElement | null
+    if (target?.closest(CARD_ACTION_SELECTOR)) return
+
+    onCardClick(project.id)
+  }
+
   return (
     <div
-      onClick={() => onCardClick?.(project.id)}
+      onClick={handleCardClick}
       className={cn(
         'group overflow-hidden rounded-3xl border bg-white shadow-sm transition-all',
         onCardClick && 'cursor-pointer',
@@ -169,7 +188,7 @@ export function ProjectBoardCard({
             </div>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-1">
+          <div className="flex flex-shrink-0 items-center gap-1" data-card-action="true">
             {dragHandle && (
               <button
                 type="button"
@@ -184,7 +203,7 @@ export function ProjectBoardCard({
             )}
 
             {showMenuButton && (
-              <div className="relative">
+              <div className="relative" data-card-action="true">
                 <button
                   type="button"
                   onClick={(event) => {
@@ -200,7 +219,10 @@ export function ProjectBoardCard({
                 {showMenu && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                    <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-2xl border border-slate-200 bg-white py-1 shadow-lg">
+                    <div
+                      className="absolute right-0 top-full z-20 mt-1 w-44 rounded-2xl border border-slate-200 bg-white py-1 shadow-lg"
+                      data-card-action="true"
+                    >
                       {canEdit && (
                         <Link
                           href={`${detailHref}/edit`}
@@ -268,7 +290,7 @@ export function ProjectBoardCard({
           <p className="mt-2 text-[11px] font-medium text-slate-600">{state.actionLabel}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2" data-card-action="true">
           <MetricTile label="Open Work" value={state.openPhases} />
           <MetricTile label="Blocked" value={state.blockedPhases} tone={state.blockedPhases > 0 ? 'danger' : 'default'} />
           <MetricTile label="Activity" value={state.activityCount} />
@@ -299,7 +321,7 @@ export function ProjectBoardCard({
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2" data-card-action="true">
           <Link
             href={tasksHref}
             onClick={(event) => event.stopPropagation()}
@@ -328,6 +350,7 @@ export function ProjectBoardCard({
             value={currentStageId}
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => void onStageChange(project.id, event.target.value)}
+            data-card-action="true"
             className="w-full cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             {stageOptions.map((option) => (
@@ -340,7 +363,7 @@ export function ProjectBoardCard({
       </div>
 
       {showDeleteConfirm && onDelete && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-4" data-card-action="true">
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3">
             <p className="mb-1 text-xs font-semibold text-rose-800">Delete &ldquo;{project.name}&rdquo;?</p>
             <p className="mb-3 text-xs text-rose-600">This permanently deletes the project and its phases.</p>

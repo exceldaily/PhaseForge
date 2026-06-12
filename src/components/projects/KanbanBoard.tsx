@@ -22,6 +22,31 @@ import { Project, ProjectStatus } from '@/types/app'
 import { useRouter } from 'next/navigation'
 
 const VALID_STATUSES = new Set(KANBAN_COLUMNS.map((column) => column.status))
+const LEGACY_STAGE_COLORS: Record<string, string> = {
+  slate: '#94a3b8',
+  'border-slate-400': '#94a3b8',
+  rose: '#f43f5e',
+  'border-rose-400': '#f43f5e',
+  orange: '#f97316',
+  'border-orange-400': '#f97316',
+  amber: '#f59e0b',
+  'border-amber-400': '#f59e0b',
+  yellow: '#eab308',
+  'border-yellow-400': '#eab308',
+  lime: '#84cc16',
+  'border-lime-400': '#84cc16',
+  teal: '#14b8a6',
+  'border-teal-400': '#14b8a6',
+  emerald: '#10b981',
+  'border-emerald-400': '#10b981',
+  indigo: '#6366f1',
+  'border-indigo-400': '#6366f1',
+}
+
+function normalizeStageColor(color: string | undefined, fallback: string) {
+  if (!color) return fallback
+  return LEGACY_STAGE_COLORS[color] ?? color
+}
 
 interface ColumnConfig {
   status: ProjectStatus
@@ -51,19 +76,36 @@ function useColumnConfig(companyId: string) {
   const [columns, setColumns] = useState<ColumnConfig[]>(() => {
     try {
       const stored = localStorage.getItem(key)
-      if (stored) return JSON.parse(stored) as ColumnConfig[]
+      if (stored) {
+        const parsed = JSON.parse(stored) as ColumnConfig[]
+        return parsed.map((column) => {
+          const fallback = KANBAN_COLUMNS.find((defaultColumn) => defaultColumn.status === column.status)?.color ?? '#6366f1'
+          return {
+            ...column,
+            color: normalizeStageColor(column.color, fallback),
+          }
+        })
+      }
     } catch {}
 
     return KANBAN_COLUMNS.map((column) => ({
       status: column.status,
       label: column.label,
-      color: column.color.replace('border-', '').replace('-400', ''),
+      color: column.color,
     }))
   })
 
   const save = (nextColumns: ColumnConfig[]) => {
-    setColumns(nextColumns)
-    localStorage.setItem(key, JSON.stringify(nextColumns))
+    const normalizedColumns = nextColumns.map((column) => {
+      const fallback = KANBAN_COLUMNS.find((defaultColumn) => defaultColumn.status === column.status)?.color ?? '#6366f1'
+      return {
+        ...column,
+        color: normalizeStageColor(column.color, fallback),
+      }
+    })
+
+    setColumns(normalizedColumns)
+    localStorage.setItem(key, JSON.stringify(normalizedColumns))
   }
 
   return { columns, save }
