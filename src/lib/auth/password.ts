@@ -23,6 +23,14 @@ export function getFriendlyAuthError(message: string) {
     return 'An account with this email already exists. Try signing in or resetting your password.'
   }
 
+  if (normalized.includes('email rate limit exceeded') || normalized.includes('over_email_send_rate_limit')) {
+    return 'Too many signup emails have been sent recently. Please wait about 15 minutes and try again.'
+  }
+
+  if (normalized.includes('database error saving new user')) {
+    return 'We could not finish creating the account just yet. Please try again in a minute.'
+  }
+
   if (normalized.includes('password')) {
     return message.replace(/^auth:\s*/i, '')
   }
