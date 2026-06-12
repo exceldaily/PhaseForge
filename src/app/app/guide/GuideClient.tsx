@@ -124,7 +124,7 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Tasks Due This Week', text: 'Phases starting in the next 7 days, grouped by project with owners — your look-ahead schedule.' },
       { heading: 'Team Capacity & Milestones', text: 'Per-team utilization (members carrying active work) and the next milestone phases with owners and target dates.' },
       { heading: 'Recent Activity', text: 'The latest changes across your projects — who did what, where, and when.' },
-      { heading: 'Board filter', text: 'The Board dropdown at the top focuses the entire dashboard on one board. The same filter is on Gantt, Projects, Analytics, Reports, and Resources — your selection lives in the URL, so you can bookmark a filtered view.' },
+      { heading: 'Board filter', text: 'The Board dropdown at the top focuses the entire dashboard on one board. The same filter is on Gantt, Projects, Analytics, Reports, and Resources — your selection stays with you as you move between pages, and filtered views still show the board in the URL when present.' },
     ],
   },
   {

@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Kanban } from 'lucide-react'
-import { BOARD_FILTER_NONE, BoardOption } from '@/lib/boardFilter'
+import { BOARD_FILTER_COOKIE, BOARD_FILTER_NONE, BoardOption } from '@/lib/boardFilter'
 import { cn } from '@/lib/utils'
 
 interface BoardFilterProps {
@@ -12,8 +12,9 @@ interface BoardFilterProps {
 }
 
 /**
- * Org-wide board selector. Writes the choice to the `?board=` search param so
- * server components can filter their queries to a single board's projects.
+ * Org-wide board selector. Writes the choice to the `?board=` search param and
+ * mirrors it into a cookie so board-aware pages can keep the same selection
+ * even when a route transition does not carry the query string forward.
  */
 export function BoardFilter({ boards, selectedBoardId, className }: BoardFilterProps) {
   const router = useRouter()
@@ -26,6 +27,13 @@ export function BoardFilter({ boards, selectedBoardId, className }: BoardFilterP
     const params = new URLSearchParams(searchParams.toString())
     if (value) params.set('board', value)
     else params.delete('board')
+
+    if (value) {
+      document.cookie = `${BOARD_FILTER_COOKIE}=${encodeURIComponent(value)}; path=/; max-age=31536000; samesite=lax`
+    } else {
+      document.cookie = `${BOARD_FILTER_COOKIE}=; path=/; max-age=0; samesite=lax`
+    }
+
     const query = params.toString()
     router.replace(query ? `${pathname}?${query}` : pathname)
   }

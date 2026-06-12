@@ -23,6 +23,7 @@ import {
 import { addDays, differenceInDays, format, formatDate, isOverdue } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
 import { createClient } from '@/lib/supabase/server'
+import { getStoredBoardFilter } from '@/lib/boardFilter.server'
 import { cn } from '@/lib/utils'
 import { Phase, Profile, Project, ProjectPriority, ProjectStatus } from '@/types/app'
 
@@ -94,7 +95,8 @@ export default async function DashboardPage({
     .order('sort_order', { ascending: true })
     .order('name')
   const boards = (boardsData ?? []) as BoardOption[]
-  const boardFilter = resolveBoardFilter(params.board, boards)
+  const storedBoardFilter = await getStoredBoardFilter()
+  const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
   let projectsQuery = supabase
     .from('projects')

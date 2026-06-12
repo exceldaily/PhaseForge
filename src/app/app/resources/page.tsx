@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BoardFilter } from '@/components/boards/BoardFilter'
 import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
+import { getStoredBoardFilter } from '@/lib/boardFilter.server'
 import { Phase, Project } from '@/types/app'
-import { PHASE_STATUS_COLORS, PHASE_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, differenceInDays, parseISO } from '@/lib/dates'
 
 export default async function ResourcesPage({
@@ -26,7 +26,8 @@ export default async function ResourcesPage({
     .order('sort_order', { ascending: true })
     .order('name')
   const boards = (boardsData ?? []) as BoardOption[]
-  const boardFilter = resolveBoardFilter(params.board, boards)
+  const storedBoardFilter = await getStoredBoardFilter()
+  const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
   let projectsQuery = supabase
     .from('projects')

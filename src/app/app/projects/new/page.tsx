@@ -3,6 +3,16 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { ProjectForm } from '@/components/projects/ProjectForm'
+import { appendBoardFilter, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
+import { getStoredBoardFilter } from '@/lib/boardFilter.server'
+
+type BoardDetail = {
+  id: string
+  name: string
+  visible_fields: string[] | null
+  custom_stages: string[] | null
+  board_columns: Array<{ id: string; name: string; sort_order: number; color: string }> | null
+}
 
 export default async function NewProjectPage({
   searchParams,
@@ -17,15 +27,30 @@ export default async function NewProjectPage({
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
-  const [membersRes, boardRes] = await Promise.all([
+  const [{ data: boardsData }, membersRes] = await Promise.all([
+    supabase
+      .from('boards')
+      .select('id, name, color')
+      .eq('company_id', profile.company_id)
+      .order('sort_order', { ascending: true })
+      .order('name'),
     supabase.from('profiles').select('id, full_name, email, role').eq('company_id', profile.company_id).eq('is_active', true),
-    params.board
-      ? supabase.from('boards').select('id, name, visible_fields, custom_stages, board_columns(id, name, sort_order, color)').eq('id', params.board).single()
-      : Promise.resolve({ data: null }),
   ])
+  const boards = (boardsData ?? []) as BoardOption[]
+  const storedBoardFilter = await getStoredBoardFilter()
+  const activeBoardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
+  const boardRes = activeBoardFilter && activeBoardFilter !== 'none'
+    ? await supabase
+        .from('boards')
+        .select('id, name, visible_fields, custom_stages, board_columns(id, name, sort_order, color)')
+        .eq('id', activeBoardFilter)
+        .single()
+    : { data: null }
 
-  const board = boardRes.data as any
-  const backHref = params.board ? `/app/boards/${params.board}` : '/app/projects'
+  const board = boardRes.data as BoardDetail | null
+  const backHref = activeBoardFilter && activeBoardFilter !== 'none'
+    ? `/app/boards/${activeBoardFilter}`
+    : appendBoardFilter('/app/projects', activeBoardFilter)
   const backLabel = board?.name ?? 'Projects'
 
   return (
@@ -41,7 +66,7 @@ export default async function NewProjectPage({
         companyId={profile.company_id}
         members={membersRes.data ?? []}
         currentUserId={user.id}
-        defaultBoardId={params.board}
+        defaultBoardId={activeBoardFilter && activeBoardFilter !== 'none' ? activeBoardFilter : undefined}
         defaultColumnId={params.column}
         boardColumns={board?.board_columns ?? []}
         boardVisibleFields={board?.visible_fields ?? []}

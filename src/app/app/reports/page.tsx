@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
+import { getStoredBoardFilter } from '@/lib/boardFilter.server'
 import { Project } from '@/types/app'
 import { ReportsClient } from './ReportsClient'
 
@@ -24,7 +25,8 @@ export default async function ReportsPage({
     .order('sort_order', { ascending: true })
     .order('name')
   const boards = (boardsData ?? []) as BoardOption[]
-  const boardFilter = resolveBoardFilter(params.board, boards)
+  const storedBoardFilter = await getStoredBoardFilter()
+  const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
   let projectsQuery = supabase
     .from('projects')

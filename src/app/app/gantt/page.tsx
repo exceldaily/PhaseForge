@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { GanttChart } from '@/components/gantt/GanttChart'
 import { BoardFilter } from '@/components/boards/BoardFilter'
-import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
+import { BOARD_FILTER_NONE, BoardOption, appendBoardFilter, resolveBoardFilter } from '@/lib/boardFilter'
+import { getStoredBoardFilter } from '@/lib/boardFilter.server'
 import { Project, Phase, Profile } from '@/types/app'
 
 export default async function GanttPage({ searchParams }: { searchParams: Promise<{ project?: string; board?: string }> }) {
@@ -23,7 +24,8 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
     .order('sort_order', { ascending: true })
     .order('name')
   const boards = (boardsData ?? []) as BoardOption[]
-  const boardFilter = resolveBoardFilter(params.board, boards)
+  const storedBoardFilter = await getStoredBoardFilter()
+  const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
   let projectQuery = supabase
     .from('projects')
@@ -56,7 +58,7 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
   }))
 
   const singleProject = params.project ? projectsWithSortedPhases[0] : null
-  const backHref = params.board ? `/app/projects?board=${params.board}` : '/app/projects'
+  const backHref = appendBoardFilter('/app/projects', boardFilter)
 
   return (
     <div className="h-full flex flex-col">

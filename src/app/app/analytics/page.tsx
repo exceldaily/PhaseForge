@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BoardFilter } from '@/components/boards/BoardFilter'
 import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
+import { getStoredBoardFilter } from '@/lib/boardFilter.server'
 import { differenceInDays, parseISO } from '@/lib/dates'
 import { KANBAN_COLUMNS, PHASE_STATUS_LABELS, PRIORITY_LABELS } from '@/lib/constants'
 import { Phase, PhaseStatus, Project } from '@/types/app'
@@ -43,7 +44,8 @@ export default async function AnalyticsPage({
     .order('sort_order', { ascending: true })
     .order('name')
   const boards = (boardsData ?? []) as BoardOption[]
-  const boardFilter = resolveBoardFilter(params.board, boards)
+  const storedBoardFilter = await getStoredBoardFilter()
+  const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
   let projectsQuery = supabase
     .from('projects')
@@ -302,13 +304,15 @@ function MiniStat({ label, value, color }: { label: string; value: string | numb
 function DonutChart({ segments, total }: { segments: { value: number; color: string }[]; total: number }) {
   const r = 52
   const circumference = 2 * Math.PI * r
-  let offset = 0
-  const slices = segments.map(s => {
-    const length = (s.value / total) * circumference
-    const slice = { ...s, length, offset }
-    offset += length
-    return slice
-  })
+  const slices = segments.reduce<Array<{ value: number; color: string; length: number; offset: number }>>(
+    (acc, segment) => {
+      const offset = acc.length === 0 ? 0 : acc[acc.length - 1].offset + acc[acc.length - 1].length
+      const length = (segment.value / total) * circumference
+      acc.push({ ...segment, length, offset })
+      return acc
+    },
+    []
+  )
   return (
     <svg width={128} height={128} viewBox="0 0 128 128" className="flex-shrink-0 -rotate-90">
       <circle cx={64} cy={64} r={r} fill="none" stroke="#f1f5f9" strokeWidth={18} />
