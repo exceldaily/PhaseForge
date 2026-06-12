@@ -15,6 +15,7 @@ import { getProjectLastUpdatedLabel } from '@/lib/projectAudit'
 import { BoardColumn, Project, ProjectStatus, ProjectPriority, Profile } from '@/types/app'
 import { cn } from '@/lib/utils'
 import { ProjectDetailPanel } from '@/components/projects/ProjectDetailPanel'
+import { ProjectBoardSummaryStrip } from '@/components/projects/ProjectBoardSummaryStrip'
 
 type ViewMode = 'grid' | 'kanban'
 
@@ -113,6 +114,8 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
           </button>
         </div>
       </div>
+
+      <ProjectBoardSummaryStrip projects={filtered} />
 
       {/* Kanban board — full width, horizontal scroll.
           With a single board selected, show that board's own columns. */}

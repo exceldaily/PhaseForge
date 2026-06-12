@@ -27,8 +27,7 @@ interface ProjectDetailShellProps {
   currentUserId: string
   companyId: string
   canEdit: boolean
-  boardId: string | null
-  boardName: string | null
+  initialTab?: Tab
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -40,9 +39,10 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export function ProjectDetailShell({
   project, members, activityLogs, currentUserId, companyId,
-  canEdit, boardId, boardName,
+  canEdit,
+  initialTab = 'gantt',
 }: ProjectDetailShellProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('gantt')
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [showMenu, setShowMenu] = useState(false)
 
   const isGantt = activeTab === 'gantt'
@@ -223,16 +223,4 @@ export function ProjectDetailShell({
       )}
     </div>
   )
-}
-
-function formatAction(action: string): string {
-  const map: Record<string, string> = {
-    'project_updated': 'updated this project',
-    'phase_created':   'added a new phase',
-    'phase_updated':   'updated a phase',
-    'phase_deleted':   'deleted a phase',
-    'project_created': 'created this project',
-    'comment_added':   'left a comment',
-  }
-  return map[action] ?? action.replace(/_/g, ' ')
 }

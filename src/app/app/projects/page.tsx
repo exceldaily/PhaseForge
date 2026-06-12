@@ -28,7 +28,7 @@ export default async function ProjectsPage({
 
   let projectsQuery = supabase
     .from('projects')
-    .select('*')
+    .select('*, phases(id, status, percent_complete, start_date, end_date, updated_at, reminder_notes, sort_order)')
     .eq('company_id', profile.company_id)
     .eq('is_archived', false)
     .order('updated_at', { ascending: false })
@@ -49,9 +49,42 @@ export default async function ProjectsPage({
       : Promise.resolve({ data: null }),
   ])
 
+  const projects = ((projectsRaw ?? []) as Project[]).map((project) => ({
+    ...project,
+    phases: (project.phases ?? []).sort((left, right) => left.sort_order - right.sort_order),
+  }))
+
+  const projectIds = projects.map((project) => project.id)
+  const { data: activityRows } = projectIds.length > 0
+    ? await supabase
+        .from('activity_logs')
+        .select('project_id, created_at')
+        .in('project_id', projectIds)
+        .order('created_at', { ascending: false })
+    : { data: [] as Array<{ project_id: string; created_at: string }> }
+
+  const activitySummary = new Map<string, { count: number; latest: string | null }>()
+  for (const row of activityRows ?? []) {
+    const current = activitySummary.get(row.project_id)
+    if (current) {
+      current.count += 1
+    } else {
+      activitySummary.set(row.project_id, { count: 1, latest: row.created_at })
+    }
+  }
+
+  const projectsWithBoardSignals = projects.map((project) => {
+    const activity = activitySummary.get(project.id)
+    return {
+      ...project,
+      activity_count: activity?.count ?? 0,
+      activity_updated_at: activity?.latest ?? project.updated_at,
+    }
+  })
+
   return (
     <ProjectsClient
-      projects={(projectsRaw ?? []) as Project[]}
+      projects={projectsWithBoardSignals}
       companyId={profile.company_id}
       currentUserId={user.id}
       canEdit={profile.role !== 'viewer'}

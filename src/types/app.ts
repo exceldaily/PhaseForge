@@ -94,6 +94,8 @@ export interface Project {
   created_at: string
   updated_at: string
   updated_by?: string | null
+  activity_count?: number
+  activity_updated_at?: string | null
   board_id?: string | null
   board_column_id?: string | null
   board?: Board

@@ -3,8 +3,17 @@ import { redirect, notFound } from 'next/navigation'
 import { ProjectDetailShell } from './ProjectDetailShell'
 import { Phase, Profile, Project } from '@/types/app'
 
-export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const VALID_TABS = new Set(['gantt', 'tasks', 'activity', 'files'])
+
+export default async function ProjectDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ tab?: string }>
+}) {
   const { id } = await params
+  const { tab } = await searchParams
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,14 +39,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const project = projectRes.data as Project
   const phases = ((project.phases ?? []) as Phase[]).sort((a, b) => a.sort_order - b.sort_order)
 
-  // Fetch board name if project belongs to a board
-  let boardName: string | null = null
-  const boardId: string | null = (project as any).board_id ?? null
-  if (boardId) {
-    const { data: board } = await supabase.from('boards').select('name').eq('id', boardId).single()
-    boardName = board?.name ?? null
-  }
-
   const canEdit = !['member', 'viewer'].includes(profile.role)
 
   return (
@@ -48,8 +49,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       currentUserId={user.id}
       companyId={profile.company_id}
       canEdit={canEdit}
-      boardId={boardId}
-      boardName={boardName}
+      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'gantt' | 'tasks' | 'activity' | 'files') : 'gantt'}
     />
   )
 }
