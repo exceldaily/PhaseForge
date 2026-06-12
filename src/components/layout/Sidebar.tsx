@@ -22,7 +22,6 @@ const NAV_ITEMS = [
   { href: '/app/reports',      label: 'Reports',      icon: FileText },
   { href: '/app/billing',      label: 'Billing',      icon: CreditCard },
   { href: '/app/organization', label: 'Organization', icon: Building2 },
-  { href: '/app/teams',        label: 'Teams',        icon: UsersRound },
   { href: '/app/settings',     label: 'Settings',     icon: Settings },
   { href: '/app/guide',        label: 'Guide',        icon: BookOpen },
 ]

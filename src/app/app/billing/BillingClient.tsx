@@ -56,15 +56,15 @@ export function BillingClient({
     <div>
       {/* Status Badge */}
       {billingStatus === 'past_due' && (
-        <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200">
-          <p className="text-sm font-medium text-amber-900">
-            ⚠️ Your subscription is past due. Please update your payment method.
+        <div className="mb-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+            ⚠️ Your subscription payment is overdue. Please update your payment method to avoid service interruption.
           </p>
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="mb-8 border-b border-slate-200">
+      <div className="mb-8 border-b border-slate-200 dark:border-slate-700">
         <div className="flex gap-0">
           {TABS.map((tab) => {
             const Icon = tab.icon
@@ -76,8 +76,8 @@ export function BillingClient({
                 className={cn(
                   'flex items-center gap-2 px-4 py-3 font-medium text-sm border-b-2 transition-colors',
                   isActive
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                    ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300'
                 )}
               >
                 <Icon size={16} />

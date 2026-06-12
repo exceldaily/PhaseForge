@@ -209,6 +209,16 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ received: true })
         }
 
+        // Update billing status to active
+        try {
+          await supabase
+            .from('companies')
+            .update({ billing_status: 'active' })
+            .eq('id', companyId)
+        } catch (err) {
+          console.error('Failed to update billing status:', err)
+        }
+
         // Record invoice
         try {
           await supabase
@@ -229,6 +239,43 @@ export async function POST(req: NextRequest) {
             })
         } catch (err) {
           console.error('Failed to record invoice:', err)
+        }
+
+        break
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as any
+
+        if (!invoice.customer) {
+          return NextResponse.json({ received: true })
+        }
+
+        const customer = await stripe.customers.retrieve(
+          invoice.customer as string
+        )
+
+        if (!customer || customer.deleted) {
+          return NextResponse.json({ received: true })
+        }
+
+        const companyId = (customer.metadata as any)?.company_id
+
+        if (!companyId) {
+          return NextResponse.json({ received: true })
+        }
+
+        // Update billing status to past_due
+        try {
+          await supabase
+            .from('companies')
+            .update({ billing_status: 'past_due' })
+            .eq('id', companyId)
+
+          // Log admin notification
+          console.warn(`Payment failed for company ${companyId}, invoice ${invoice.id}`)
+        } catch (err) {
+          console.error('Failed to update billing status for failed payment:', err)
         }
 
         break
