@@ -39,6 +39,7 @@ interface KanbanBoardProps {
   companyId: string
   currentUserId: string
   memberMap: Record<string, string>
+  onCardClick?: (projectId: string) => void
 }
 
 const COLUMN_COLORS = [
@@ -86,7 +87,7 @@ function useColumnConfig(companyId: string) {
   return { columns, save }
 }
 
-export function KanbanBoard({ projects, canEdit, searchQuery, companyId, currentUserId, memberMap }: KanbanBoardProps) {
+export function KanbanBoard({ projects, canEdit, searchQuery, companyId, currentUserId, memberMap, onCardClick }: KanbanBoardProps) {
   const router = useRouter()
   const { columns, save } = useColumnConfig(companyId)
   const [showColSettings, setShowColSettings] = useState(false)
@@ -264,6 +265,7 @@ export function KanbanBoard({ projects, canEdit, searchQuery, companyId, current
                 activeProjectId={activeProjectId}
                 onStatusChange={persistStatusChange}
                 onDelete={handleDelete}
+                onCardClick={onCardClick}
               />
             )
           })}
@@ -298,6 +300,7 @@ function KanbanColumn({
   activeProjectId,
   onStatusChange,
   onDelete,
+  onCardClick,
 }: {
   column: ColumnConfig
   allColumns: ColumnConfig[]
@@ -307,6 +310,7 @@ function KanbanColumn({
   activeProjectId: string | null
   onStatusChange: (projectId: string, status: ProjectStatus) => Promise<void>
   onDelete: (projectId: string) => Promise<void>
+  onCardClick?: (projectId: string) => void
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: column.status,
@@ -366,6 +370,7 @@ function DraggableKanbanCard({
   memberMap,
   onStatusChange,
   onDelete,
+  onCardClick,
 }: {
   project: Project
   canEdit: boolean
@@ -373,6 +378,7 @@ function DraggableKanbanCard({
   memberMap: Record<string, string>
   onStatusChange: (projectId: string, status: ProjectStatus) => Promise<void>
   onDelete: (projectId: string) => Promise<void>
+  onCardClick?: (projectId: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
@@ -392,6 +398,7 @@ function DraggableKanbanCard({
         memberMap={memberMap}
         onStatusChange={onStatusChange}
         onDelete={onDelete}
+        onCardClick={onCardClick}
         dragHandle={{ attributes, listeners }}
       />
     </div>
@@ -407,6 +414,7 @@ function ProjectCard({
   onDelete,
   dragHandle,
   isDragging = false,
+  onCardClick,
 }: {
   project: Project
   canEdit: boolean
@@ -416,6 +424,7 @@ function ProjectCard({
   onDelete: (projectId: string) => Promise<void>
   dragHandle?: { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners }
   isDragging?: boolean
+  onCardClick?: (projectId: string) => void
 }) {
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -447,10 +456,17 @@ function ProjectCard({
     }
   }
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onCardClick?.(project.id)
+  }
+
   return (
     <div
+      onClick={handleCardClick}
       className={cn(
-        'group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all',
+        'group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all cursor-pointer',
         isDragging ? 'shadow-xl ring-1 ring-indigo-200' : 'hover:border-indigo-200 hover:shadow-md'
       )}
     >
@@ -458,12 +474,11 @@ function ProjectCard({
 
       <div className="p-4">
         <div className="mb-2 flex items-start justify-between gap-2">
-          <Link
-            href={`/app/projects/${project.id}`}
+          <div
             className="flex-1 text-sm font-semibold leading-snug text-slate-900 transition-colors hover:text-indigo-600"
           >
             {project.name}
-          </Link>
+          </div>
 
           {(canEdit || dragHandle) && (
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -482,7 +497,10 @@ function ProjectCard({
               {canEdit && (
                 <div className="relative">
                   <button
-                    onClick={() => setShowMenu((current) => !current)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowMenu((current) => !current)
+                    }}
                     className="rounded p-1 text-slate-300 transition-all hover:bg-slate-100 hover:text-slate-600 opacity-0 group-hover:opacity-100"
                   >
                     <MoreHorizontal size={15} />

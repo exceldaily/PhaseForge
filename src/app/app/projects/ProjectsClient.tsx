@@ -14,6 +14,7 @@ import { formatDate } from '@/lib/dates'
 import { getProjectLastUpdatedLabel } from '@/lib/projectAudit'
 import { BoardColumn, Project, ProjectStatus, ProjectPriority, Profile } from '@/types/app'
 import { cn } from '@/lib/utils'
+import { ProjectDetailPanel } from '@/components/projects/ProjectDetailPanel'
 
 type ViewMode = 'grid' | 'kanban'
 
@@ -22,7 +23,7 @@ interface ProjectsClientProps {
   companyId: string
   currentUserId: string
   canEdit: boolean
-  members: Pick<Profile, 'id' | 'full_name'>[]
+  members: Pick<Profile, 'id' | 'full_name' | 'email' | 'avatar_url'>[]
   boards: BoardOption[]
   selectedBoardId: string | null
   selectedBoardColumns?: BoardColumn[] | null
@@ -32,6 +33,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
   const [view, setView] = useState<ViewMode>('kanban')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
 
   const memberMap = Object.fromEntries(members.map(m => [m.id, m.full_name]))
@@ -46,8 +48,10 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
     return matchesSearch && matchesStatus
   })
 
+  const selectedProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : null
+
   return (
-    <div className={cn('p-6 space-y-5', view === 'kanban' ? 'max-w-none' : 'max-w-7xl mx-auto')}>
+    <div className={cn('p-6 space-y-5 flex flex-col h-full', view === 'kanban' ? 'max-w-none' : 'max-w-7xl mx-auto')}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -132,6 +136,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
             companyId={companyId}
             currentUserId={currentUserId}
             memberMap={memberMap}
+            onCardClick={(projectId) => setSelectedProjectId(projectId)}
           />
         )
       )}
@@ -144,9 +149,9 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
             <Link href="/app/projects/new"><Button><Plus size={16} />Create your first project</Button></Link>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 flex-1 overflow-y-auto">
             {filtered.map(project => (
-              <Link key={project.id} href={`/app/projects/${project.id}`}>
+              <div key={project.id} onClick={() => setSelectedProjectId(project.id)}>
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -172,10 +177,20 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
                     {getProjectLastUpdatedLabel(project, memberMap)}
                   </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )
+      )}
+
+      {/* Detail Panel */}
+      {selectedProject && (
+        <ProjectDetailPanel
+          project={selectedProject}
+          members={members}
+          onClose={() => setSelectedProjectId(null)}
+          canEdit={canEdit}
+        />
       )}
     </div>
   )

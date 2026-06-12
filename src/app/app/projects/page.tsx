@@ -43,7 +43,7 @@ export default async function ProjectsPage({
   const isSingleBoard = Boolean(boardFilter) && boardFilter !== BOARD_FILTER_NONE
   const [{ data: projectsRaw }, { data: membersRaw }, columnsRes] = await Promise.all([
     projectsQuery,
-    supabase.from('profiles').select('id, full_name').eq('company_id', profile.company_id),
+    supabase.from('profiles').select('id, full_name, email, avatar_url').eq('company_id', profile.company_id),
     isSingleBoard
       ? supabase.from('board_columns').select('*').eq('board_id', boardFilter).order('sort_order')
       : Promise.resolve({ data: null }),
