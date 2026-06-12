@@ -161,6 +161,19 @@ export interface ActivityLog {
   actor?: Profile
 }
 
+export interface ProjectAttachment {
+  id: string
+  project_id: string
+  file_name: string
+  file_path: string
+  file_size: number
+  file_type: string | null
+  uploaded_by: string
+  uploaded_at: string
+  created_at: string
+  signed_url?: string | null
+}
+
 export type ZoomLevel = 'day' | 'week' | 'month' | 'quarter'
 
 export interface GanttConfig {

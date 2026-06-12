@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { ProjectDetailShell } from './ProjectDetailShell'
-import { Phase, Profile, Project } from '@/types/app'
+import { Phase, Profile, Project, ProjectAttachment } from '@/types/app'
 
 const VALID_TABS = new Set(['gantt', 'tasks', 'activity', 'files'])
 
@@ -15,6 +16,7 @@ export default async function ProjectDetailPage({
   const { id } = await params
   const { tab } = await searchParams
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -41,7 +43,22 @@ export default async function ProjectDetailPage({
   if (!projectRes.data) notFound()
 
   const project = projectRes.data as Project
+  if (project.company_id !== profile.company_id) notFound()
+
   const phases = ((project.phases ?? []) as Phase[]).sort((a, b) => a.sort_order - b.sort_order)
+  const rawAttachments = (attachmentsRes.data ?? []) as ProjectAttachment[]
+  const attachments = await Promise.all(
+    rawAttachments.map(async (attachment) => {
+      const { data } = await admin.storage
+        .from('project-attachments')
+        .createSignedUrl(attachment.file_path, 60 * 60)
+
+      return {
+        ...attachment,
+        signed_url: data?.signedUrl ?? null,
+      }
+    })
+  )
 
   const canEdit = !['member', 'viewer'].includes(profile.role)
 
@@ -50,7 +67,7 @@ export default async function ProjectDetailPage({
       project={{ ...project, phases }}
       members={(membersRes.data ?? []) as Profile[]}
       activityLogs={activityRes.data ?? []}
-      attachments={attachmentsRes.data ?? []}
+      attachments={attachments}
       currentUserId={user.id}
       companyId={profile.company_id}
       canEdit={canEdit}

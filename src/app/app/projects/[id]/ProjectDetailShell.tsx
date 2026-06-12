@@ -16,7 +16,7 @@ import { ProjectAttachments } from '@/components/projects/ProjectAttachments'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
-import { Phase, Profile, Project, ProjectPriority, ActivityLog } from '@/types/app'
+import { Phase, Profile, Project, ProjectPriority, ActivityLog, ProjectAttachment } from '@/types/app'
 import { cn } from '@/lib/utils'
 
 type Tab = 'gantt' | 'tasks' | 'activity' | 'files'
@@ -25,7 +25,7 @@ interface ProjectDetailShellProps {
   project: Project & { phases: Phase[] }
   members: Profile[]
   activityLogs: ActivityLog[]
-  attachments: any[]
+  attachments: ProjectAttachment[]
   currentUserId: string
   companyId: string
   canEdit: boolean
