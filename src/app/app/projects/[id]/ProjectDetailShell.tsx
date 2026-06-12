@@ -12,6 +12,7 @@ import { PhaseList } from '@/components/phases/PhaseList'
 import { Badge } from '@/components/ui/Badge'
 import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
 import { ActivityTimeline } from '@/components/projects/ActivityTimeline'
+import { ProjectAttachments } from '@/components/projects/ProjectAttachments'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
@@ -24,6 +25,7 @@ interface ProjectDetailShellProps {
   project: Project & { phases: Phase[] }
   members: Profile[]
   activityLogs: ActivityLog[]
+  attachments: any[]
   currentUserId: string
   companyId: string
   canEdit: boolean
@@ -38,7 +40,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 ]
 
 export function ProjectDetailShell({
-  project, members, activityLogs, currentUserId, companyId,
+  project, members, activityLogs, attachments, currentUserId, companyId,
   canEdit,
   initialTab = 'gantt',
 }: ProjectDetailShellProps) {
@@ -207,17 +209,16 @@ export function ProjectDetailShell({
         </div>
       )}
 
-      {/* FILES — placeholder */}
+      {/* FILES */}
       {activeTab === 'files' && (
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto p-6">
-            <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white py-20 text-center">
-              <Paperclip size={32} className="mx-auto text-slate-300 mb-4" />
-              <p className="text-slate-500 font-medium">File attachments coming soon</p>
-              <p className="text-sm text-slate-400 mt-1">
-                Upload contracts, drawings, photos, and documents directly to this project.
-              </p>
-            </div>
+            <ProjectAttachments
+              projectId={project.id}
+              attachments={attachments}
+              canEdit={canEdit}
+              memberMap={Object.fromEntries(members.map(m => [m.id, m.full_name]))}
+            />
           </div>
         </div>
       )}

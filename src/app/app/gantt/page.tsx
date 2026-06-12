@@ -56,6 +56,7 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
   }))
 
   const singleProject = params.project ? projectsWithSortedPhases[0] : null
+  const backHref = params.board ? `/app/projects?board=${params.board}` : '/app/projects'
 
   return (
     <div className="h-full flex flex-col">
@@ -63,7 +64,7 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
       {singleProject && (
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-3 flex-shrink-0">
           <Link
-            href="/app/projects"
+            href={backHref}
             className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 transition-colors flex-shrink-0"
           >
             <ArrowLeft size={15} />

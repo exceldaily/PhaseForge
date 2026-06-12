@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Activity,
   CheckSquare,
@@ -100,6 +101,7 @@ export function ProjectBoardCard({
   isDragging = false,
   isSelected = false,
 }: ProjectBoardCardProps) {
+  const searchParams = useSearchParams()
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -114,7 +116,8 @@ export function ProjectBoardCard({
 
   const detailHref = `/app/projects/${project.id}`
   const editHref = `${detailHref}/edit`
-  const ganttHref = `/app/gantt?project=${project.id}`
+  const boardParam = searchParams.get('board')
+  const ganttHref = `/app/gantt?project=${project.id}${boardParam ? `&board=${boardParam}` : ''}`
   const tasksHref = `${detailHref}?tab=tasks`
   const activityHref = `${detailHref}?tab=activity`
   const filesHref = `${detailHref}?tab=files`

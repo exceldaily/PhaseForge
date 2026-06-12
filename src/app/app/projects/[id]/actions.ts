@@ -225,3 +225,78 @@ export async function updateProjectBoard(projectId: string, boardId: string | nu
     return { success: false, error: err instanceof Error ? err.message : 'Failed to update board' }
   }
 }
+
+// ── File attachments ──────────────────────────────────────────────────────
+
+export async function uploadProjectAttachment(projectId: string, file: File) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: project } = await supabase.from('projects').select('company_id').eq('id', projectId).single()
+    if (!project) throw new Error('Project not found')
+
+    const timestamp = Date.now()
+    const filename = `${timestamp}-${file.name}`
+    const filePath = `projects/${projectId}/${filename}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('project-attachments')
+      .upload(filePath, file)
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('project-attachments')
+      .getPublicUrl(filePath)
+
+    const { error: dbError } = await supabase
+      .from('project_attachments')
+      .insert({
+        project_id: projectId,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        file_type: file.type,
+        uploaded_by: user.id,
+        uploaded_at: new Date().toISOString(),
+      })
+
+    if (dbError) throw dbError
+
+    revalidatePath(`/app/projects/${projectId}`)
+    return { success: true, fileName: file.name, uploadedAt: new Date().toISOString() }
+  } catch (err) {
+    logger.error('uploadProjectAttachment', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to upload file' }
+  }
+}
+
+export async function deleteProjectAttachment(projectId: string, filePath: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { error: storageError } = await supabase.storage
+      .from('project-attachments')
+      .remove([filePath])
+
+    if (storageError) throw storageError
+
+    const { error: dbError } = await supabase
+      .from('project_attachments')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('file_path', filePath)
+
+    if (dbError) throw dbError
+
+    revalidatePath(`/app/projects/${projectId}`)
+    return { success: true }
+  } catch (err) {
+    logger.error('deleteProjectAttachment', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to delete file' }
+  }
+}

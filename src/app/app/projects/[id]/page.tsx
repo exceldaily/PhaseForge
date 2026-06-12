@@ -22,7 +22,7 @@ export default async function ProjectDetailPage({
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
-  const [projectRes, membersRes, activityRes] = await Promise.all([
+  const [projectRes, membersRes, activityRes, attachmentsRes] = await Promise.all([
     supabase.from('projects').select('*, phases(*)').eq('id', id).single(),
     supabase.from('profiles')
       .select('id, full_name, email, avatar_url, role, job_title')
@@ -32,6 +32,10 @@ export default async function ProjectDetailPage({
       .eq('project_id', id)
       .order('created_at', { ascending: false })
       .limit(50),
+    supabase.from('project_attachments')
+      .select('*')
+      .eq('project_id', id)
+      .order('uploaded_at', { ascending: false }),
   ])
 
   if (!projectRes.data) notFound()
@@ -46,6 +50,7 @@ export default async function ProjectDetailPage({
       project={{ ...project, phases }}
       members={(membersRes.data ?? []) as Profile[]}
       activityLogs={activityRes.data ?? []}
+      attachments={attachmentsRes.data ?? []}
       currentUserId={user.id}
       companyId={profile.company_id}
       canEdit={canEdit}
