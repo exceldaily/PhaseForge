@@ -103,10 +103,13 @@ export function ProjectBoardCard({
   const healthMeta = PROJECT_HEALTH_META[state.health]
 
   const detailHref = `/app/projects/${project.id}`
+  const editHref = `${detailHref}/edit`
   const ganttHref = `/app/gantt?project=${project.id}`
   const tasksHref = `${detailHref}?tab=tasks`
   const activityHref = `${detailHref}?tab=activity`
   const filesHref = `${detailHref}?tab=files`
+  const primaryProjectHref = canEdit ? editHref : detailHref
+  const primaryProjectLabel = canEdit ? 'Edit Project' : 'Open Project'
   const showMenuButton = canEdit || Boolean(onDelete)
 
   return (
@@ -288,11 +291,11 @@ export function ProjectBoardCard({
             <GanttChartSquare size={15} /> View Gantt
           </Link>
           <Link
-            href={detailHref}
+            href={primaryProjectHref}
             onClick={(event) => event.stopPropagation()}
             className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
-            Open Project
+            {primaryProjectLabel}
           </Link>
         </div>
 
