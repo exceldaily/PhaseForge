@@ -1,5 +1,5 @@
 'use client'
-import { useDeferredValue, useState } from 'react'
+import { useDeferredValue, useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Plus, Search, LayoutGrid, Kanban, X } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
@@ -31,24 +31,33 @@ interface ProjectsClientProps {
 }
 
 export function ProjectsClient({ projects, companyId, currentUserId, canEdit, members, boards, selectedBoardId, selectedBoardColumns }: ProjectsClientProps) {
-  const [view, setView] = useState<ViewMode>('kanban')
+  const [view, setView] = useState<ViewMode>(() => {
+    if (typeof window === 'undefined') return 'kanban'
+    return (localStorage.getItem('projects_view_mode') as ViewMode) ?? 'kanban'
+  })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
 
-  const memberMap = Object.fromEntries(members.map(m => [m.id, m.full_name]))
+  useEffect(() => {
+    localStorage.setItem('projects_view_mode', view)
+  }, [view])
+
+  const memberMap = useMemo(() => Object.fromEntries(members.map(m => [m.id, m.full_name])), [members])
   const selectedProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) : null
 
-  const filtered = projects.filter(p => {
-    const q = deferredSearch.toLowerCase().trim()
-    const matchesSearch = !q ||
-      p.name.toLowerCase().includes(q) ||
-      (p.customer_name?.toLowerCase().includes(q)) ||
-      (p.job_location?.toLowerCase().includes(q))
-    const matchesStatus = !statusFilter || p.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const filtered = useMemo(() => {
+    return projects.filter(p => {
+      const q = deferredSearch.toLowerCase().trim()
+      const matchesSearch = !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.customer_name?.toLowerCase().includes(q)) ||
+        (p.job_location?.toLowerCase().includes(q))
+      const matchesStatus = !statusFilter || p.status === statusFilter
+      return matchesSearch && matchesStatus
+    })
+  }, [projects, deferredSearch, statusFilter])
 
   return (
     <div className={cn('p-6 space-y-5', view === 'kanban' ? 'max-w-none' : 'max-w-7xl mx-auto')}>

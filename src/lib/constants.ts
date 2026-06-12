@@ -113,6 +113,13 @@ export const PLAN_LIMITS: Record<string, {
 
 export const DEFAULT_PLAN = 'free'
 
+/** Shared color palette for board and kanban columns */
+export const COLUMN_COLORS = [
+  '#f43f5e', '#f97316', '#f59e0b', '#eab308',
+  '#84cc16', '#10b981', '#06b6d4', '#6366f1',
+  '#8b5cf6', '#ec4899', '#64748b', '#0f172a',
+] as const
+
 export const PLAN_LABELS: Record<string, string> = {
   free:       'Free',
   pro:        'Pro',

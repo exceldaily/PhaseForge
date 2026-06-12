@@ -17,8 +17,9 @@ import { useRouter } from 'next/navigation'
 import { addBoardColumn, deleteBoardColumn, moveProjectToColumn, updateBoardColumn } from '../actions'
 import { ProjectBoardCard, type ProjectBoardStageOption } from '@/components/projects/ProjectBoardCard'
 import { getProjectBoardState } from '@/lib/projectBoard'
+import { COLUMN_COLORS } from '@/lib/constants'
 import { Board, BoardColumn, Project } from '@/types/app'
-import { cn } from '@/lib/utils'
+import { cn, validateHexColor } from '@/lib/utils'
 
 interface BoardKanbanProps {
   board: Board
@@ -29,12 +30,6 @@ interface BoardKanbanProps {
   canEdit: boolean
   canAdmin: boolean
 }
-
-const COLUMN_COLORS = [
-  '#f43f5e', '#f97316', '#f59e0b', '#eab308',
-  '#84cc16', '#10b981', '#06b6d4', '#6366f1',
-  '#8b5cf6', '#ec4899', '#64748b', '#0f172a',
-]
 
 export function BoardKanban({ board, columns, projects, memberMap, canEdit, canAdmin }: BoardKanbanProps) {
   const [search, setSearch] = useState('')
@@ -60,7 +55,7 @@ export function BoardKanban({ board, columns, projects, memberMap, canEdit, canA
       <div className="flex flex-shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: board.color }} />
+            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: validateHexColor(board.color) }} />
             <h1 className="truncate text-lg font-bold text-slate-900">{board.name}</h1>
           </div>
           <p className="mt-1 text-sm text-slate-500">

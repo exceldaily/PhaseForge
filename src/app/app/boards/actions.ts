@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkBoardLimit } from '@/lib/planLimits'
 import { BOARD_COLUMN_MIN, BOARD_COLUMN_MAX, DEFAULT_BOARD_COLUMNS } from '@/lib/constants'
+import { validateHexColor } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 
 // Supabase/Postgres errors are plain objects, not Error instances, so a bare
@@ -35,7 +36,7 @@ export async function createBoard(formData: FormData) {
   try {
     const { userId, companyId } = await requireRole(['owner', 'admin', 'manager'])
     const name  = String(formData.get('name') ?? '').trim()
-    const color = String(formData.get('color') ?? '#6366f1')
+    const color = validateHexColor(String(formData.get('color') ?? '#6366f1'))
     const description = String(formData.get('description') ?? '').trim() || null
     const visibleFieldsStr = String(formData.get('visibleFields') ?? '[]')
     const customStagesStr = String(formData.get('customStages') ?? '[]')
@@ -95,9 +96,13 @@ export async function createBoard(formData: FormData) {
 export async function updateBoard(boardId: string, updates: { name?: string; description?: string; color?: string }) {
   try {
     const { supabase } = await requireRole(['owner', 'admin'])
+    const validatedUpdates = {
+      ...updates,
+      ...(updates.color && { color: validateHexColor(updates.color) })
+    }
     const { error } = await supabase
       .from('boards')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({ ...validatedUpdates, updated_at: new Date().toISOString() })
       .eq('id', boardId)
     if (error) throw error
     revalidatePath('/app/boards')
@@ -168,7 +173,7 @@ export async function addBoardColumn(boardId: string, data: { name: string; colo
     const sort_order = (maxRow?.sort_order ?? -1) + 1
     const { data: col, error } = await supabase
       .from('board_columns')
-      .insert({ board_id: boardId, name: data.name.trim(), color: data.color, sort_order })
+      .insert({ board_id: boardId, name: data.name.trim(), color: validateHexColor(data.color), sort_order })
       .select()
       .single()
     if (error) throw error
@@ -184,7 +189,11 @@ export async function addBoardColumn(boardId: string, data: { name: string; colo
 export async function updateBoardColumn(columnId: string, updates: { name?: string; color?: string; is_done?: boolean }) {
   try {
     const { supabase } = await requireRole(['owner', 'admin', 'manager'])
-    const { error } = await supabase.from('board_columns').update(updates).eq('id', columnId)
+    const validatedUpdates = {
+      ...updates,
+      ...(updates.color && { color: validateHexColor(updates.color) })
+    }
+    const { error } = await supabase.from('board_columns').update(validatedUpdates).eq('id', columnId)
     if (error) throw error
     return { success: true }
   } catch (err) {
