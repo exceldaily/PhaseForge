@@ -171,6 +171,18 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* Business inquiries */}
+          <div className="mt-10 flex flex-wrap items-center gap-2 text-sm text-stone-300">
+            <Mail size={16} className="text-amber-300" />
+            <span>Business inquiries:</span>
+            <a
+              href="mailto:customersupport@phase-forge.com"
+              className="font-semibold text-amber-300 transition-colors hover:text-amber-200"
+            >
+              customersupport@phase-forge.com
+            </a>
+          </div>
+
           {/* Scroll Indicator */}
           <div className="mt-12 hidden lg:flex justify-center">
             <div className="animate-bounce text-stone-400">

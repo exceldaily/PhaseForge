@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   BarChart2, Bell, BookOpen, Building2, FolderKanban,
-  GanttChartSquare, Layers, LayoutDashboard, ListChecks, Play, Search,
+  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour'
@@ -334,6 +334,29 @@ export function GuideClient() {
           ))}
         </div>
       )}
+
+      {/* Support */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="rounded-xl bg-indigo-50 p-2.5 text-indigo-600">
+              <LifeBuoy size={20} />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Still need a hand?</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Can&apos;t find your answer here? Our support team is happy to help.
+              </p>
+            </div>
+          </div>
+          <a
+            href="mailto:customersupport@phase-forge.com"
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+          >
+            <Mail size={15} /> customersupport@phase-forge.com
+          </a>
+        </div>
+      </div>
     </div>
   )
 }
