@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Plus, Save, User, Wrench, X } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Plus, Save, User, Wrench, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePhaseConfig } from '@/hooks/usePhaseConfig'
 import { Button } from '@/components/ui/Button'
@@ -28,6 +28,8 @@ interface GanttEditPanelProps {
   onClose: () => void
   onUpdate: (phase: Phase) => void
   canEdit: boolean
+  // When true, render as a full-screen sheet (mobile) instead of a side panel.
+  mobile?: boolean
 }
 
 function normalizeOption(value: string) {
@@ -48,6 +50,7 @@ export function GanttEditPanel({
   onClose,
   onUpdate,
   canEdit,
+  mobile = false,
 }: GanttEditPanelProps) {
   const { trades, addTrade } = usePhaseConfig(companyId)
   const [form, setForm] = useState({
@@ -191,11 +194,23 @@ export function GanttEditPanel({
   }
 
   return (
-    <div className="flex w-80 flex-shrink-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
+    <div className={cn(
+      'flex flex-col overflow-hidden bg-white',
+      mobile ? 'h-full w-full' : 'w-80 flex-shrink-0 border-l border-slate-200'
+    )}>
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: form.color }} />
-          <span className="max-w-[160px] truncate text-sm font-semibold text-slate-900">{form.name}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          {mobile && (
+            <button
+              onClick={onClose}
+              className="-ml-1 rounded-lg p-1.5 text-slate-500 active:bg-slate-100"
+              aria-label="Back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: form.color }} />
+          <span className={cn('truncate text-sm font-semibold text-slate-900', mobile ? 'max-w-[200px]' : 'max-w-[160px]')}>{form.name}</span>
         </div>
         <button
           onClick={onClose}

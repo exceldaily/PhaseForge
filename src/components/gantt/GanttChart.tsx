@@ -22,6 +22,7 @@ import { getClippedBarPosition } from '@/lib/gantt'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { GanttEditPanel } from './GanttEditPanel'
 import { GanttMobileList } from './GanttMobileList'
+import { GanttMobileTimeline } from './GanttMobileTimeline'
 import { GanttSidebar } from './GanttSidebar'
 import { GanttToolbar } from './GanttToolbar'
 
@@ -53,6 +54,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     colorMode,
   } = useGanttStore()
   const [projects, setProjects] = useState(initialProjects)
+  const [mobileView, setMobileView] = useState<'timeline' | 'list'>('timeline')
 
   // Server refetches (board filter change, router.refresh) hand down a new
   // project list — adopt it, otherwise the chart keeps showing the first load.
@@ -401,20 +403,58 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     return (
       <div className="flex h-full flex-col">
         <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-3">
-          <h1 className="text-lg font-bold text-slate-900">Gantt Chart</h1>
-          <p className="text-xs text-slate-400 mt-0.5">{projects.length} project{projects.length !== 1 ? 's' : ''} · Tap a phase to view details</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-slate-900">Gantt</h1>
+              <p className="mt-0.5 truncate text-xs text-slate-400">
+                {projects.length} project{projects.length !== 1 ? 's' : ''} · tap a bar for details
+              </p>
+            </div>
+            {/* Timeline ⇄ List toggle */}
+            <div className="flex flex-shrink-0 items-center rounded-lg bg-slate-100 p-0.5">
+              <button
+                onClick={() => setMobileView('timeline')}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                  mobileView === 'timeline' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                )}
+              >
+                Timeline
+              </button>
+              <button
+                onClick={() => setMobileView('list')}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+                  mobileView === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                )}
+              >
+                List
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-            <GanttMobileList
+
+        <div className="flex-1 overflow-hidden">
+          {mobileView === 'timeline' ? (
+            <GanttMobileTimeline
               projects={projects}
               selectedPhaseId={selectedPhaseId}
-              onSelectPhase={(phase) => {
-                setSelectedPhase(selectedPhaseId === phase.id ? null : phase.id)
-              }}
+              onSelectPhase={(phase) => setSelectedPhase(phase.id)}
             />
-          </div>
-          {selectedPhase && selectedProject && (
+          ) : (
+            <div className="h-full overflow-y-auto">
+              <GanttMobileList
+                projects={projects}
+                selectedPhaseId={selectedPhaseId}
+                onSelectPhase={(phase) => setSelectedPhase(phase.id)}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Full-screen detail sheet on mobile */}
+        {selectedPhase && selectedProject && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white">
             <GanttEditPanel
               key={selectedPhase.id}
               phase={selectedPhase}
@@ -425,9 +465,10 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
               onClose={() => setSelectedPhase(null)}
               onUpdate={handlePhaseUpdate}
               canEdit={canEdit}
+              mobile
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     )
   }
