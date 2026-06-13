@@ -301,7 +301,7 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
             const cols = board.board_columns.sort((a, b) => a.sort_order - b.sort_order)
 
             return (
-              <Link key={board.id} href={`/app/boards/${board.id}`}
+              <Link key={board.id} href={`/app/projects?board=${board.id}`}
                 className="group flex flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden hover:border-indigo-300 hover:shadow-md transition-all">
                 {/* Color bar */}
                 <div className="h-1.5 w-full" style={{ backgroundColor: board.color }} />
