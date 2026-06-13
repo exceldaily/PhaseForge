@@ -5,11 +5,16 @@ import Link from 'next/link'
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  closestCorners,
   type DragEndEvent,
   type DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
+  useSensor,
+  useSensors,
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Plus, Search, Settings, Settings2, Trash2, X } from 'lucide-react'
@@ -135,6 +140,11 @@ export function BoardColumnsKanban({
   const [deletedProjectIds, setDeletedProjectIds] = useState<string[]>([])
   const [columnOverrides, setColumnOverrides] = useState<Record<string, Partial<BoardColumn>>>({})
   const [activeId, setActiveId] = useState<string | null>(null)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(KeyboardSensor)
+  )
   const [showColSettings, setShowColSettings] = useState(false)
   const [columnError, setColumnError] = useState('')
   const [savingColumnIds, setSavingColumnIds] = useState<string[]>([])
@@ -438,7 +448,7 @@ export function BoardColumnsKanban({
         </div>
       )}
 
-      <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <StickyHScroll className="pb-2" style={{ minHeight: 'calc(100vh - 280px)' }}>
           {orderedColumns.map((column) => {
             const columnProjects = localProjects.filter((project) =>

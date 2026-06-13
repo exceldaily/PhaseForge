@@ -198,7 +198,7 @@ export function ProjectBoardCard({
                 {...dragHandle.attributes}
                 {...dragHandle.listeners}
                 onClick={(event) => event.stopPropagation()}
-                className="cursor-grab rounded-xl p-2 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing"
+                className="touch-none cursor-grab rounded-xl p-2 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing"
                 aria-label={`Drag ${project.name}`}
               >
                 <GripVertical size={16} />

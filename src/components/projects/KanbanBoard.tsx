@@ -2,13 +2,18 @@
 
 import { useMemo, useState } from 'react'
 import {
-  closestCenter,
+  closestCorners,
   DndContext,
   DragOverlay,
   type DragEndEvent,
   type DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
+  useSensor,
+  useSensors,
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Settings2 } from 'lucide-react'
@@ -128,6 +133,15 @@ export function KanbanBoard({
   const [projectOverrides, setProjectOverrides] = useState<Record<string, Partial<Project>>>({})
   const [deletedProjectIds, setDeletedProjectIds] = useState<string[]>([])
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
+
+  // Mouse needs a small movement before a drag starts (so clicks/menus still
+  // work); touch uses a short press-and-hold so dragging is distinct from
+  // scrolling the board on a phone.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(KeyboardSensor)
+  )
 
   const visibleProjects = useMemo(() => {
     return projects
@@ -293,7 +307,7 @@ export function KanbanBoard({
         </div>
       )}
 
-      <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <StickyHScroll className="pb-2" style={{ minHeight: 'calc(100vh - 280px)' }}>
           {columns.map((column) => {
             const columnProjects = filteredProjects.filter((project) => project.status === column.status)
