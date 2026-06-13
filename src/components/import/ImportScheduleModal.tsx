@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Upload, FileText, Check, AlertTriangle, Loader2, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -15,6 +15,15 @@ interface ImportScheduleModalProps {
   onClose: () => void
   companyId: string
   currentUserId: string
+  // Board the user is currently viewing/filtering on the Projects page, if any.
+  // Imported projects default to this board so they land where the user expects.
+  selectedBoardId?: string | null
+}
+
+interface ImportBoardOption {
+  id: string
+  name: string
+  is_default: boolean
 }
 
 type Step = 'upload' | 'confirm' | 'importing' | 'done'
@@ -38,7 +47,7 @@ const STATUS_COLUMN_NAMES: Record<string, string> = {
   cancelled: 'Closed',
 }
 
-export function ImportScheduleModal({ open, onClose, companyId, currentUserId }: ImportScheduleModalProps) {
+export function ImportScheduleModal({ open, onClose, companyId, currentUserId, selectedBoardId }: ImportScheduleModalProps) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>('upload')
@@ -50,6 +59,29 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [importError, setImportError] = useState('')
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 })
+  const [boards, setBoards] = useState<ImportBoardOption[]>([])
+  const [targetBoardId, setTargetBoardId] = useState('')
+
+  // Load the company's boards when the modal opens, and default the destination
+  // to the board the user is currently on (else the default board).
+  useEffect(() => {
+    if (!open) return
+    const supabase = createClient()
+    supabase
+      .from('boards')
+      .select('id, name, is_default')
+      .eq('company_id', companyId)
+      .order('sort_order', { ascending: true })
+      .then(({ data }) => {
+        const list = (data ?? []) as ImportBoardOption[]
+        setBoards(list)
+        const preselect =
+          selectedBoardId && list.some(b => b.id === selectedBoardId)
+            ? selectedBoardId
+            : list.find(b => b.is_default)?.id ?? list[0]?.id ?? ''
+        setTargetBoardId(preselect)
+      })
+  }, [open, companyId, selectedBoardId])
 
   const reset = () => {
     setStep('upload')
@@ -163,16 +195,16 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
     const supabase = createClient()
     let lastProjectId = ''
 
-    // Imported projects land on the company's default board so they show up
-    // on board views instead of floating unassigned.
-    const { data: defaultBoard } = await supabase
+    // Imported projects land on the chosen destination board (defaults to the
+    // board the user is viewing, else the company default) so they show up
+    // where the user expects instead of floating unassigned.
+    const { data: targetBoard } = await supabase
       .from('boards')
       .select('id, board_columns(id, name, sort_order)')
       .eq('company_id', companyId)
-      .eq('is_default', true)
-      .limit(1)
+      .eq('id', targetBoardId)
       .maybeSingle()
-    const boardColumns = (defaultBoard?.board_columns ?? [])
+    const boardColumns = (targetBoard?.board_columns ?? [])
       .slice()
       .sort((a, b) => a.sort_order - b.sort_order)
     const columnIdForStatus = (status: string) => {
@@ -182,8 +214,8 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
 
     for (const proj of acceptedProjects) {
       const status = proj.status || 'mobilization'
-      const boardFields = defaultBoard
-        ? { board_id: defaultBoard.id, board_column_id: columnIdForStatus(status) }
+      const boardFields = targetBoard
+        ? { board_id: targetBoard.id, board_column_id: columnIdForStatus(status) }
         : {}
 
       let { data: newProject, error: projErr } = await supabase.from('projects').insert({
@@ -320,6 +352,27 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId }:
             <span className="text-indigo-500">·</span>
             <span className="text-indigo-600">{acceptedProjects.reduce((sum, p) => sum + p.phases.length, 0)} total phases</span>
           </div>
+
+          {/* Destination board */}
+          {boards.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-2.5 border border-slate-200 rounded-xl">
+              <label htmlFor="import-board" className="text-sm font-medium text-slate-600 flex-shrink-0">
+                Import into board:
+              </label>
+              <select
+                id="import-board"
+                value={targetBoardId}
+                onChange={e => setTargetBoardId(e.target.value)}
+                className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {boards.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}{b.is_default ? ' (default)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Project list */}
           <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">

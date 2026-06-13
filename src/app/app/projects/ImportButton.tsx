@@ -7,9 +7,10 @@ import { ImportScheduleModal } from '@/components/import/ImportScheduleModal'
 interface ImportButtonProps {
   companyId: string
   currentUserId: string
+  selectedBoardId?: string | null
 }
 
-export function ImportButton({ companyId, currentUserId }: ImportButtonProps) {
+export function ImportButton({ companyId, currentUserId, selectedBoardId }: ImportButtonProps) {
   const [open, setOpen] = useState(false)
   return (
     <>
@@ -21,6 +22,7 @@ export function ImportButton({ companyId, currentUserId }: ImportButtonProps) {
         onClose={() => setOpen(false)}
         companyId={companyId}
         currentUserId={currentUserId}
+        selectedBoardId={selectedBoardId}
       />
     </>
   )

@@ -68,7 +68,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
           <p className="text-slate-500 mt-0.5 text-sm">{filtered.length} of {projects.length} project{projects.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <ImportButton companyId={companyId} currentUserId={currentUserId} />
+          <ImportButton companyId={companyId} currentUserId={currentUserId} selectedBoardId={selectedBoardId} />
           <Link href="/app/projects/new">
             <Button><Plus size={16} /> New Project</Button>
           </Link>

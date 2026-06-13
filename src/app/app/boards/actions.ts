@@ -127,16 +127,38 @@ export async function createBoard(formData: FormData) {
 
 export async function updateBoard(boardId: string, updates: { name?: string; description?: string; color?: string; is_private?: boolean }) {
   try {
-    const { supabase } = await requireRole(['owner', 'admin'])
-    const validatedUpdates = {
+    // Managers can edit a board's basic details (they can already create boards
+    // and manage columns); privacy stays an owner/admin-only access control.
+    const { supabase, companyId, role } = await requireRole(['owner', 'admin', 'manager'])
+
+    const validatedUpdates: { name?: string; description?: string; color?: string; is_private?: boolean } = {
       ...updates,
-      ...(updates.color && { color: validateHexColor(updates.color) })
+      ...(updates.color && { color: validateHexColor(updates.color) }),
     }
-    const { error } = await supabase
+    if (role === 'manager') delete validatedUpdates.is_private
+
+    if (Object.keys(validatedUpdates).length === 0) return { success: true }
+
+    // Confirm the caller can actually see this board (RLS) before editing it,
+    // so a manager can't touch a private board hidden from them by id-guessing.
+    const { data: visible } = await supabase
+      .from('boards')
+      .select('id')
+      .eq('id', boardId)
+      .eq('company_id', companyId)
+      .maybeSingle()
+    if (!visible) throw new Error('Board not found')
+
+    // boards_update RLS is owner/admin-only; the action has already authorized
+    // the caller, so perform the write with the admin client (scoped to company).
+    const admin = createAdminClient()
+    const { error } = await admin
       .from('boards')
       .update({ ...validatedUpdates, updated_at: new Date().toISOString() })
       .eq('id', boardId)
+      .eq('company_id', companyId)
     if (error) throw error
+
     revalidatePath('/app/boards')
     revalidatePath(`/app/boards/${boardId}`)
     return { success: true }

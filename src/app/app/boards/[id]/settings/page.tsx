@@ -12,7 +12,9 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
-  if (!['owner', 'admin'].includes(profile.role)) redirect(`/app/boards/${id}`)
+  // Managers can edit board details & columns; viewers/members can't.
+  if (!['owner', 'admin', 'manager'].includes(profile.role)) redirect(`/app/boards/${id}`)
+  const canAdmin = ['owner', 'admin'].includes(profile.role)
 
   const [boardRes, teamsRes, boardTeamsRes] = await Promise.all([
     supabase.from('boards').select('*, board_columns(*)').eq('id', id).eq('company_id', profile.company_id).single(),
@@ -32,6 +34,7 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
       columns={columns}
       teams={teamsRes.data ?? []}
       assignedTeamIds={[...assignedTeamIds]}
+      canAdmin={canAdmin}
     />
   )
 }

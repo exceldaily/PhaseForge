@@ -19,6 +19,7 @@ interface BoardSettingsClientProps {
   columns: BoardColumn[]
   teams: Team[]
   assignedTeamIds: string[]
+  canAdmin: boolean
 }
 
 const COLORS = [
@@ -26,7 +27,7 @@ const COLORS = [
   '#f59e0b','#f43f5e','#3b82f6','#ec4899','#14b8a6',
 ]
 
-export function BoardSettingsClient({ board, columns: initialColumns, teams, assignedTeamIds: initialAssigned }: BoardSettingsClientProps) {
+export function BoardSettingsClient({ board, columns: initialColumns, teams, assignedTeamIds: initialAssigned, canAdmin }: BoardSettingsClientProps) {
   const router = useRouter()
   const [columns, setColumns] = useState(initialColumns)
   const [assignedTeamIds, setAssignedTeamIds] = useState(new Set(initialAssigned))
@@ -252,11 +253,13 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
                     className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
-                  <button onClick={() => handleDeleteColumn(col)}
-                    disabled={columns.length <= BOARD_COLUMN_MIN}
-                    className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 disabled:cursor-not-allowed">
-                    <Trash2 size={14} />
-                  </button>
+                  {canAdmin && (
+                    <button onClick={() => handleDeleteColumn(col)}
+                      disabled={columns.length <= BOARD_COLUMN_MIN}
+                      className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30 disabled:cursor-not-allowed">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -287,7 +290,8 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
         )}
       </section>
 
-      {/* Visibility & privacy */}
+      {/* Visibility & privacy — owners/admins control access */}
+      {canAdmin && (
       <section className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Visibility &amp; Privacy</h2>
@@ -344,9 +348,10 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
           </div>
         )}
       </section>
+      )}
 
       {/* Danger zone */}
-      {!board.is_default && (
+      {canAdmin && !board.is_default && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-6 space-y-3">
           <h2 className="text-sm font-semibold text-rose-800">Danger Zone</h2>
           <p className="text-xs text-rose-600">
