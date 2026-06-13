@@ -95,7 +95,7 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Edit in place', text: 'Click a phase to open the edit panel: rename, re-date, change status and percent complete, assign a person or trade, toggle milestone/critical path, recolor, add notes, and comment — without leaving the timeline.' },
       { heading: 'Color modes & printing', text: 'Color bars by phase color (standard), by status (spot blockers instantly), or none (clean grayscale). The Print menu outputs chart or list style, for the current view or all projects.' },
       { heading: 'Board filter', text: 'The Board dropdown above the chart narrows the timeline to one board\'s projects.' },
-      { heading: 'On mobile', text: 'On a phone the Gantt opens as a touch-friendly timeline: a frozen phase-name column with scrollable bars — swipe to pan. Zoom Day → Quarter, step the window with the ‹ › arrows, jump to Today, set an exact From/To range with the calendar button, or Fit to frame the whole schedule. Toggle to List for a compact rundown, and tap any bar to open a full-screen detail sheet.' },
+      { heading: 'On mobile', text: 'On a phone the Gantt opens as a touch-friendly timeline: a frozen phase-name column with scrollable bars — swipe to pan. Zoom Day → Quarter, step the window with the ‹ › arrows, jump to Today, set an exact From/To range with the calendar button, Collapse/Expand all projects, or Fit to frame the whole schedule. Toggle to List for a compact rundown, and tap any bar to open a full-screen detail sheet.' },
     ],
   },
   {

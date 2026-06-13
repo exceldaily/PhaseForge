@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* The app is light-only. Make `dark:` utilities opt-in via a `.dark` class
+   (which is never applied) instead of the system `prefers-color-scheme`, so a
+   phone/OS in dark mode doesn't turn shell backgrounds black behind the
+   light-styled content. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 * {
   box-sizing: border-box;
 }

@@ -22,6 +22,7 @@ interface GanttState {
   setSelectedPhase: (id: string | null) => void
   setSelectedProject: (id: string | null) => void
   toggleProjectCollapse: (projectId: string) => void
+  setCollapsedProjects: (ids: Set<string>) => void
   scrollToToday: () => void
   shiftView: (direction: 'backward' | 'forward') => void
   setViewRange: (start: Date, end: Date) => void
@@ -64,6 +65,8 @@ export const useGanttStore = create<GanttState>((set, get) => ({
     else collapsed.add(projectId)
     set({ collapsedProjects: collapsed })
   },
+
+  setCollapsedProjects: (ids) => set({ collapsedProjects: ids }),
 
   scrollToToday: () => {
     const { zoom } = get()

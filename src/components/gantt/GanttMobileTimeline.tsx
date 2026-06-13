@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, Maximize2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, ChevronsDownUp, ChevronsUpDown, Maximize2 } from 'lucide-react'
 import { PHASE_STATUS_COLORS } from '@/lib/constants'
 import { differenceInDays, format, formatDate, getTimelineHeaders, parseISO } from '@/lib/dates'
 import { getClippedBarPosition } from '@/lib/gantt'
@@ -38,11 +38,16 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
     colorMode,
     collapsedProjects,
     toggleProjectCollapse,
+    setCollapsedProjects,
     fitViewToRange,
     scrollToToday,
     shiftView,
     setViewRange,
   } = useGanttStore()
+
+  const allCollapsed = projects.length > 0 && projects.every((p) => collapsedProjects.has(p.id))
+  const toggleAll = () =>
+    setCollapsedProjects(allCollapsed ? new Set() : new Set(projects.map((p) => p.id)))
 
   const [showRange, setShowRange] = useState(false)
   const [fromDate, setFromDate] = useState('')
@@ -124,6 +129,13 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
           </button>
           <button onClick={() => shiftView('forward')} className="rounded-lg border border-slate-200 p-2 text-slate-600 active:bg-slate-50" aria-label="Later">
             <ChevronRight size={15} />
+          </button>
+          <button
+            onClick={toggleAll}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-600 active:bg-slate-50"
+          >
+            {allCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+            {allCollapsed ? 'Expand' : 'Collapse'}
           </button>
           <div className="flex-1" />
           <button
