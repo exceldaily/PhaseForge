@@ -40,6 +40,10 @@ export async function createBoard(formData: FormData) {
     const description = String(formData.get('description') ?? '').trim() || null
     const visibleFieldsStr = String(formData.get('visibleFields') ?? '[]')
     const customStagesStr = String(formData.get('customStages') ?? '[]')
+    // Visibility: 'everyone' (company-wide), 'teams' (linked teams only),
+    // or 'private' (just the creator + owners/admins).
+    const visibility = String(formData.get('visibility') ?? 'everyone')
+    const teamIdsStr = String(formData.get('teamIds') ?? '[]')
 
     if (!name) throw new Error('Board name is required')
 
@@ -57,6 +61,16 @@ export async function createBoard(formData: FormData) {
       customStages = ['queue', 'mobilization', 'construction_initiated', 'pct_30', 'pct_60', 'pct_90', 'final_punchlist', 'closeout', 'closed']
     }
 
+    let requestedTeamIds: string[] = []
+    try {
+      const parsed = JSON.parse(teamIdsStr)
+      if (Array.isArray(parsed)) requestedTeamIds = parsed.filter((id): id is string => typeof id === 'string')
+    } catch {
+      requestedTeamIds = []
+    }
+
+    const isPrivate = visibility === 'private'
+
     const admin = createAdminClient()
 
     const { data: board, error: boardError } = await admin
@@ -67,6 +81,7 @@ export async function createBoard(formData: FormData) {
         description,
         color,
         created_by: userId,
+        is_private: isPrivate,
         visible_fields: visibleFields,
         custom_stages: customStages,
       })
@@ -85,6 +100,23 @@ export async function createBoard(formData: FormData) {
     const { error: colError } = await admin.from('board_columns').insert(cols)
     if (colError) throw colError
 
+    // "Specific teams" visibility: link the chosen teams. Restrict to teams in
+    // the creator's own company so a forged id can't link a foreign team.
+    if (visibility === 'teams' && requestedTeamIds.length > 0) {
+      const { data: companyTeams } = await admin
+        .from('teams')
+        .select('id')
+        .eq('company_id', companyId)
+        .in('id', requestedTeamIds)
+      const validTeamIds = (companyTeams ?? []).map((t) => t.id)
+      if (validTeamIds.length > 0) {
+        const { error: teamError } = await admin
+          .from('board_teams')
+          .insert(validTeamIds.map((team_id) => ({ board_id: board.id, team_id })))
+        if (teamError) throw teamError
+      }
+    }
+
     revalidatePath('/app/boards')
     return { success: true, boardId: board.id }
   } catch (err) {
@@ -93,7 +125,7 @@ export async function createBoard(formData: FormData) {
   }
 }
 
-export async function updateBoard(boardId: string, updates: { name?: string; description?: string; color?: string }) {
+export async function updateBoard(boardId: string, updates: { name?: string; description?: string; color?: string; is_private?: boolean }) {
   try {
     const { supabase } = await requireRole(['owner', 'admin'])
     const validatedUpdates = {

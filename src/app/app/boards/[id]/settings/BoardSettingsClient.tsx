@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Trash2, GripVertical, Check, X, Save } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, GripVertical, Check, X, Save, Lock, Globe } from 'lucide-react'
 import {
   addBoardColumn, updateBoardColumn, deleteBoardColumn,
   reorderBoardColumns, updateBoard, deleteBoard, addBoardTeam, removeBoardTeam,
@@ -30,6 +30,7 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
   const router = useRouter()
   const [columns, setColumns] = useState(initialColumns)
   const [assignedTeamIds, setAssignedTeamIds] = useState(new Set(initialAssigned))
+  const [isPrivate, setIsPrivate] = useState(board.is_private)
   const [boardName, setBoardName] = useState(board.name)
   const [boardColor, setBoardColor] = useState(board.color)
   const [boardDesc, setBoardDesc] = useState(board.description ?? '')
@@ -107,6 +108,19 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
     setDragOver(null); setDraggingId(null)
     await reorderBoardColumns(board.id, next.map(c => c.id))
     flash('Columns reordered')
+  }
+
+  // ── Privacy toggle ────────────────────────────────────────────────────────
+  const togglePrivate = async () => {
+    const next = !isPrivate
+    setIsPrivate(next)
+    const result = await updateBoard(board.id, { is_private: next })
+    if (!result.success) {
+      setIsPrivate(!next) // revert on failure
+      setError(result.error ?? 'Failed')
+      return
+    }
+    flash(next ? 'Board is now private' : 'Board privacy turned off')
   }
 
   // ── Team toggle ───────────────────────────────────────────────────────────
@@ -273,16 +287,41 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
         )}
       </section>
 
-      {/* Team visibility */}
+      {/* Visibility & privacy */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">Team Visibility</h2>
+          <h2 className="text-sm font-semibold text-slate-900">Visibility &amp; Privacy</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            {assignedTeamIds.size === 0
-              ? 'No teams assigned — this board is visible to all organization members.'
-              : `Visible only to members of ${assignedTeamIds.size} team${assignedTeamIds.size !== 1 ? 's' : ''}. Owners and Admins always see all boards.`}
+            {isPrivate
+              ? 'Private — only the board creator and owners/admins can see this board.'
+              : assignedTeamIds.size === 0
+                ? 'No teams assigned — this board is visible to all organization members.'
+                : `Visible only to members of ${assignedTeamIds.size} team${assignedTeamIds.size !== 1 ? 's' : ''}. Owners and Admins always see all boards.`}
           </p>
         </div>
+
+        {/* Private toggle */}
+        <button
+          type="button"
+          onClick={togglePrivate}
+          className={cn(
+            'flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-all',
+            isPrivate ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+          )}
+        >
+          <span className="flex items-center gap-2 text-sm font-medium text-slate-800">
+            {isPrivate ? <Lock size={15} className="text-indigo-600" /> : <Globe size={15} className="text-slate-400" />}
+            {isPrivate ? 'Private board' : 'Make this board private'}
+          </span>
+          <span className={cn('relative h-5 w-9 flex-shrink-0 rounded-full transition-colors', isPrivate ? 'bg-indigo-600' : 'bg-slate-300')}>
+            <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all', isPrivate ? 'left-4' : 'left-0.5')} />
+          </span>
+        </button>
+
+        <p className="text-[11px] text-slate-400">
+          Linking teams below grants those members access too — useful when a board should be private from the wider company but shared with a specific team.
+        </p>
+
         {teams.length === 0 ? (
           <p className="text-sm text-slate-400">No teams yet. <Link href="/app/teams" className="text-indigo-600 hover:underline">Create a team →</Link></p>
         ) : (

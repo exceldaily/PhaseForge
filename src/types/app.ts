@@ -8,6 +8,7 @@ export interface Board {
   color: string
   sort_order: number
   is_default: boolean
+  is_private: boolean
   created_by: string | null
   created_at: string
   updated_at: string

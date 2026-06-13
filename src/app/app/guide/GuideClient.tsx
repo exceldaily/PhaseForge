@@ -32,7 +32,7 @@ const SECTIONS: GuideSection[] = [
     title: 'Getting Started',
     summary: 'The 5-minute path from empty workspace to a working schedule.',
     items: [
-      { heading: '1. Check your board', text: 'Your company starts with a default board. Boards hold projects — open Boards in the sidebar to see yours. Create more boards to separate divisions, clients, or types of work.' },
+      { heading: '1. Check your board', text: 'Your company starts with a default board. Boards hold projects — open Boards in the sidebar to see yours. Create more boards to separate divisions, clients, or types of work, and choose who sees each one: everyone, specific teams, or just you.' },
       { heading: '2. Add projects', text: 'Use + New Project for one at a time, or Import Schedule on the Projects page to bring in a whole Excel workbook — each tab becomes a project with its phases, and everything lands on your default board.' },
       { heading: '3. Invite your team', text: 'Settings → Members → Invite. Teammates get an email link, set a password, and land in your workspace with the role you chose.' },
       { heading: '4. Work the schedule', text: 'Track day-to-day progress on the Dashboard, adjust dates on the Gantt, and move projects through board columns as jobs progress.' },
@@ -51,7 +51,7 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Board settings', text: 'Admins can edit the board\'s name, description, and color, manage columns, link teams, or delete the board (the default board can\'t be deleted; a deleted board\'s projects become unassigned, not deleted).' },
       { heading: 'Field customization', text: 'Boards control which fields appear on project forms. Pick a preset (Construction, Software, General) or choose fields manually — unused fields disappear from New Project forms for that board.' },
       { heading: 'Custom stages', text: 'Boards can define their own project stages, replacing the default construction stages on project forms.' },
-      { heading: 'Team visibility & privacy', text: 'By default a board is visible to all members. Link it to specific teams and only those team members (plus owners/admins) can see the board — and its projects disappear from every page, filter, and report for everyone else.' },
+      { heading: 'Visibility & privacy', text: 'When you create a board you choose who can see it: Everyone (all members), Specific teams (only the teams you pick), or Just me (private to you, plus owners/admins who always see everything). You can change this anytime under Board settings → Visibility & Privacy — toggle the board private, or link teams. A restricted board and its projects disappear from every page, filter, and report for everyone who lacks access.' },
     ],
   },
   {

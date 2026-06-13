@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Plus, Settings, Layers, Lock, ChevronRight } from 'lucide-react'
+import { Plus, Settings, Layers, Lock, ChevronRight, Globe, Users, Check } from 'lucide-react'
 import { createBoard } from './actions'
 import { BoardFieldCustomizer } from '@/components/boards/BoardFieldCustomizer'
 import { Board, BoardColumn } from '@/types/app'
@@ -46,6 +46,30 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
   const [customizingFields, setCustomizingFields] = useState(false)
   const [visibleFields, setVisibleFields] = useState<string[]>([])
   const [customStages, setCustomStages] = useState<string[]>([])
+  type Visibility = 'everyone' | 'teams' | 'private'
+  const [visibility, setVisibility] = useState<Visibility>('everyone')
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set())
+
+  const toggleTeamSelection = (teamId: string) => {
+    setSelectedTeamIds(prev => {
+      const next = new Set(prev)
+      if (next.has(teamId)) next.delete(teamId)
+      else next.add(teamId)
+      return next
+    })
+  }
+
+  const resetCreateForm = () => {
+    setCreating(false)
+    setNewName('')
+    setNewDesc('')
+    setNewColor(BOARD_COLORS[0])
+    setVisibleFields([])
+    setCustomStages([])
+    setVisibility('everyone')
+    setSelectedTeamIds(new Set())
+    setError('')
+  }
 
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const atLimit = !usage.boards.unlimited && usage.boards.current >= usage.boards.limit
@@ -58,6 +82,11 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
 
   const handleCreate = async () => {
     if (!newName.trim()) return
+    // "Specific teams" requires at least one team chosen.
+    if (visibility === 'teams' && selectedTeamIds.size === 0) {
+      setError('Pick at least one team, or choose a different visibility.')
+      return
+    }
     setSaving(true)
     setError('')
     const fd = new FormData()
@@ -66,13 +95,12 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
     fd.set('description', newDesc.trim())
     fd.set('visibleFields', JSON.stringify(visibleFields))
     fd.set('customStages', JSON.stringify(customStages))
+    fd.set('visibility', visibility)
+    fd.set('teamIds', JSON.stringify(visibility === 'teams' ? [...selectedTeamIds] : []))
     const result = await createBoard(fd)
     setSaving(false)
     if (!result.success) { setError(result.error ?? 'Failed'); return }
-    setCreating(false)
-    setNewName(''); setNewDesc(''); setNewColor(BOARD_COLORS[0])
-    setVisibleFields([])
-    setCustomStages([])
+    resetCreateForm()
     window.location.href = `/app/boards/${result.boardId}`
   }
 
@@ -161,6 +189,69 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
                   style={{ backgroundColor: c }} />
               ))}
             </div>
+
+            {/* Visibility */}
+            <div className="space-y-2">
+              <span className="block text-xs font-medium text-slate-500">Who can see this board?</span>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {([
+                  { value: 'everyone', icon: Globe, title: 'Everyone', hint: 'All members of your organization' },
+                  { value: 'teams', icon: Users, title: 'Specific teams', hint: 'Only members of the teams you pick' },
+                  { value: 'private', icon: Lock, title: 'Just me', hint: 'Only you (and owners/admins)' },
+                ] as const).map(opt => {
+                  const Icon = opt.icon
+                  const active = visibility === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setVisibility(opt.value)}
+                      className={cn(
+                        'flex flex-col gap-1 rounded-xl border bg-white p-3 text-left transition-all',
+                        active ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-slate-300'
+                      )}
+                    >
+                      <span className={cn('flex items-center gap-1.5 text-sm font-semibold', active ? 'text-indigo-700' : 'text-slate-700')}>
+                        <Icon size={14} /> {opt.title}
+                      </span>
+                      <span className="text-[11px] leading-snug text-slate-400">{opt.hint}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Team picker — only when "Specific teams" is chosen */}
+              {visibility === 'teams' && (
+                teams.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    No teams yet. <Link href="/app/teams" className="text-indigo-600 hover:underline">Create a team →</Link>
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {teams.map(team => {
+                      const isIn = selectedTeamIds.has(team.id)
+                      return (
+                        <button
+                          key={team.id}
+                          type="button"
+                          onClick={() => toggleTeamSelection(team.id)}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
+                            isIn ? 'border-transparent text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          )}
+                          style={isIn ? { backgroundColor: team.color } : {}}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: isIn ? 'rgba(255,255,255,0.7)' : team.color }} />
+                          {team.name}
+                          {isIn && <Check size={12} />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              )}
+            </div>
+
             {error && <p className="text-sm text-rose-600">{error}</p>}
           </div>
 
@@ -177,13 +268,7 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
               {saving ? 'Creating…' : 'Create Board'}
             </button>
             <button
-              onClick={() => {
-                setCreating(false)
-                setNewName('')
-                setError('')
-                setVisibleFields([])
-                setCustomStages([])
-              }}
+              onClick={resetCreateForm}
               className="rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
             >
               Cancel
@@ -265,8 +350,12 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
                     <span><strong className="text-slate-900">{cols.length}</strong> columns</span>
                   </div>
 
-                  {/* Teams */}
-                  {boardTeams.length > 0 && (
+                  {/* Visibility */}
+                  {board.is_private ? (
+                    <p className="mt-3 flex items-center gap-1 text-[10px] font-medium text-slate-500">
+                      <Lock size={10} /> Private — only you
+                    </p>
+                  ) : boardTeams.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {boardTeams.map(t => (
                         <span key={t.id}
@@ -276,8 +365,7 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
                         </span>
                       ))}
                     </div>
-                  )}
-                  {boardTeams.length === 0 && (
+                  ) : (
                     <p className="mt-3 text-[10px] text-slate-400">Visible to all members</p>
                   )}
                 </div>
