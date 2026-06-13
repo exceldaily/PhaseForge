@@ -15,6 +15,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Plus, Search, Settings, Settings2, Trash2, X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { addBoardColumn, deleteBoardColumn, moveProjectToColumn, updateBoardColumn } from '../actions'
+import { createClient } from '@/lib/supabase/client'
 import { ProjectBoardCard, type ProjectBoardStageOption } from '@/components/projects/ProjectBoardCard'
 import { StickyHScroll } from '@/components/ui/StickyHScroll'
 import { getProjectBoardState } from '@/lib/projectBoard'
@@ -131,6 +132,7 @@ export function BoardColumnsKanban({
 }) {
   const router = useRouter()
   const [projectColumnOverrides, setProjectColumnOverrides] = useState<Record<string, string | null>>({})
+  const [deletedProjectIds, setDeletedProjectIds] = useState<string[]>([])
   const [columnOverrides, setColumnOverrides] = useState<Record<string, Partial<BoardColumn>>>({})
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showColSettings, setShowColSettings] = useState(false)
@@ -143,11 +145,13 @@ export function BoardColumnsKanban({
 
   const localProjects = useMemo(
     () =>
-      projects.map((project) => ({
-        ...project,
-        board_column_id: projectColumnOverrides[project.id] ?? project.board_column_id ?? null,
-      })),
-    [projectColumnOverrides, projects]
+      projects
+        .filter((project) => !deletedProjectIds.includes(project.id))
+        .map((project) => ({
+          ...project,
+          board_column_id: projectColumnOverrides[project.id] ?? project.board_column_id ?? null,
+        })),
+    [projectColumnOverrides, projects, deletedProjectIds]
   )
 
   const orderedColumns = useMemo(
@@ -222,6 +226,19 @@ export function BoardColumnsKanban({
       })
       alert('Failed to move project. Please try again.')
     }
+  }
+
+  const handleDeleteProject = async (projectId: string) => {
+    const supabase = createClient()
+    // Remove phases first so none are orphaned if the FK doesn't cascade.
+    await supabase.from('phases').delete().eq('project_id', projectId)
+    const { error } = await supabase.from('projects').delete().eq('id', projectId)
+    if (error) {
+      alert('Failed to delete project. Please try again.')
+      return
+    }
+    setDeletedProjectIds((current) => [...current, projectId])
+    router.refresh()
   }
 
   const handleAddColumn = async () => {
@@ -438,6 +455,7 @@ export function BoardColumnsKanban({
                 memberMap={memberMap}
                 activeId={activeId}
                 onMoveProject={moveProject}
+                onDeleteProject={canEdit ? handleDeleteProject : undefined}
                 stageOptions={stageOptions}
               />
             )
@@ -472,6 +490,7 @@ function KanbanColumn({
   memberMap,
   activeId,
   onMoveProject,
+  onDeleteProject,
   stageOptions,
 }: {
   column: BoardColumn
@@ -480,6 +499,7 @@ function KanbanColumn({
   memberMap: Record<string, string>
   activeId: string | null
   onMoveProject: (projectId: string, columnId: string) => Promise<void>
+  onDeleteProject?: (projectId: string) => Promise<void>
   stageOptions: ProjectBoardStageOption[]
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: column.id, disabled: !canEdit })
@@ -533,6 +553,7 @@ function KanbanColumn({
             stageOptions={stageOptions}
             column={column}
             onMoveProject={onMoveProject}
+            onDeleteProject={onDeleteProject}
           />
         ))}
 
@@ -569,6 +590,7 @@ function DraggableCard({
   stageOptions,
   column,
   onMoveProject,
+  onDeleteProject,
 }: {
   project: Project
   memberMap: Record<string, string>
@@ -576,6 +598,7 @@ function DraggableCard({
   stageOptions: ProjectBoardStageOption[]
   column: BoardColumn
   onMoveProject: (projectId: string, columnId: string) => Promise<void>
+  onDeleteProject?: (projectId: string) => Promise<void>
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
@@ -597,6 +620,7 @@ function DraggableCard({
         currentStageId={project.board_column_id ?? column.id}
         stageOptions={stageOptions}
         onStageChange={onMoveProject}
+        onDelete={onDeleteProject}
         dragHandle={{ attributes, listeners }}
       />
     </div>
