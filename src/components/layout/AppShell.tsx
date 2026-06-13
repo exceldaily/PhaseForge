@@ -9,16 +9,18 @@ import { Profile } from '@/types/app'
 interface AppShellProps {
   profile: Profile | null
   isSuperAdmin: boolean
+  canUseReports?: boolean
   children: React.ReactNode
 }
 
-export function AppShell({ profile, isSuperAdmin, children }: AppShellProps) {
+export function AppShell({ profile, isSuperAdmin, canUseReports = false, children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
       <Sidebar
         isSuperAdmin={isSuperAdmin}
+        canUseReports={canUseReports}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
       />

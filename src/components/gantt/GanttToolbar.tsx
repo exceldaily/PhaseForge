@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Target, Printer, Link2, Palette, Plus } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarRange, Target, Printer, Link2, Palette, Plus } from 'lucide-react'
 import { GanttAddPhaseModal } from './GanttAddPhaseModal'
 import { format, parseISO } from '@/lib/dates'
 import { useGanttStore } from '@/stores/ganttStore'
@@ -30,13 +30,11 @@ function getRangeLabel(start: Date, end: Date, zoom: ZoomLevel) {
 
 export function GanttToolbar({
   projectCount,
-  canFitTimeline,
-  onFitTimeline,
+  canPrint,
   projects = [],
 }: {
   projectCount: number
-  canFitTimeline: boolean
-  onFitTimeline: () => void
+  canPrint: boolean
   projects?: Project[]
 }) {
   const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd, collapsedProjects, selectedProjectId, shiftMode, setShiftMode, colorMode, setColorMode } = useGanttStore()
@@ -272,14 +270,11 @@ export function GanttToolbar({
           )}
         </div>
 
-        <Button variant="outline" size="sm" onClick={onFitTimeline} disabled={!canFitTimeline}>
-          <CalendarDays size={14} /> Fit Schedule
-        </Button>
-
         <Button variant="outline" size="sm" onClick={scrollToToday}>
           <Target size={14} /> Today
         </Button>
 
+        {canPrint && (
         <div ref={printMenuRef} className="relative">
           <Button
             variant="outline"
@@ -342,6 +337,7 @@ export function GanttToolbar({
             </div>
           )}
         </div>
+        )}
       </div>
 
       {printScope && (

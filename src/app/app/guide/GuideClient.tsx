@@ -90,12 +90,12 @@ const SECTIONS: GuideSection[] = [
     href: '/app/gantt',
     hrefLabel: 'Open Gantt',
     items: [
-      { heading: 'Navigate', text: 'Zoom by day, week, month, or quarter; jump with the prev/next arrows; "Today" centers on the current date; "Fit Schedule" zooms to your entire date range; or set an exact from/to range. Collapse projects you\'re not working on.' },
+      { heading: 'Navigate', text: 'Zoom by day, week, month, or quarter; jump with the prev/next arrows; "Today" centers on the current date; or set an exact from/to range. Collapse projects you\'re not working on.' },
       { heading: 'Drag to reschedule', text: 'Drag a bar to move a phase, drag its edges to change duration. The drag-mode toggle controls ripple: "Move 1" moves only that phase; "Shift later" pushes every later phase in the project along with it.' },
       { heading: 'Edit in place', text: 'Click a phase to open the edit panel: rename, re-date, change status and percent complete, assign a person or trade, toggle milestone/critical path, recolor, add notes, and comment — without leaving the timeline.' },
-      { heading: 'Color modes & printing', text: 'Color bars by phase color (standard), by status (spot blockers instantly), or none (clean grayscale). The Print menu outputs chart or list style, for the current view or all projects.' },
+      { heading: 'Color modes & printing', text: 'Color bars by phase color (standard), by status (spot blockers instantly), or none (clean grayscale). Printing is a Pro/Business feature: on those plans the Print menu outputs chart or list style, for the current view or all projects.' },
       { heading: 'Board filter', text: 'The Board dropdown above the chart narrows the timeline to one board\'s projects.' },
-      { heading: 'On mobile', text: 'On a phone the Gantt opens as a touch-friendly timeline: a frozen phase-name column with scrollable bars — swipe to pan. Zoom Day → Quarter, step the window with the ‹ › arrows, jump to Today, set an exact From/To range with the calendar button, Collapse/Expand all projects, or Fit to frame the whole schedule. Toggle to List for a compact rundown, and tap any bar to open a full-screen detail sheet.' },
+      { heading: 'On mobile', text: 'On a phone the Gantt opens as a touch-friendly timeline: a frozen phase-name column with scrollable bars — swipe to pan. Zoom Day → Quarter, step the window with the ‹ › arrows, jump to Today, set an exact From/To range with the calendar button, or Collapse/Expand all projects. Toggle to List for a compact rundown, and tap any bar to open a full-screen detail sheet.' },
     ],
   },
   {
@@ -177,8 +177,8 @@ const SECTIONS: GuideSection[] = [
     hrefLabel: 'Open Analytics',
     items: [
       { heading: 'Analytics', text: 'Completion rate, overdue projects, projects by status and priority, phase status donut, phase health stats, average project/phase durations, and per-member workload charts.' },
-      { heading: 'Reports', text: 'Three report types — Projects, Phases, Schedule — with text search, status and priority filters, a board filter, and an "include archived" toggle.' },
-      { heading: 'Export & print', text: 'Any filtered report exports to CSV, and Print opens a clean landscape print sheet (matching the Gantt\'s print style) with a preview before the print dialog. What you filter is what you export.' },
+      { heading: 'Reports (Pro/Business)', text: 'The Reports page is available on the Pro and Business plans. Three report types — Projects, Phases, Schedule — with text search, status and priority filters, a board filter, and an "include archived" toggle. On the Free plan the Reports page shows an upgrade prompt. Analytics stays available on every plan.' },
+      { heading: 'Export & print', text: 'On Pro/Business, any filtered report exports to CSV, and Print opens a clean landscape print sheet (matching the Gantt\'s print style) with a preview before the print dialog. What you filter is what you export.' },
     ],
   },
   {

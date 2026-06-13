@@ -127,6 +127,22 @@ export const PLAN_LABELS: Record<string, string> = {
   enterprise: 'Enterprise',
 }
 
+/**
+ * Per-plan feature flags (beyond the numeric limits above).
+ * Printing and Reports are Pro/Business/Enterprise only.
+ */
+export const PLAN_FEATURES: Record<string, { printAndReports: boolean }> = {
+  free:       { printAndReports: false },
+  pro:        { printAndReports: true  },
+  business:   { printAndReports: true  },
+  enterprise: { printAndReports: true  },
+}
+
+/** Whether a plan can print Gantt charts and use the Reports page. */
+export function canUsePrintAndReports(plan: string | null | undefined): boolean {
+  return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.printAndReports ?? false
+}
+
 /** Board column constraints */
 export const BOARD_COLUMN_MIN = 3
 export const BOARD_COLUMN_MAX = 10

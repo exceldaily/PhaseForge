@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, ChevronsDownUp, ChevronsUpDown, Maximize2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 import { PHASE_STATUS_COLORS } from '@/lib/constants'
 import { differenceInDays, format, formatDate, getTimelineHeaders, parseISO } from '@/lib/dates'
 import { getClippedBarPosition } from '@/lib/gantt'
@@ -119,7 +119,7 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
           ))}
         </div>
 
-        {/* Navigation: prev · Today · next · Fit · date range */}
+        {/* Navigation: prev · Today · next · collapse · date range */}
         <div className="flex items-center gap-1.5">
           <button onClick={() => shiftView('backward')} className="rounded-lg border border-slate-200 p-2 text-slate-600 active:bg-slate-50" aria-label="Earlier">
             <ChevronLeft size={15} />
@@ -138,13 +138,6 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
             {allCollapsed ? 'Expand' : 'Collapse'}
           </button>
           <div className="flex-1" />
-          <button
-            onClick={() => scheduleBounds && fitViewToRange(scheduleBounds.start, scheduleBounds.end)}
-            disabled={!scheduleBounds}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 active:bg-slate-50 disabled:opacity-40"
-          >
-            <Maximize2 size={13} /> Fit
-          </button>
           <button
             onClick={openRange}
             className={cn(

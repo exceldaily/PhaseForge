@@ -29,6 +29,7 @@ interface ProjectDetailShellProps {
   currentUserId: string
   companyId: string
   canEdit: boolean
+  canPrint: boolean
   initialTab?: Tab
 }
 
@@ -41,7 +42,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export function ProjectDetailShell({
   project, members, activityLogs, attachments, currentUserId, companyId,
-  canEdit,
+  canEdit, canPrint,
   initialTab = 'gantt',
 }: ProjectDetailShellProps) {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
@@ -179,6 +180,7 @@ export function ProjectDetailShell({
             members={members}
             currentUserId={currentUserId}
             canEdit={canEdit}
+            canPrint={canPrint}
           />
         </div>
       )}

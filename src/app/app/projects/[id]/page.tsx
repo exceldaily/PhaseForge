@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { ProjectDetailShell } from './ProjectDetailShell'
+import { canUsePrintAndReports } from '@/lib/constants'
 import { Phase, Profile, Project, ProjectAttachment } from '@/types/app'
 
 const VALID_TABS = new Set(['gantt', 'tasks', 'activity', 'files'])
@@ -62,6 +63,13 @@ export default async function ProjectDetailPage({
 
   const canEdit = !['member', 'viewer'].includes(profile.role)
 
+  const { data: company } = await supabase
+    .from('companies')
+    .select('plan')
+    .eq('id', profile.company_id)
+    .single()
+  const canPrint = canUsePrintAndReports(company?.plan)
+
   return (
     <ProjectDetailShell
       project={{ ...project, phases }}
@@ -71,6 +79,7 @@ export default async function ProjectDetailPage({
       currentUserId={user.id}
       companyId={profile.company_id}
       canEdit={canEdit}
+      canPrint={canPrint}
       initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'gantt' | 'tasks' | 'activity' | 'files') : 'gantt'}
     />
   )

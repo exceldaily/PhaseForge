@@ -6,6 +6,7 @@ import { GanttChart } from '@/components/gantt/GanttChart'
 import { BoardFilter } from '@/components/boards/BoardFilter'
 import { BOARD_FILTER_NONE, BoardOption, appendBoardFilter, resolveBoardFilter } from '@/lib/boardFilter'
 import { getStoredBoardFilter } from '@/lib/boardFilter.server'
+import { canUsePrintAndReports } from '@/lib/constants'
 import { Project, Phase, Profile } from '@/types/app'
 
 export default async function GanttPage({ searchParams }: { searchParams: Promise<{ project?: string; board?: string }> }) {
@@ -16,6 +17,13 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
+
+  const { data: company } = await supabase
+    .from('companies')
+    .select('plan')
+    .eq('id', profile.company_id)
+    .single()
+  const canPrint = canUsePrintAndReports(company?.plan)
 
   const { data: boardsData } = await supabase
     .from('boards')
@@ -91,6 +99,7 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
         members={members as Profile[]}
         currentUserId={user.id}
         canEdit={profile.role !== 'viewer'}
+        canPrint={canPrint}
       />
     </div>
   )

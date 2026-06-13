@@ -32,13 +32,14 @@ interface GanttChartProps {
   members: Profile[]
   currentUserId: string
   canEdit: boolean
+  canPrint: boolean
 }
 
 const ROW_HEIGHT = 40
 const BASE_HEADER_HEIGHT = 56
 const PROJECT_ROW_HEIGHT = 56
 
-export function GanttChart({ projects: initialProjects, companyId, members, currentUserId, canEdit }: GanttChartProps) {
+export function GanttChart({ projects: initialProjects, companyId, members, currentUserId, canEdit, canPrint }: GanttChartProps) {
   const isMobile = useMediaQuery('(max-width: 767px)')
   const {
     zoom,
@@ -482,8 +483,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     >
       <GanttToolbar
         projectCount={projects.length}
-        canFitTimeline={Boolean(scheduleBounds)}
-        onFitTimeline={handleFitTimeline}
+        canPrint={canPrint}
         projects={projects}
       />
 

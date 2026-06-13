@@ -28,14 +28,17 @@ const NAV_ITEMS = [
 
 interface SidebarProps {
   isSuperAdmin?: boolean
+  canUseReports?: boolean
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export function Sidebar({ isSuperAdmin = false, mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ isSuperAdmin = false, canUseReports = false, mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+
+  const navItems = NAV_ITEMS.filter((item) => canUseReports || item.href !== '/app/reports')
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -82,7 +85,7 @@ export function Sidebar({ isSuperAdmin = false, mobileOpen = false, onMobileClos
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/app/dashboard' && pathname.startsWith(href))
           return (
             <Link
