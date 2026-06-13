@@ -434,7 +434,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden bg-white">
           {mobileView === 'timeline' ? (
             <GanttMobileTimeline
               projects={projects}
@@ -442,7 +442,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
               onSelectPhase={(phase) => setSelectedPhase(phase.id)}
             />
           ) : (
-            <div className="h-full overflow-y-auto">
+            <div className="h-full overflow-y-auto bg-white">
               <GanttMobileList
                 projects={projects}
                 selectedPhaseId={selectedPhaseId}

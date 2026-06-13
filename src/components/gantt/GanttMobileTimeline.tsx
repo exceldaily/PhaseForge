@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
-import { ChevronDown, ChevronRight, Maximize2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays, Maximize2 } from 'lucide-react'
 import { PHASE_STATUS_COLORS } from '@/lib/constants'
 import { differenceInDays, format, formatDate, getTimelineHeaders, parseISO } from '@/lib/dates'
 import { getClippedBarPosition } from '@/lib/gantt'
@@ -22,9 +22,10 @@ const PROJECT_ROW_H = 44
 const PHASE_ROW_H = 36
 
 const ZOOMS: { value: ZoomLevel; label: string }[] = [
-  { value: 'week', label: 'W' },
-  { value: 'month', label: 'M' },
-  { value: 'quarter', label: 'Q' },
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: 'quarter', label: 'Quarter' },
 ]
 
 export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }: GanttMobileTimelineProps) {
@@ -38,7 +39,28 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
     collapsedProjects,
     toggleProjectCollapse,
     fitViewToRange,
+    scrollToToday,
+    shiftView,
+    setViewRange,
   } = useGanttStore()
+
+  const [showRange, setShowRange] = useState(false)
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+
+  const openRange = () => {
+    setFromDate(format(viewStart, 'yyyy-MM-dd'))
+    setToDate(format(viewEnd, 'yyyy-MM-dd'))
+    setShowRange((v) => !v)
+  }
+
+  const applyRange = () => {
+    if (!fromDate || !toDate) return
+    const start = parseISO(fromDate)
+    const end = parseISO(toDate)
+    setViewRange(start <= end ? start : end, start <= end ? end : start)
+    setShowRange(false)
+  }
 
   const totalDays = differenceInDays(viewEnd, viewStart) + 1
   const totalWidth = totalDays * pixelsPerDay
@@ -73,16 +95,17 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
   const neutral = colorMode === 'none'
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Zoom + fit controls */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-3 py-2">
-        <div className="flex items-center gap-1 rounded-lg bg-slate-100 p-0.5">
+    <div className="flex h-full flex-col bg-white">
+      {/* Controls */}
+      <div className="flex-shrink-0 space-y-2 border-b border-slate-200 bg-white px-3 py-2">
+        {/* Zoom (Day → Quarter = zoom out) */}
+        <div className="flex items-center rounded-lg bg-slate-100 p-0.5">
           {ZOOMS.map((z) => (
             <button
               key={z.value}
               onClick={() => setZoom(z.value)}
               className={cn(
-                'h-7 w-8 rounded-md text-xs font-semibold transition-colors',
+                'flex-1 rounded-md py-1.5 text-xs font-semibold transition-colors',
                 zoom === z.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
               )}
             >
@@ -90,17 +113,60 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
             </button>
           ))}
         </div>
-        <button
-          onClick={() => scheduleBounds && fitViewToRange(scheduleBounds.start, scheduleBounds.end)}
-          disabled={!scheduleBounds}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 active:bg-slate-50 disabled:opacity-40"
-        >
-          <Maximize2 size={13} /> Fit
-        </button>
+
+        {/* Navigation: prev · Today · next · Fit · date range */}
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => shiftView('backward')} className="rounded-lg border border-slate-200 p-2 text-slate-600 active:bg-slate-50" aria-label="Earlier">
+            <ChevronLeft size={15} />
+          </button>
+          <button onClick={scrollToToday} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 active:bg-slate-50">
+            Today
+          </button>
+          <button onClick={() => shiftView('forward')} className="rounded-lg border border-slate-200 p-2 text-slate-600 active:bg-slate-50" aria-label="Later">
+            <ChevronRight size={15} />
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={() => scheduleBounds && fitViewToRange(scheduleBounds.start, scheduleBounds.end)}
+            disabled={!scheduleBounds}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 active:bg-slate-50 disabled:opacity-40"
+          >
+            <Maximize2 size={13} /> Fit
+          </button>
+          <button
+            onClick={openRange}
+            className={cn(
+              'flex items-center rounded-lg border p-2 active:bg-slate-50',
+              showRange ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
+            )}
+            aria-label="Pick date range"
+          >
+            <CalendarDays size={15} />
+          </button>
+        </div>
+
+        {/* Date range picker */}
+        {showRange && (
+          <div className="flex items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <label className="flex-1 text-[11px] font-medium text-slate-500">
+              From
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                className="mt-0.5 w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs" />
+            </label>
+            <label className="flex-1 text-[11px] font-medium text-slate-500">
+              To
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                className="mt-0.5 w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs" />
+            </label>
+            <button onClick={applyRange} className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white active:bg-indigo-700">
+              Apply
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Scrollable Gantt: frozen name column + frozen header via sticky. */}
-      <div className="relative flex-1 overflow-auto overscroll-contain">
+      <div className="relative flex-1 overflow-auto overscroll-contain bg-white">
         <div style={{ width: NAME_COL + totalWidth }}>
           {/* Header row */}
           <div className="sticky top-0 z-20 flex" style={{ height: HEADER_H }}>
