@@ -6,9 +6,11 @@ import {
   DndContext,
   DragOverlay,
   closestCorners,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
   KeyboardSensor,
+  pointerWithin,
   PointerSensor,
   TouchSensor,
   useDraggable,
@@ -27,6 +29,13 @@ import { getProjectBoardState } from '@/lib/projectBoard'
 import { COLUMN_COLORS } from '@/lib/constants'
 import { Board, BoardColumn, Project } from '@/types/app'
 import { cn, validateHexColor } from '@/lib/utils'
+
+// Drop based on where the pointer is (correct for columns of differing
+// heights); fall back to closest-corners over a gap/header.
+const dropCollision: CollisionDetection = (args) => {
+  const pointer = pointerWithin(args)
+  return pointer.length > 0 ? pointer : closestCorners(args)
+}
 
 interface BoardKanbanProps {
   board: Board
@@ -448,7 +457,7 @@ export function BoardColumnsKanban({
         </div>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={dropCollision} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <StickyHScroll className="pb-2" style={{ minHeight: 'calc(100vh - 280px)' }}>
           {orderedColumns.map((column) => {
             const columnProjects = localProjects.filter((project) =>

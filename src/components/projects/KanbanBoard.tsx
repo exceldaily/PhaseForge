@@ -3,11 +3,13 @@
 import { useMemo, useState } from 'react'
 import {
   closestCorners,
+  type CollisionDetection,
   DndContext,
   DragOverlay,
   type DragEndEvent,
   type DragStartEvent,
   KeyboardSensor,
+  pointerWithin,
   PointerSensor,
   TouchSensor,
   useDraggable,
@@ -15,6 +17,14 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
+
+// Drop based on where the pointer is (correct for columns of differing
+// heights). Fall back to closest-corners only when the pointer is over a gap
+// or header so a near-miss still lands somewhere sensible.
+const dropCollision: CollisionDetection = (args) => {
+  const pointer = pointerWithin(args)
+  return pointer.length > 0 ? pointer : closestCorners(args)
+}
 import { CSS } from '@dnd-kit/utilities'
 import { Settings2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -307,7 +317,7 @@ export function KanbanBoard({
         </div>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={dropCollision} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <StickyHScroll className="pb-2" style={{ minHeight: 'calc(100vh - 280px)' }}>
           {columns.map((column) => {
             const columnProjects = filteredProjects.filter((project) => project.status === column.status)
