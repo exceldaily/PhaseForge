@@ -105,8 +105,8 @@ const SECTIONS: GuideSection[] = [
     href: '/app/projects',
     hrefLabel: 'Open Projects',
     items: [
-      { heading: 'Supported files', text: 'Excel (.xlsx/.xls), CSV, Word (.docx), plain text, and TSV — up to 10 MB. Rows need a task name plus start and end dates.' },
-      { heading: 'Multi-tab workbooks', text: 'Each tab becomes its own project named after the tab, with its rows as phases. Summary tabs without schedule data are skipped, and duplicate projects across tabs are collapsed automatically.' },
+      { heading: 'Supported files', text: 'Excel (.xlsx/.xls), CSV, Word (.docx), plain text, and TSV — up to 10 MB. The importer reads two layouts: a normal table (a header row with a task name plus start/end dates), or a vertical sheet that lists fields down a column (e.g. Location, Store Number, Type, Start Date, End Date) as one job per tab.' },
+      { heading: 'Multi-tab workbooks', text: 'Each tab becomes its own project. A tabular tab uses its rows as phases; a vertical one-job-per-tab sheet becomes a project named from its Store Number, Location, and Type with a single phase spanning the dates. Dates without a year assume the current year, rolling the end into next year when it falls before the start. Summary tabs without schedule data are skipped, and duplicates across tabs are collapsed.' },
       { heading: 'Review before import', text: 'You see every detected project and its phases first — uncheck anything you don\'t want, expand to inspect phases, then import.' },
       { heading: 'Board placement', text: 'Imported projects land on your default board with their status mapped to the matching column.' },
     ],

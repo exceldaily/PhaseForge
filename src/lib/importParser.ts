@@ -62,6 +62,52 @@ export function normaliseDate(raw: string | number | null | undefined): string |
   return null
 }
 
+// Parse a date that may omit its year (e.g. "7/5"). Returns the ISO string,
+// a Date for comparison, and whether the source carried an explicit year.
+function parseFlexibleDate(
+  raw: string | number | null | undefined,
+  baseYear: number
+): { iso: string; date: Date; hasYear: boolean } | null {
+  if (raw === null || raw === undefined || raw === '') return null
+
+  if (typeof raw === 'number') {
+    const iso = normaliseDate(raw)
+    return iso ? { iso, date: new Date(iso), hasYear: true } : null
+  }
+
+  const str = String(raw).trim()
+
+  // "m/d" or "m-d" with no year → fill in baseYear.
+  const md = str.match(/^(\d{1,2})[\/\-](\d{1,2})$/)
+  if (md) {
+    const iso = `${baseYear}-${md[1].padStart(2, '0')}-${md[2].padStart(2, '0')}`
+    const date = new Date(iso)
+    if (isNaN(date.getTime())) return null
+    return { iso, date, hasYear: false }
+  }
+
+  const iso = normaliseDate(str)
+  return iso ? { iso, date: new Date(iso), hasYear: true } : null
+}
+
+// Resolve a start/end pair, inferring years when absent. A year-less end that
+// lands before the start is rolled into the next year (e.g. Jul 5 → Jan 7).
+function resolveDateSpan(
+  startRaw: string | number | null,
+  endRaw: string | number | null
+): { start: string | null; end: string | null } {
+  const baseYear = new Date().getFullYear()
+  const start = parseFlexibleDate(startRaw, baseYear)
+  if (!start) return { start: null, end: null }
+
+  let end = parseFlexibleDate(endRaw, baseYear)
+  if (end && !end.hasYear && end.date < start.date) {
+    end = parseFlexibleDate(endRaw, baseYear + 1)
+  }
+
+  return { start: start.iso, end: end ? end.iso : null }
+}
+
 // ─── Indent scoring ───────────────────────────────────────────────────────────
 
 function scoreIndent(line: string): number {
@@ -281,6 +327,52 @@ function detectColumns(headers: string[]): DetectedColumns | null {
   return { taskIdx, phaseIdx, genericNameIdx, projectIdx, typeIdx, startIdx, endIdx }
 }
 
+// Vertical / transposed layout: labels down column A, values in column B
+// (e.g. one job per sheet — Location, Store Number, Type, Start Date, End Date).
+// Produces a single RawRow whose `project` is the composed project name, so
+// detectProjects turns the sheet into one project with one phase.
+export function parseVerticalSheet(rows: (string | number | null)[][]): RawRow[] {
+  const kv = new Map<string, string | number | null>()
+  for (const row of rows) {
+    if (!row || row.length < 2) continue
+    const key = String(row[0] ?? '').toLowerCase().trim()
+    if (!key || kv.has(key)) continue
+    kv.set(key, row[1])
+  }
+  if (kv.size === 0) return []
+
+  // First value whose label matches any of the given substrings.
+  const get = (...needles: string[]): string | number | null => {
+    for (const needle of needles) {
+      for (const [label, value] of kv) {
+        if ((label === needle || label.includes(needle)) && value !== null && String(value).trim() !== '') {
+          return value
+        }
+      }
+    }
+    return null
+  }
+
+  const startRaw = get('start date', 'start', 'begin')
+  const endRaw = get('end date', 'end', 'finish', 'due')
+  if (startRaw === null || endRaw === null) return []
+
+  const { start, end } = resolveDateSpan(startRaw, endRaw)
+  if (!start || !end) return []
+
+  const location = get('location', 'site', 'city', 'address')
+  const store = get('store number', 'store', 'job number', 'job #')
+  const type = get('type', 'scope', 'category')
+
+  const nameParts = [store, location, type]
+    .map(v => (v === null ? '' : String(v).trim()))
+    .filter(Boolean)
+  const project = nameParts.join(' ').trim() || 'Imported Project'
+  const phaseName = type !== null && String(type).trim() ? String(type).trim() : 'Schedule'
+
+  return [{ name: phaseName, start, end, indent: 0, project }]
+}
+
 export function parseTableRows(rows: (string | number | null)[][]): RawRow[] {
   if (rows.length < 2) return []
 
@@ -293,7 +385,8 @@ export function parseTableRows(rows: (string | number | null)[][]): RawRow[] {
     const candidate = detectColumns(rows[i].map(c => String(c ?? '')))
     if (candidate) { cols = candidate; headerRowIdx = i; break }
   }
-  if (!cols) return []
+  // No horizontal header found — fall back to a vertical key/value layout.
+  if (!cols) return parseVerticalSheet(rows)
 
   const result: RawRow[] = []
   for (let i = headerRowIdx + 1; i < rows.length; i++) {
