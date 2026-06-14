@@ -80,3 +80,22 @@ body {
 /* Scrollbar */
 .dark ::-webkit-scrollbar-thumb { background: #334155; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Gradient color-stops — the Gantt timeline grid & sidebar paint their
+   surfaces with `from-white / via-slate-50 / to-slate-*` gradients, which the
+   flat overrides above don't reach. Tailwind v4 resolves gradients through
+   these custom properties, so remapping the stop value flips the whole
+   gradient. (Light gradients elsewhere darken consistently too.) */
+.dark .from-white { --tw-gradient-from: #0b1120 !important; }
+.dark .from-slate-50 { --tw-gradient-from: #111a2e !important; }
+.dark .via-slate-50 { --tw-gradient-via: #0e1626 !important; }
+.dark .to-slate-50 { --tw-gradient-to: #0b1120 !important; }
+.dark .to-slate-50\/30 { --tw-gradient-to: rgba(11, 17, 32, 0.3) !important; }
+.dark .to-slate-50\/40 { --tw-gradient-to: rgba(11, 17, 32, 0.4) !important; }
+.dark .to-slate-100\/50 { --tw-gradient-to: rgba(30, 41, 59, 0.4) !important; }
+
+/* Weekend timeline cells */
+.dark .bg-slate-50\/60 { background-color: rgba(15, 23, 42, 0.6) !important; }
+
+/* Off-bar label pills / inline inputs floated over the timeline */
+.dark .bg-white\/95 { background-color: rgba(17, 24, 39, 0.95) !important; }
