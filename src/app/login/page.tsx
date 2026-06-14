@@ -19,6 +19,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { GantticLogo } from '@/components/branding/GantticLogo'
+import { ForceLightTheme } from '@/components/layout/ForceLightTheme'
 import { getFriendlyAuthError, normalizeAuthEmail } from '@/lib/auth/password'
 import { BRAND_NAME } from '@/lib/branding'
 import { cn } from '@/lib/utils'
@@ -67,6 +68,7 @@ export default function LoginPage() {
 
   return (
     <div className={cn(manrope.className, 'min-h-screen bg-slate-900 text-white overflow-hidden')}>
+      <ForceLightTheme />
       {/* Construction Site Background Image */}
       <div
         className="absolute inset-0 overflow-hidden bg-cover bg-center"

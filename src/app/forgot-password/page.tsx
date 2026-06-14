@@ -6,6 +6,7 @@ import { ArrowLeft, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { Input } from '@/components/ui/Input'
+import { ForceLightTheme } from '@/components/layout/ForceLightTheme'
 import { getFriendlyAuthError, normalizeAuthEmail } from '@/lib/auth/password'
 
 export default function ForgotPasswordPage() {
@@ -36,6 +37,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f7efe6] px-4">
+      <ForceLightTheme />
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <GantticLogo variant="lockup" width={210} priority alt="PhaseForge" />

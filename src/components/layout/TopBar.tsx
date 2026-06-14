@@ -3,15 +3,17 @@ import Link from 'next/link'
 import { Menu } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { NotificationBell } from './NotificationBell'
+import { ThemeToggle } from './ThemeToggle'
 import { Profile } from '@/types/app'
 
 interface TopBarProps {
   profile: Profile | null
   title?: string
+  canUseDarkMode?: boolean
   onMenuClick?: () => void
 }
 
-export function TopBar({ profile, title, onMenuClick }: TopBarProps) {
+export function TopBar({ profile, title, canUseDarkMode = false, onMenuClick }: TopBarProps) {
   return (
     <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white border-b border-slate-200 flex-shrink-0">
       <div className="flex items-center gap-3">
@@ -25,6 +27,7 @@ export function TopBar({ profile, title, onMenuClick }: TopBarProps) {
         {title && <h1 className="text-lg font-semibold text-slate-900">{title}</h1>}
       </div>
       <div className="flex items-center gap-3">
+        {canUseDarkMode && <ThemeToggle />}
         {profile?.id && profile?.company_id && (
           <NotificationBell userId={profile.id} companyId={profile.company_id} />
         )}

@@ -6,6 +6,7 @@ import { Lock, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { Input } from '@/components/ui/Input'
+import { ForceLightTheme } from '@/components/layout/ForceLightTheme'
 import { MIN_PASSWORD_LENGTH, getFriendlyAuthError, validatePassword } from '@/lib/auth/password'
 
 type PageState = 'loading' | 'ready' | 'success' | 'expired'
@@ -73,6 +74,7 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f7efe6] px-4">
+      <ForceLightTheme />
       <div className="w-full max-w-md">
         <div className="mb-8 flex justify-center">
           <GantticLogo variant="lockup" width={210} priority alt="PhaseForge" />

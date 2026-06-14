@@ -1,9 +1,8 @@
 @import "tailwindcss";
 
-/* The app is light-only. Make `dark:` utilities opt-in via a `.dark` class
-   (which is never applied) instead of the system `prefers-color-scheme`, so a
-   phone/OS in dark mode doesn't turn shell backgrounds black behind the
-   light-styled content. */
+/* Dark mode is opt-in via a `.dark` class on <html> (toggled by the theme
+   switch, Pro-and-up only), NOT the system `prefers-color-scheme` — so a
+   phone/OS in dark mode doesn't turn backgrounds black behind light content. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 * {
@@ -19,3 +18,65 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   DARK MODE
+   The app hard-codes light neutrals (bg-white / text-slate-* / border-slate-*)
+   across hundreds of places with no `dark:` variants. Rather than annotate
+   every element, we remap the neutral surface/text/border utilities the app
+   actually uses when `.dark` is active. This flips the whole UI coherently.
+
+   We deliberately DO NOT touch `text-white` (used on colored buttons/sidebar)
+   or `bg-slate-900/800` (the intentionally-dark sidebar & login) so those stay
+   correct. Colored accent classes (indigo/amber/emerald…) are left as-is.
+   ────────────────────────────────────────────────────────────────────────── */
+.dark { color-scheme: dark; }
+
+.dark body { background-color: #0a0f1a; color: #e2e8f0; }
+
+/* Surfaces (cards, panels, page) */
+.dark .bg-white { background-color: #111827 !important; }
+.dark .bg-slate-50 { background-color: #0b1120 !important; }
+.dark .bg-slate-50\/70 { background-color: rgba(17, 24, 39, 0.7) !important; }
+.dark .bg-slate-50\/50 { background-color: rgba(17, 24, 39, 0.5) !important; }
+.dark .bg-slate-100 { background-color: #1e293b !important; }
+
+/* Hover/focus surface states */
+.dark .hover\:bg-white:hover { background-color: #1e293b !important; }
+.dark .hover\:bg-slate-50:hover { background-color: #1e293b !important; }
+.dark .hover\:bg-slate-100:hover { background-color: #273449 !important; }
+.dark .hover\:bg-slate-200:hover { background-color: #334155 !important; }
+
+/* Translucent white overlays (glass cards, scrims) */
+.dark .bg-white\/10 { background-color: rgba(255, 255, 255, 0.06) !important; }
+.dark .bg-white\/5 { background-color: rgba(255, 255, 255, 0.04) !important; }
+
+/* Text */
+.dark .text-slate-900 { color: #f8fafc !important; }
+.dark .text-slate-800 { color: #f1f5f9 !important; }
+.dark .text-slate-700 { color: #e2e8f0 !important; }
+.dark .text-slate-600 { color: #cbd5e1 !important; }
+.dark .text-slate-500 { color: #94a3b8 !important; }
+.dark .text-slate-400 { color: #748094 !important; }
+.dark .text-slate-300 { color: #64748b !important; }
+
+/* Borders & dividers */
+.dark .border-slate-100 { border-color: #1e293b !important; }
+.dark .border-slate-200 { border-color: #243044 !important; }
+.dark .border-slate-300 { border-color: #334155 !important; }
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: #243044 !important; }
+
+/* Form controls */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #0f172a;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #64748b; }
+
+/* Scrollbar */
+.dark ::-webkit-scrollbar-thumb { background: #334155; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }

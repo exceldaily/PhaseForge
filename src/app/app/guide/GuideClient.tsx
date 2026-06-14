@@ -203,6 +203,7 @@ const SECTIONS: GuideSection[] = [
     hrefLabel: 'Open Settings',
     items: [
       { heading: 'Profile', text: 'Edit your name and job title; your email and role are shown read-only (only owners/admins change roles).' },
+      { heading: 'Light & dark mode (Pro/Business)', text: 'On the Pro and Business plans a sun/moon button appears in the top bar — tap it to switch the whole app between light and dark. Your choice is remembered on that device. The toggle is hidden on the Free plan.' },
       { heading: 'Members', text: 'Owners and admins see the full roster and invite new people from Settings → Members.' },
       { heading: 'Account & password', text: 'Sign-up creates your company workspace and requires email confirmation. Passwords currently need at least 8 characters. Forgot it? The login page sends a reset link to the email on your account.' },
     ],

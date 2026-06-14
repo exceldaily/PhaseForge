@@ -9,6 +9,7 @@ import { createWorkspace } from './actions'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/auth/password'
 import { BRAND_NAME } from '@/lib/branding'
+import { ForceLightTheme } from '@/components/layout/ForceLightTheme'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -59,6 +60,7 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex bg-[#f7efe6]">
+      <ForceLightTheme />
       <div className="hidden lg:flex lg:w-1/2 bg-[radial-gradient(circle_at_top_left,rgba(255,210,120,0.16),transparent_22%),linear-gradient(160deg,#17100d_0%,#261811_46%,#100a08_100%)] flex-col justify-between p-12">
         <GantticLogo variant="lockup" width={250} priority alt="PhaseForge horizontal logo" />
         <div>

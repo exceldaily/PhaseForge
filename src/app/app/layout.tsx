@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
-import { canUsePrintAndReports } from '@/lib/constants'
+import { canUsePrintAndReports, canUseDarkMode } from '@/lib/constants'
 import { Profile } from '@/types/app'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -17,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .single()
 
   let canUseReports = false
+  let canUseTheme = false
   if (profile?.company_id) {
     const { data: company } = await supabase
       .from('companies')
@@ -24,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .eq('id', profile.company_id)
       .single()
     canUseReports = canUsePrintAndReports(company?.plan)
+    canUseTheme = canUseDarkMode(company?.plan)
   }
 
   return (
@@ -31,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       profile={profile as Profile}
       isSuperAdmin={profile?.is_super_admin ?? false}
       canUseReports={canUseReports}
+      canUseDarkMode={canUseTheme}
     >
       <ErrorBoundary>
         {children}

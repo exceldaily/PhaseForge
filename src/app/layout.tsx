@@ -29,6 +29,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
+      <head>
+        {/* Apply saved theme before paint to avoid a flash of the wrong theme.
+            Plan enforcement (Pro-and-up) happens client-side in AppShell. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(location.pathname.indexOf('/app')===0&&localStorage.getItem('pf-theme')==='dark'){document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="h-full">
         {children}
         <PwaRegister />
