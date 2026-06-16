@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, Lock } from 'lucide-react'
 import { GantticLogo } from '@/components/branding/GantticLogo'
+import { Input } from '@/components/ui/Input'
 import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/auth/password'
 import { acceptInvite, setInvitePassword } from './actions'
 
@@ -100,31 +101,31 @@ export default function InviteAcceptPage() {
               <p className="text-slate-500 mb-6 text-sm">Create a secure password to complete your account setup.</p>
 
               <form onSubmit={handleSetPassword} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d78829]"
-                    disabled={saving}
-                    autoComplete="new-password"
-                  />
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  label="Password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                  icon={<Lock size={16} />}
+                  className="focus:ring-[#d78829]"
+                  disabled={saving}
+                  autoComplete="new-password"
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 mb-2">Confirm password</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm password"
-                    className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#d78829]"
-                    disabled={saving}
-                    autoComplete="new-password"
-                  />
-                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  label="Confirm password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm password"
+                  icon={<Lock size={16} />}
+                  className="focus:ring-[#d78829]"
+                  disabled={saving}
+                  autoComplete="new-password"
+                />
 
                 {error && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
