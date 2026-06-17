@@ -76,9 +76,21 @@ export async function createWorkspace(formData: {
     }
   }
 
+  // Extract email domain and check for duplicate companies
+  const emailDomain = email.split('@')[1].toLowerCase()
+  const { data: existingCompanyWithDomain } = await admin
+    .from('companies')
+    .select('id, name')
+    .eq('domain', emailDomain)
+    .maybeSingle()
+
+  if (existingCompanyWithDomain) {
+    return { error: `A company with email domain "${emailDomain}" is already registered. Contact your company admin to be added to the workspace.` }
+  }
+
   const { data: company, error: companyErr } = await admin
     .from('companies')
-    .insert({ name: companyName, slug: createUniqueSlug(companyName, 'company') })
+    .insert({ name: companyName, slug: createUniqueSlug(companyName, 'company'), domain: emailDomain })
     .select()
     .single()
 
