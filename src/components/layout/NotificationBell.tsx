@@ -134,18 +134,20 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     try {
       if (isDerived(id)) {
         // Persist dismissal in the DB so it stays gone across reloads + devices.
-        await supabase.from('alert_states').upsert(
+        const { error } = await supabase.from('alert_states').upsert(
           { user_id: userId, alert_key: id, dismissed: true, starred: false, updated_at: new Date().toISOString() },
           { onConflict: 'user_id,alert_key' }
         )
+        if (error) throw error
       } else {
-        await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
+        const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
+        if (error) throw error
       }
     } catch (err) {
       // Re-add the item if dismiss failed so the user knows to try again
       if (dismissed) setItems(prev => [dismissed, ...prev])
       setUnreadCount(prev => prev + 1)
-      console.error('Failed to dismiss notification', err)
+      console.error('Failed to dismiss notification:', { id, userId, error: err instanceof Error ? err.message : err })
     }
   }
 
