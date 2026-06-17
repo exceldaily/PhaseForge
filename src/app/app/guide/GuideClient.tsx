@@ -80,7 +80,7 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Adding work', text: 'Add phases one at a time on a project\'s Tasks tab, or bulk-add many at once from multi-line text. Drag rows to reorder.' },
       { heading: 'What a phase holds', text: 'Name, start/end dates, status (Not Started, In Progress, Blocked, Completed, Skipped), percent complete, an owner (a team member or a trade), color, and notes. Changing status auto-updates percent complete.' },
       { heading: 'Milestones & critical path', text: 'Flag a phase as a milestone to surface it in the Dashboard\'s Upcoming Milestones card, or mark it critical-path to highlight schedule-driving work.' },
-      { heading: 'Checklists & comments', text: 'Each phase has a checklist for sub-items and a comment thread for coordination right where the work is tracked.' },
+      { heading: 'Checklists & comments', text: 'Open a phase\'s Details to manage its checklist: add tasks, check them off, and assign each one to a teammate from the dropdown. Items save instantly and stay put. Each phase also has reminder notes and a comment thread for coordination right where the work is tracked.' },
     ],
   },
   {

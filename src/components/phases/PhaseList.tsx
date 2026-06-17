@@ -176,7 +176,11 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
         <PhaseChecklistModal
           phase={checklistPhase}
           projectId={projectId}
-          onClose={() => setChecklistPhase(null)}
+          members={members}
+          onClose={() => {
+            setChecklistPhase(null)
+            router.refresh()
+          }}
           onSave={() => {
             setChecklistPhase(null)
             router.refresh()

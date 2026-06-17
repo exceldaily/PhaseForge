@@ -143,6 +143,7 @@ export interface PhaseChecklist {
   title: string
   description: string | null
   is_completed: boolean
+  assigned_to?: string | null
   sort_order: number
   created_at: string
   updated_at: string

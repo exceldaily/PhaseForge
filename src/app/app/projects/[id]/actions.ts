@@ -57,22 +57,36 @@ export async function createPhaseQuick(projectId: string, data: { name: string; 
 
 // ── Checklist management ──────────────────────────────────────────────────
 
-export async function addPhaseChecklist(phaseId: string, title: string) {
+export async function addPhaseChecklist(phaseId: string, title: string, assignedTo?: string | null) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data: checklist, error } = await supabase
+    // Append to the end of the existing list.
+    const { data: maxSort } = await supabase
       .from('phase_checklists')
-      .insert({
-        phase_id: phaseId,
-        title: title.trim(),
-        is_completed: false,
-        sort_order: 0,
-      })
-      .select()
-      .single()
+      .select('sort_order')
+      .eq('phase_id', phaseId)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const payload: Record<string, unknown> = {
+      phase_id: phaseId,
+      title: title.trim(),
+      is_completed: false,
+      sort_order: (maxSort?.sort_order ?? -1) + 1,
+    }
+    if (assignedTo) payload.assigned_to = assignedTo
+
+    let { data: checklist, error } = await supabase.from('phase_checklists').insert(payload).select().single()
+
+    // Graceful fallback if the assigned_to column hasn't been migrated yet.
+    if (error && `${error.message}`.toLowerCase().includes('assigned_to')) {
+      delete payload.assigned_to
+      ;({ data: checklist, error } = await supabase.from('phase_checklists').insert(payload).select().single())
+    }
 
     if (error) throw error
 
@@ -84,16 +98,27 @@ export async function addPhaseChecklist(phaseId: string, title: string) {
   }
 }
 
-export async function updatePhaseChecklist(checklistId: string, updates: { is_completed?: boolean; title?: string }) {
+export async function updatePhaseChecklist(
+  checklistId: string,
+  updates: { is_completed?: boolean; title?: string; assigned_to?: string | null }
+) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { error } = await supabase
-      .from('phase_checklists')
-      .update(updates)
-      .eq('id', checklistId)
+    let { error } = await supabase.from('phase_checklists').update(updates).eq('id', checklistId)
+
+    // Graceful fallback if the assigned_to column hasn't been migrated yet.
+    if (error && `${error.message}`.toLowerCase().includes('assigned_to')) {
+      const rest = { ...updates }
+      delete rest.assigned_to
+      if (Object.keys(rest).length > 0) {
+        ;({ error } = await supabase.from('phase_checklists').update(rest).eq('id', checklistId))
+      } else {
+        error = null
+      }
+    }
 
     if (error) throw error
 
