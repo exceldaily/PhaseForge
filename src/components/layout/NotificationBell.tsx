@@ -67,6 +67,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     ])
 
     const stateMap = new Map((alertStates ?? []).map(s => [s.alert_key, s]))
+    console.log('Alert states fetched:', alertStates?.length ?? 0, alertStates)
     // Show a derived alert unless it's dismissed (and not starred).
     const visible = (key: string) => {
       const st = stateMap.get(key)
