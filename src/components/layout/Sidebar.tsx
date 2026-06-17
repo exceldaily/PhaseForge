@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
-  BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen,
+  BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -14,6 +14,7 @@ import { GantticLogo } from '@/components/branding/GantticLogo'
 
 const NAV_ITEMS = [
   { href: '/app/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
+  { href: '/app/my-work',      label: 'My Work',      icon: ListChecks },
   { href: '/app/boards',       label: 'Boards',       icon: Layers },
   { href: '/app/projects',     label: 'Projects',     icon: FolderKanban },
   { href: '/app/gantt',        label: 'Gantt',        icon: GanttChartSquare },

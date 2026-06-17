@@ -107,10 +107,12 @@ export async function updatePhaseChecklist(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
+    let assignedPersisted = !!updates.assigned_to
     let { error } = await supabase.from('phase_checklists').update(updates).eq('id', checklistId)
 
     // Graceful fallback if the assigned_to column hasn't been migrated yet.
     if (error && `${error.message}`.toLowerCase().includes('assigned_to')) {
+      assignedPersisted = false
       const rest = { ...updates }
       delete rest.assigned_to
       if (Object.keys(rest).length > 0) {
@@ -122,11 +124,49 @@ export async function updatePhaseChecklist(
 
     if (error) throw error
 
+    // Notify the newly-assigned teammate (best-effort; never blocks the save).
+    if (assignedPersisted && updates.assigned_to) {
+      await notifyChecklistAssignment(supabase, user.id, checklistId, updates.assigned_to)
+    }
+
     revalidatePath(`/app/projects`)
     return { success: true }
   } catch (err) {
     logger.error('updatePhaseChecklist', err)
     return { success: false, error: err instanceof Error ? err.message : 'Failed to update checklist' }
+  }
+}
+
+// Create a notification for whoever a checklist task was just assigned to.
+async function notifyChecklistAssignment(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  actorId: string,
+  checklistId: string,
+  assigneeId: string
+) {
+  try {
+    if (!assigneeId || assigneeId === actorId) return
+    const { data } = await supabase
+      .from('phase_checklists')
+      .select('title, phase:phases(name, project:projects(id, name, company_id))')
+      .eq('id', checklistId)
+      .single()
+    const cl = data as unknown as {
+      title: string
+      phase?: { name?: string; project?: { id: string; name: string; company_id: string } }
+    } | null
+    const project = cl?.phase?.project
+    if (!cl || !project?.company_id) return
+    await supabase.from('notifications').insert({
+      user_id: assigneeId,
+      company_id: project.company_id,
+      type: 'mention',
+      title: 'Task assigned to you',
+      body: `${cl.title} — ${project.name}${cl.phase?.name ? ` / ${cl.phase.name}` : ''}`,
+      link: `/app/projects/${project.id}?tab=tasks`,
+    })
+  } catch (err) {
+    logger.error('notifyChecklistAssignment', err)
   }
 }
 

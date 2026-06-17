@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { NotificationsClient } from './NotificationsClient'
 
+// Always reflect live data (derived alerts + dismiss/star state), never a cache.
+export const dynamic = 'force-dynamic'
+
 export default async function NotificationsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

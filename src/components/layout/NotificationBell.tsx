@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Bell, CheckCheck, AlertTriangle, Clock, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -37,6 +38,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
   const [loading, setLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
 
   // ── Close on outside click ───────────────────────────────────────────────
   useEffect(() => {
@@ -110,10 +112,11 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     setLoading(false)
   }, [userId, companyId])
 
-  // Fetch count on mount (lightweight — just to show badge)
+  // Fetch count on mount AND whenever the route changes, so the badge can't go
+  // stale (e.g. after dismissing things on the Notifications page).
   useEffect(() => {
     fetchItems()
-  }, [fetchItems])
+  }, [fetchItems, pathname])
 
   // Fetch full list when dropdown opens
   useEffect(() => {

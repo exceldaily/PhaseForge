@@ -1,0 +1,118 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { Check, ListChecks, CalendarClock, ArrowRight } from 'lucide-react'
+import { updatePhaseChecklist } from '@/app/app/projects/[id]/actions'
+import { PHASE_STATUS_LABELS, PHASE_STATUS_COLORS } from '@/lib/constants'
+import { formatDate } from '@/lib/dates'
+import { PhaseStatus } from '@/types/app'
+import { cn } from '@/lib/utils'
+import type { MyPhase, MyTask } from './page'
+
+export function MyWorkClient({ firstName, tasks: initialTasks, phases }: { firstName: string; tasks: MyTask[]; phases: MyPhase[] }) {
+  const [tasks, setTasks] = useState(initialTasks)
+
+  const toggle = async (id: string, isCompleted: boolean) => {
+    setTasks(ts => ts.map(t => (t.id === id ? { ...t, is_completed: !isCompleted } : t)))
+    await updatePhaseChecklist(id, { is_completed: !isCompleted })
+  }
+
+  const todo = tasks.filter(t => !t.is_completed)
+  const done = tasks.filter(t => t.is_completed)
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-8 p-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">My Work</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {firstName ? `${firstName}, here's ` : "Here's "}everything assigned to you.
+        </p>
+      </div>
+
+      {/* Assigned tasks */}
+      <section>
+        <div className="mb-3 flex items-center gap-2">
+          <ListChecks size={18} className="text-indigo-500" />
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">My Tasks</h2>
+          <span className="text-xs text-slate-400">{todo.length} to do</span>
+        </div>
+
+        {tasks.length === 0 ? (
+          <EmptyCard text="No checklist tasks are assigned to you right now." />
+        ) : (
+          <div className="space-y-2">
+            {[...todo, ...done].map(task => (
+              <div key={task.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+                <button
+                  onClick={() => toggle(task.id, task.is_completed)}
+                  className={cn(
+                    'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition',
+                    task.is_completed ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 hover:border-emerald-400'
+                  )}
+                >
+                  {task.is_completed && <Check size={14} className="text-white" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className={cn('text-sm font-medium', task.is_completed ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-slate-100')}>
+                    {task.title}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: task.projectColor }} />
+                    <span className="truncate">{task.projectName}{task.phaseName ? ` · ${task.phaseName}` : ''}</span>
+                  </div>
+                </div>
+                {task.projectId && (
+                  <Link href={`/app/projects/${task.projectId}?tab=tasks`} className="flex-shrink-0 text-slate-300 hover:text-indigo-600">
+                    <ArrowRight size={16} />
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Assigned phases */}
+      <section>
+        <div className="mb-3 flex items-center gap-2">
+          <CalendarClock size={18} className="text-indigo-500" />
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">My Phases</h2>
+          <span className="text-xs text-slate-400">{phases.length}</span>
+        </div>
+
+        {phases.length === 0 ? (
+          <EmptyCard text="No phases are assigned to you right now." />
+        ) : (
+          <div className="space-y-2">
+            {phases.map(phase => (
+              <Link
+                key={phase.id}
+                href={`/app/projects/${phase.projectId}`}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 transition hover:border-slate-300"
+              >
+                <span className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: phase.projectColor }} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{phase.name}</p>
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">{phase.projectName}</p>
+                </div>
+                <span className="flex-shrink-0 text-xs font-medium" style={{ color: PHASE_STATUS_COLORS[phase.status as PhaseStatus] }}>
+                  {PHASE_STATUS_LABELS[phase.status as PhaseStatus] ?? phase.status}
+                </span>
+                <span className="hidden flex-shrink-0 text-xs text-slate-400 sm:inline">{formatDate(phase.end_date, 'MMM d')}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function EmptyCard({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-6 py-10 text-center">
+      <p className="text-sm text-slate-400">{text}</p>
+    </div>
+  )
+}

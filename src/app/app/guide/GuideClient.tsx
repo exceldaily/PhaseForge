@@ -39,6 +39,19 @@ const SECTIONS: GuideSection[] = [
     ],
   },
   {
+    id: 'my-work',
+    icon: ListChecks,
+    title: 'My Work',
+    summary: 'Everything assigned to you, in one place.',
+    href: '/app/my-work',
+    hrefLabel: 'Open My Work',
+    items: [
+      { heading: 'My Tasks', text: 'Every checklist task assigned to you across all projects, with the project and phase it belongs to. Check items off right here, or jump to the project.' },
+      { heading: 'My Phases', text: 'Phases where you are the assignee, with their status and finish date, sorted by what is due soonest.' },
+      { heading: 'Getting assigned', text: 'When someone assigns you a checklist task (from a phase\'s Details), you get a notification in the bell, and the task shows up under My Tasks.' },
+    ],
+  },
+  {
     id: 'boards',
     icon: Layers,
     title: 'Boards',
