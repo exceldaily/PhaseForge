@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, User, Building2 } from 'lucide-react'
@@ -11,7 +11,17 @@ import { MIN_PASSWORD_LENGTH, validatePassword } from '@/lib/auth/password'
 import { BRAND_NAME } from '@/lib/branding'
 import { ForceLightTheme } from '@/components/layout/ForceLightTheme'
 
+// useSearchParams() must be inside a Suspense boundary, otherwise the static
+// prerender of /signup bails out and the build fails.
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7efe6]" />}>
+      <SignupForm />
+    </Suspense>
+  )
+}
+
+function SignupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inviteToken = searchParams?.get('invite') ?? null
