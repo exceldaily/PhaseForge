@@ -124,6 +124,10 @@ export async function createWorkspace(formData: {
     company = newCompany
   }
 
+  if (!company) {
+    return { error: 'Could not resolve a workspace for this signup. Please try again.' }
+  }
+
   if (existingAuthUser) {
     const { error: updateAuthErr } = await admin.auth.admin.updateUserById(existingAuthUser.id, {
       password: formData.password,
@@ -197,11 +201,11 @@ export async function createWorkspace(formData: {
 
   // Mark invite as accepted if this was an invited signup
   if (formData.inviteToken) {
-    await admin
+    const { error: inviteUpdateErr } = await admin
       .from('company_invites')
       .update({ status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('token', formData.inviteToken)
-      .catch(err => console.error('Failed to mark invite as accepted:', err))
+    if (inviteUpdateErr) console.error('Failed to mark invite as accepted:', inviteUpdateErr)
   }
 
   // Send welcome email (fire and forget; don't block signup on email failure)

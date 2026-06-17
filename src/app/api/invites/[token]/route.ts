@@ -1,14 +1,15 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse, NextRequest } from 'next/server'
 
-export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   try {
+    const { token } = await params
     const admin = createAdminClient()
 
     const { data: invite, error } = await admin
       .from('company_invites')
       .select('email, status, companies(name)')
-      .eq('token', params.token)
+      .eq('token', token)
       .eq('status', 'pending')
       .single()
 
