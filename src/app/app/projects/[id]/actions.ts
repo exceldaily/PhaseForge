@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isMissingLinksColumnError } from '@/lib/projectAudit'
 import { logger } from '@/lib/logger'
 
 // ── Phase creation ────────────────────────────────────────────────────────
@@ -161,10 +162,20 @@ export async function updateProject(projectId: string, updates: Record<string, u
     if (!oldProject) throw new Error('Project not found')
 
     // Update the project
-    const { error } = await supabase
+    let { error } = await supabase
       .from('projects')
       .update({ ...updates, updated_at: new Date().toISOString(), updated_by: user.id })
       .eq('id', projectId)
+
+    // Graceful fallback if the links column hasn't been migrated yet.
+    if (error && isMissingLinksColumnError(error)) {
+      const withoutLinks = { ...updates }
+      delete withoutLinks.links
+      ;({ error } = await supabase
+        .from('projects')
+        .update({ ...withoutLinks, updated_at: new Date().toISOString(), updated_by: user.id })
+        .eq('id', projectId))
+    }
 
     if (error) throw error
 

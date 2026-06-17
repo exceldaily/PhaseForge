@@ -18,6 +18,14 @@ export function isMissingUpdatedByColumnError(
   return combined.includes('updated_by') && combined.includes('column')
 }
 
+/** True when the projects.links column hasn't been added yet (pre-migration). */
+export function isMissingLinksColumnError(
+  error: ProjectAuditError | null | undefined
+) {
+  const combined = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''}`.toLowerCase()
+  return combined.includes('links') && (combined.includes('column') || combined.includes('schema cache'))
+}
+
 export function getProjectLastUpdatedByName(
   project: ProjectAuditFields,
   memberMap: Record<string, string>

@@ -7,6 +7,7 @@ import {
   Activity,
   CheckSquare,
   Edit,
+  ExternalLink,
   GanttChartSquare,
   GripVertical,
   MapPin,
@@ -22,7 +23,7 @@ import {
 } from '@/lib/projectBoard'
 import { PRIORITY_COLORS, PRIORITY_LABELS } from '@/lib/constants'
 import { Project, ProjectPriority } from '@/types/app'
-import { cn } from '@/lib/utils'
+import { cn, safeExternalUrl } from '@/lib/utils'
 
 export interface ProjectBoardStageOption {
   id: string
@@ -306,6 +307,28 @@ export function ProjectBoardCard({
             {PRIORITY_LABELS[project.priority as ProjectPriority]}
           </Badge>
         </div>
+
+        {project.links && project.links.length > 0 && (
+          <div className="flex flex-wrap gap-2" data-card-action="true">
+            {project.links.map((link, i) => {
+              const href = safeExternalUrl(link.url)
+              if (!href) return null
+              return (
+                <a
+                  key={i}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-indigo-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50"
+                >
+                  <ExternalLink size={11} className="flex-shrink-0" />
+                  <span className="truncate">{link.label}</span>
+                </a>
+              )
+            })}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <Link

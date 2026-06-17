@@ -73,6 +73,11 @@ export interface Profile {
   created_at: string
 }
 
+export interface ProjectLink {
+  label: string
+  url: string
+}
+
 export interface Project {
   id: string
   company_id: string
@@ -87,6 +92,7 @@ export interface Project {
   notes: string | null
   color: string
   tags: string[]
+  links?: ProjectLink[]
   superintendent: string | null
   subcontractors: string[]
   permit_status: string | null

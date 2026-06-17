@@ -1,16 +1,17 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X } from 'lucide-react'
+import { Link2, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { safeExternalUrl } from '@/lib/utils'
 import { checkProjectLimit } from '@/lib/planLimits'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
-import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
+import { isMissingLinksColumnError, isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { updateProject, updateProjectBoard } from '@/app/app/projects/[id]/actions'
-import { Project } from '@/types/app'
+import { Project, ProjectLink } from '@/types/app'
 
 interface Member { id: string; full_name: string; email: string; role: string }
 interface BoardColumn { id: string; name: string; sort_order: number; color: string }
@@ -47,6 +48,8 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [newSub, setNewSub] = useState('')
+  const [newLinkLabel, setNewLinkLabel] = useState('')
+  const [newLinkUrl, setNewLinkUrl] = useState('')
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(project?.board_id || defaultBoardId || null)
   const [selectedColumnId, setSelectedColumnId] = useState<string | null>(project?.board_column_id || defaultColumnId || null)
   const [form, setForm] = useState({
@@ -63,6 +66,7 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
     priority: project?.priority || 'medium',
     notes: project?.notes || '',
     color: project?.color || DEFAULT_PHASE_COLORS[0],
+    links: (project?.links || []) as ProjectLink[],
   })
 
   const selectedBoard = boards.find(b => b.id === selectedBoardId)
@@ -84,6 +88,25 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
 
   const removeSub = (i: number) =>
     setForm(f => ({ ...f, subcontractors: f.subcontractors.filter((_, idx) => idx !== i) }))
+
+  const addLink = () => {
+    const url = safeExternalUrl(newLinkUrl)
+    if (!url) {
+      setError('Enter a valid web address, e.g. https://example.com')
+      return
+    }
+    let label = newLinkLabel.trim()
+    if (!label) {
+      try { label = new URL(url).hostname.replace(/^www\./, '') } catch { label = url }
+    }
+    setForm(f => ({ ...f, links: [...(f.links || []), { label, url }] }))
+    setNewLinkLabel('')
+    setNewLinkUrl('')
+    setError('')
+  }
+
+  const removeLink = (i: number) =>
+    setForm(f => ({ ...f, links: (f.links || []).filter((_, idx) => idx !== i) }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,6 +164,20 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
         ;({ data, error } = await supabase.from('projects').insert({
           ...form, ...boardFields, company_id: companyId, created_by: currentUserId,
         }).select().single())
+      }
+
+      // Graceful fallback if the links column hasn't been migrated yet.
+      if (error && isMissingLinksColumnError(error)) {
+        const formNoLinks = { ...form } as Record<string, unknown>
+        delete formNoLinks.links
+        ;({ data, error } = await supabase.from('projects').insert({
+          ...formNoLinks, ...boardFields, company_id: companyId, created_by: currentUserId, updated_by: currentUserId,
+        }).select().single())
+        if (error && isMissingUpdatedByColumnError(error)) {
+          ;({ data, error } = await supabase.from('projects').insert({
+            ...formNoLinks, ...boardFields, company_id: companyId, created_by: currentUserId,
+          }).select().single())
+        }
       }
 
       if (error) { setError(error.message); setLoading(false); return }
@@ -338,6 +375,46 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
           <textarea value={form.notes} onChange={set('notes')} rows={3} placeholder="Any additional notes..."
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
         </div>
+      </section>
+
+      {/* Links */}
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Links</h3>
+          <p className="mt-1 text-xs text-slate-400">Quick links to plan sets, store info, permit portals, spec sheets — anything you want one tap away.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={newLinkLabel}
+            onChange={e => setNewLinkLabel(e.target.value)}
+            placeholder="Label (optional)"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-44"
+          />
+          <input
+            value={newLinkUrl}
+            onChange={e => setNewLinkUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
+            placeholder="https://example.com"
+            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <Button type="button" variant="secondary" size="sm" onClick={addLink}><Plus size={14} /> Add</Button>
+        </div>
+        {form.links.length > 0 && (
+          <div className="space-y-2">
+            {form.links.map((l, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <Link2 size={14} className="flex-shrink-0 text-slate-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-700">{l.label}</p>
+                  <p className="truncate text-xs text-slate-400">{l.url}</p>
+                </div>
+                <button type="button" onClick={() => removeLink(i)} className="text-slate-400 transition-colors hover:text-rose-500">
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {error && <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">{error}</div>}
