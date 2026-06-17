@@ -40,6 +40,7 @@ export async function createWorkspace(formData: {
   companyName: string
   email: string
   password: string
+  inviteToken?: string
 }) {
   const supabase = await createClient()
   const admin = createAdminClient()
@@ -48,10 +49,34 @@ export async function createWorkspace(formData: {
   const companyName = formData.companyName.trim()
 
   if (!fullName) return { error: 'Please enter your name.' }
-  if (!companyName) return { error: 'Please enter your company name.' }
 
   const passwordError = validatePassword(formData.password)
   if (passwordError) return { error: passwordError }
+
+  // Check for invite token (invited users join existing company)
+  let company: { id: string; name: string } | null = null
+  if (formData.inviteToken) {
+    const { data: invite, error: inviteErr } = await admin
+      .from('company_invites')
+      .select('company_id, email, companies(id, name)')
+      .eq('token', formData.inviteToken)
+      .eq('status', 'pending')
+      .single()
+
+    if (inviteErr || !invite) {
+      return { error: 'Invalid or expired invite link.' }
+    }
+
+    // Verify email matches
+    if (invite.email.toLowerCase() !== email) {
+      return { error: `This invite is for ${invite.email}. Please sign up with that email address.` }
+    }
+
+    company = (invite.companies as any)
+  } else {
+    // Not invited — must provide company name
+    if (!companyName) return { error: 'Please enter your company name.' }
+  }
 
   const { data: existingUser } = await admin
     .from('profiles')
@@ -76,25 +101,28 @@ export async function createWorkspace(formData: {
     }
   }
 
-  // Extract email domain and check for duplicate companies
-  const emailDomain = email.split('@')[1].toLowerCase()
-  const { data: existingCompanyWithDomain } = await admin
-    .from('companies')
-    .select('id, name')
-    .eq('domain', emailDomain)
-    .maybeSingle()
+  // If not invited, create a new company with domain check
+  if (!company) {
+    const emailDomain = email.split('@')[1].toLowerCase()
+    const { data: existingCompanyWithDomain } = await admin
+      .from('companies')
+      .select('id, name')
+      .eq('domain', emailDomain)
+      .maybeSingle()
 
-  if (existingCompanyWithDomain) {
-    return { error: `A company with email domain "${emailDomain}" is already registered. Contact your company admin to be added to the workspace.` }
+    if (existingCompanyWithDomain) {
+      return { error: `A company with email domain "${emailDomain}" is already registered. Contact your company admin to be added to the workspace.` }
+    }
+
+    const { data: newCompany, error: companyErr } = await admin
+      .from('companies')
+      .insert({ name: companyName, slug: createUniqueSlug(companyName, 'company'), domain: emailDomain })
+      .select()
+      .single()
+
+    if (companyErr) return { error: companyErr.message }
+    company = newCompany
   }
-
-  const { data: company, error: companyErr } = await admin
-    .from('companies')
-    .insert({ name: companyName, slug: createUniqueSlug(companyName, 'company'), domain: emailDomain })
-    .select()
-    .single()
-
-  if (companyErr) return { error: companyErr.message }
 
   if (existingAuthUser) {
     const { error: updateAuthErr } = await admin.auth.admin.updateUserById(existingAuthUser.id, {
@@ -166,6 +194,15 @@ export async function createWorkspace(formData: {
   })
 
   if (profileErr) return { error: profileErr.message }
+
+  // Mark invite as accepted if this was an invited signup
+  if (formData.inviteToken) {
+    await admin
+      .from('company_invites')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('token', formData.inviteToken)
+      .catch(err => console.error('Failed to mark invite as accepted:', err))
+  }
 
   // Send welcome email (fire and forget; don't block signup on email failure)
   sendWelcomeEmail(email, fullName).catch(err => console.error('Welcome email failed:', err))

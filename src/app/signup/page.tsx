@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock, User, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -13,10 +13,36 @@ import { ForceLightTheme } from '@/components/layout/ForceLightTheme'
 
 export default function SignupPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const inviteToken = searchParams?.get('invite') ?? null
+
   const [form, setForm] = useState({ fullName: '', companyName: '', email: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [confirmEmail, setConfirmEmail] = useState(false)
+  const [inviteInfo, setInviteInfo] = useState<{ companyName: string } | null>(null)
+  const [inviteLoading, setInviteLoading] = useState(!!inviteToken)
+
+  // Fetch invite details if token provided
+  useEffect(() => {
+    if (!inviteToken) return
+
+    const fetchInvite = async () => {
+      try {
+        const res = await fetch(`/api/invites/${inviteToken}`)
+        if (res.ok) {
+          const data = await res.json()
+          setInviteInfo(data)
+        }
+      } catch (err) {
+        console.error('Failed to fetch invite:', err)
+      } finally {
+        setInviteLoading(false)
+      }
+    }
+
+    fetchInvite()
+  }, [inviteToken])
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }))
@@ -38,6 +64,7 @@ export default function SignupPage() {
       companyName: form.companyName,
       email: form.email,
       password: form.password,
+      inviteToken: inviteToken ?? undefined,
     })
 
     if (result.error) {
@@ -114,7 +141,16 @@ export default function SignupPage() {
 
           <form onSubmit={handleSignup} className="space-y-4">
             <Input id="fullName" label="Your name" placeholder="Jane Smith" value={form.fullName} onChange={set('fullName')} icon={<User size={16} />} className="border-[#e7cfb4] focus:ring-[#d78829]" required />
-            <Input id="companyName" label="Company name" placeholder="Acme Construction" value={form.companyName} onChange={set('companyName')} icon={<Building2 size={16} />} className="border-[#e7cfb4] focus:ring-[#d78829]" required />
+            {inviteLoading ? (
+              <div className="h-12 bg-slate-100 rounded-lg animate-pulse" />
+            ) : inviteInfo ? (
+              <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+                <p className="text-sm text-slate-600">Joining company:</p>
+                <p className="font-semibold text-slate-900">{inviteInfo.companyName}</p>
+              </div>
+            ) : (
+              <Input id="companyName" label="Company name" placeholder="Acme Construction" value={form.companyName} onChange={set('companyName')} icon={<Building2 size={16} />} className="border-[#e7cfb4] focus:ring-[#d78829]" required />
+            )}
             <Input id="email" type="email" label="Work email" placeholder="jane@acme.com" value={form.email} onChange={set('email')} icon={<Mail size={16} />} className="border-[#e7cfb4] focus:ring-[#d78829]" required />
             <Input id="password" type="password" label="Password" placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`} value={form.password} onChange={set('password')} icon={<Lock size={16} />} className="border-[#e7cfb4] focus:ring-[#d78829]" required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
             <Input id="confirmPassword" type="password" label="Confirm password" placeholder="Re-enter your password" value={form.confirmPassword} onChange={set('confirmPassword')} icon={<Lock size={16} />} className="border-[#e7cfb4] focus:ring-[#d78829]" required minLength={MIN_PASSWORD_LENGTH} autoComplete="new-password" />
