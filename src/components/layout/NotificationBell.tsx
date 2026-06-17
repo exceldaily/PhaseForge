@@ -28,33 +28,14 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   system:          <Info size={13} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />,
 }
 
-const DISMISSED_NOTIFICATIONS_KEY = 'phaseforge_dismissed_notifications'
-
-function getDismissedNotifications(): Set<string> {
-  if (typeof window === 'undefined') return new Set()
-  try {
-    const stored = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY)
-    return new Set(stored ? JSON.parse(stored) : [])
-  } catch {
-    return new Set()
-  }
-}
-
-function saveDismissedNotifications(ids: Set<string>) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(DISMISSED_NOTIFICATIONS_KEY, JSON.stringify(Array.from(ids)))
-  } catch {
-    console.warn('Failed to save dismissed notifications')
-  }
-}
+// Derived alerts (vs stored DB notifications) use these id prefixes.
+const isDerived = (id: string) => id.startsWith('proj-') || id.startsWith('phase-')
 
 export function NotificationBell({ userId, companyId }: NotificationBellProps) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
   const [loading, setLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const [dismissed, setDismissed] = useState<Set<string>>(getDismissedNotifications())
   const ref = useRef<HTMLDivElement>(null)
 
   // ── Close on outside click ───────────────────────────────────────────────
@@ -73,17 +54,25 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     const today = new Date().toISOString().split('T')[0]
     const soonDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-    const [{ data: stored }, { data: projects }] = await Promise.all([
+    const [{ data: stored }, { data: projects }, { data: alertStates }] = await Promise.all([
       supabase.from('notifications').select('*')
         .eq('user_id', userId).eq('read', false)
         .order('created_at', { ascending: false }).limit(20),
       supabase.from('projects').select('id, name, end_date, status, color, phases(*)')
         .eq('company_id', companyId).eq('is_archived', false).neq('status', 'closed'),
+      supabase.from('alert_states').select('alert_key, starred, dismissed').eq('user_id', userId),
     ])
+
+    const stateMap = new Map((alertStates ?? []).map(s => [s.alert_key, s]))
+    // Show a derived alert unless it's dismissed (and not starred).
+    const visible = (key: string) => {
+      const st = stateMap.get(key)
+      return !(st?.dismissed && !st?.starred)
+    }
 
     const computed: Notification[] = []
     for (const project of projects ?? []) {
-      if (project.end_date < today && !dismissed.has(`proj-overdue-${project.id}`)) {
+      if (project.end_date < today && visible(`proj-overdue-${project.id}`)) {
         computed.push({
           id: `proj-overdue-${project.id}`, type: 'project_overdue',
           title: 'Project overdue',
@@ -94,7 +83,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
       }
       for (const phase of project.phases ?? []) {
         if (['completed', 'skipped'].includes(phase.status)) continue
-        if (phase.end_date < today && !dismissed.has(`phase-overdue-${phase.id}`)) {
+        if (phase.end_date < today && visible(`phase-overdue-${phase.id}`)) {
           computed.push({
             id: `phase-overdue-${phase.id}`, type: 'phase_overdue',
             title: 'Phase overdue',
@@ -102,7 +91,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
             link: `/app/gantt?project=${project.id}`, read: false,
             created_at: new Date().toISOString(),
           })
-        } else if (phase.end_date <= soonDate && !dismissed.has(`phase-soon-${phase.id}`)) {
+        } else if (phase.end_date <= soonDate && visible(`phase-soon-${phase.id}`)) {
           computed.push({
             id: `phase-soon-${phase.id}`, type: 'phase_due_soon',
             title: 'Phase due soon',
@@ -136,15 +125,14 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     setItems(prev => prev.filter(n => n.id !== id))
     setUnreadCount(prev => Math.max(0, prev - 1))
 
-    // Track dismissed computed notifications
-    if (id.startsWith('proj-') || id.startsWith('phase-')) {
-      const newDismissed = new Set(dismissed)
-      newDismissed.add(id)
-      setDismissed(newDismissed)
-      saveDismissedNotifications(newDismissed)
+    const supabase = createClient()
+    if (isDerived(id)) {
+      // Persist dismissal in the DB so it stays gone across reloads + devices.
+      supabase.from('alert_states').upsert(
+        { user_id: userId, alert_key: id, dismissed: true, starred: false, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,alert_key' }
+      ).then(() => {})
     } else {
-      // Mark stored notifications as read in DB
-      const supabase = createClient()
       supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
     }
   }

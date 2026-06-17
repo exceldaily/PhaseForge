@@ -29,55 +29,64 @@ export default async function NotificationsPage() {
     .order('created_at', { ascending: false })
     .limit(50)
 
+  // Per-user dismiss/star state for derived alerts (shared with mobile).
+  const { data: alertStates } = await supabase
+    .from('alert_states')
+    .select('alert_key, starred, dismissed')
+    .eq('user_id', user.id)
+  const stateMap = new Map((alertStates ?? []).map(s => [s.alert_key, s]))
+
   // Build computed alerts (not stored — generated fresh each page load)
   const alerts: {
-    id: string; type: string; title: string; body: string; link: string; read: boolean; created_at: string
+    id: string; type: string; title: string; body: string; link: string; read: boolean; created_at: string; starred?: boolean
   }[] = []
+
+  const pushAlert = (a: { id: string; type: string; title: string; body: string; link: string }) => {
+    const st = stateMap.get(a.id)
+    // Dismissed alerts stay gone unless the user starred them.
+    if (st?.dismissed && !st?.starred) return
+    alerts.push({ ...a, read: false, created_at: new Date().toISOString(), starred: st?.starred ?? false })
+  }
 
   for (const project of projects ?? []) {
     if (project.end_date < today) {
-      alerts.push({
+      pushAlert({
         id: `proj-overdue-${project.id}`,
         type: 'project_overdue',
         title: 'Project overdue',
         body: `"${project.name}" passed its end date.`,
         link: `/app/projects/${project.id}`,
-        read: false,
-        created_at: new Date().toISOString(),
       })
     }
     for (const phase of (project.phases ?? [])) {
       if (['completed', 'skipped'].includes(phase.status)) continue
       if (phase.end_date < today) {
-        alerts.push({
+        pushAlert({
           id: `phase-overdue-${phase.id}`,
           type: 'phase_overdue',
           title: 'Phase overdue',
           body: `"${phase.name}" in ${project.name} is past due.`,
           link: `/app/gantt?project=${project.id}`,
-          read: false,
-          created_at: new Date().toISOString(),
         })
       } else if (phase.end_date <= soonDate) {
-        alerts.push({
+        pushAlert({
           id: `phase-soon-${phase.id}`,
           type: 'phase_due_soon',
           title: 'Phase due soon',
           body: `"${phase.name}" in ${project.name} ends ${phase.end_date}.`,
           link: `/app/gantt?project=${project.id}`,
-          read: false,
-          created_at: new Date().toISOString(),
         })
       }
     }
   }
 
-  // Merge: stored notifications first, then computed alerts not already stored
+  // Merge: stored notifications first, then computed alerts not already stored.
+  // Starred alerts float to the top.
   const storedIds = new Set((stored ?? []).map(n => n.id))
   const merged = [
     ...(stored ?? []),
     ...alerts.filter(a => !storedIds.has(a.id)),
-  ]
+  ].sort((a, b) => Number(Boolean((b as { starred?: boolean }).starred)) - Number(Boolean((a as { starred?: boolean }).starred)))
 
   return <NotificationsClient notifications={merged} userId={user.id} />
 }

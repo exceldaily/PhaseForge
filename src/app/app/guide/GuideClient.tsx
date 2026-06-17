@@ -138,7 +138,8 @@ const SECTIONS: GuideSection[] = [
     items: [
       { heading: 'The bell', text: 'The bell in the top bar shows your unread count and a quick preview of recent notifications; click through for the full inbox.' },
       { heading: 'What you\'re told about', text: 'Overdue projects, overdue phases, and phases coming due soon — computed automatically from your schedule dates — plus system alerts.' },
-      { heading: 'Managing them', text: 'Dismiss notifications one at a time or mark everything read in one click.' },
+      { heading: 'Managing them', text: 'Dismiss notifications one at a time or mark everything read in one click. Dismissing a computed alert (overdue/due-soon) now sticks — it won\'t come back on reload, and your choice syncs to the mobile app.' },
+      { heading: 'Star to keep', text: 'Star an alert to pin it to the top and keep it around even if you\'d otherwise dismiss it — handy for the one deadline you can\'t let slip. Starred and dismissed states are shared between the web and mobile apps.' },
     ],
   },
   {

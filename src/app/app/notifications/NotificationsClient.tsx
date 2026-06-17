@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bell, CheckCheck, AlertTriangle, Clock, Info } from 'lucide-react'
+import { Bell, CheckCheck, AlertTriangle, Clock, Info, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
@@ -14,7 +14,11 @@ interface Notification {
   link: string | null
   read: boolean
   created_at: string
+  starred?: boolean
 }
+
+// Derived alerts (vs stored DB notifications) use these id prefixes.
+const isDerived = (id: string) => id.startsWith('proj-') || id.startsWith('phase-')
 
 interface NotificationsClientProps {
   notifications: Notification[]
@@ -44,10 +48,27 @@ export function NotificationsClient({ notifications: initial, userId }: Notifica
   const markRead = async (id: string) => {
     // Remove immediately — read notifications disappear
     setNotifications(prev => prev.filter(n => n.id !== id))
-    if (!id.startsWith('proj-') && !id.startsWith('phase-')) {
-      const supabase = createClient()
+    const supabase = createClient()
+    if (isDerived(id)) {
+      // Persist dismissal so it stays gone across reloads + devices.
+      await supabase.from('alert_states').upsert(
+        { user_id: userId, alert_key: id, dismissed: true, starred: false, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,alert_key' }
+      )
+    } else {
       await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
     }
+  }
+
+  const toggleStar = async (id: string) => {
+    if (!isDerived(id)) return
+    const next = !notifications.find(n => n.id === id)?.starred
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, starred: next } : n)))
+    const supabase = createClient()
+    await supabase.from('alert_states').upsert(
+      { user_id: userId, alert_key: id, starred: next, dismissed: false, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,alert_key' }
+    )
   }
 
   const markAllRead = async () => {
@@ -92,10 +113,19 @@ export function NotificationsClient({ notifications: initial, userId }: Notifica
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-semibold text-slate-900">{n.title}</p>
-                  <button onClick={() => markRead(n.id)}
-                    className="flex-shrink-0 text-xs text-slate-400 hover:text-rose-500 transition-colors">
-                    Dismiss
-                  </button>
+                  <div className="flex flex-shrink-0 items-center gap-3">
+                    {isDerived(n.id) && (
+                      <button onClick={() => toggleStar(n.id)}
+                        aria-label={n.starred ? 'Unstar' : 'Star'}
+                        className={cn('transition-colors', n.starred ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500')}>
+                        <Star size={14} fill={n.starred ? 'currentColor' : 'none'} />
+                      </button>
+                    )}
+                    <button onClick={() => markRead(n.id)}
+                      className="text-xs text-slate-400 hover:text-rose-500 transition-colors">
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
                 {n.body && <p className="text-sm text-slate-500 mt-0.5">{n.body}</p>}
                 <div className="mt-2 flex items-center gap-3">
