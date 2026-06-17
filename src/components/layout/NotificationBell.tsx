@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Bell, CheckCheck, AlertTriangle, Clock, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -39,6 +39,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
+  const router = useRouter()
 
   // ── Close on outside click ───────────────────────────────────────────────
   useEffect(() => {
@@ -214,7 +215,8 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
 
           {/* Footer */}
           <div className="border-t border-slate-100 dark:border-slate-700 px-4 py-3">
-            <Link href="/app/notifications" onClick={() => setOpen(false)}
+            <Link href="/app/notifications" prefetch={false}
+              onClick={() => { setOpen(false); router.refresh() }}
               className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">
               View all notifications →
             </Link>

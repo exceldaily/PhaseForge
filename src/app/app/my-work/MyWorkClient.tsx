@@ -10,8 +10,11 @@ import { PhaseStatus } from '@/types/app'
 import { cn } from '@/lib/utils'
 import type { MyPhase, MyTask } from './page'
 
+type TaskFilter = 'todo' | 'completed' | 'all'
+
 export function MyWorkClient({ firstName, tasks: initialTasks, phases }: { firstName: string; tasks: MyTask[]; phases: MyPhase[] }) {
   const [tasks, setTasks] = useState(initialTasks)
+  const [filter, setFilter] = useState<TaskFilter>('todo')
 
   const toggle = async (id: string, isCompleted: boolean) => {
     setTasks(ts => ts.map(t => (t.id === id ? { ...t, is_completed: !isCompleted } : t)))
@@ -20,6 +23,7 @@ export function MyWorkClient({ firstName, tasks: initialTasks, phases }: { first
 
   const todo = tasks.filter(t => !t.is_completed)
   const done = tasks.filter(t => t.is_completed)
+  const visibleTasks = filter === 'todo' ? todo : filter === 'completed' ? done : [...todo, ...done]
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 p-6">
@@ -32,17 +36,32 @@ export function MyWorkClient({ firstName, tasks: initialTasks, phases }: { first
 
       {/* Assigned tasks */}
       <section>
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <ListChecks size={18} className="text-indigo-500" />
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">My Tasks</h2>
-          <span className="text-xs text-slate-400">{todo.length} to do</span>
+          <div className="ml-auto inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5">
+            {([['todo', `To do (${todo.length})`], ['completed', `Done (${done.length})`], ['all', 'All']] as [TaskFilter, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs font-medium transition',
+                  filter === key ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {tasks.length === 0 ? (
           <EmptyCard text="No checklist tasks are assigned to you right now." />
+        ) : visibleTasks.length === 0 ? (
+          <EmptyCard text={filter === 'completed' ? 'No completed tasks yet.' : 'Nothing to do — all caught up!'} />
         ) : (
           <div className="space-y-2">
-            {[...todo, ...done].map(task => (
+            {visibleTasks.map(task => (
               <div key={task.id} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
                 <button
                   onClick={() => toggle(task.id, task.is_completed)}
