@@ -159,7 +159,19 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     setItems([])
     setUnreadCount(0)
     const supabase = createClient()
+
+    // Mark stored notifications as read
     await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false)
+
+    // Dismiss all computed alerts in alert_states
+    for (const item of items) {
+      if (isDerived(item.id)) {
+        await supabase.from('alert_states').upsert(
+          { user_id: userId, alert_key: item.id, dismissed: true, starred: false, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,alert_key' }
+        ).catch(err => console.error('Failed to dismiss alert in markAllRead:', item.id, err))
+      }
+    }
   }
 
   return (
