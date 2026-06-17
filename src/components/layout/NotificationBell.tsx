@@ -166,10 +166,11 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     // Dismiss all computed alerts in alert_states
     for (const item of items) {
       if (isDerived(item.id)) {
-        await supabase.from('alert_states').upsert(
+        const { error } = await supabase.from('alert_states').upsert(
           { user_id: userId, alert_key: item.id, dismissed: true, starred: false, updated_at: new Date().toISOString() },
           { onConflict: 'user_id,alert_key' }
-        ).catch(err => console.error('Failed to dismiss alert in markAllRead:', item.id, err))
+        )
+        if (error) console.error('Failed to dismiss alert in markAllRead:', item.id, error)
       }
     }
   }
