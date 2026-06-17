@@ -24,11 +24,12 @@ export default async function NotificationsPage() {
     .eq('is_archived', false)
     .neq('status', 'closed')
 
-  // Fetch stored notifications
+  // Fetch unread stored notifications (match the bell's filter).
   const { data: stored } = await supabase
     .from('notifications')
     .select('*')
     .eq('user_id', user.id)
+    .eq('read', false)
     .order('created_at', { ascending: false })
     .limit(50)
 

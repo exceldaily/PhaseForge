@@ -125,19 +125,27 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
   }, [open, fetchItems])
 
   // ── Mark one read (disappears) ────────────────────────────────────────────
-  const markRead = (id: string) => {
+  const markRead = async (id: string) => {
+    const dismissed = items.find(i => i.id === id)
     setItems(prev => prev.filter(n => n.id !== id))
     setUnreadCount(prev => Math.max(0, prev - 1))
 
     const supabase = createClient()
-    if (isDerived(id)) {
-      // Persist dismissal in the DB so it stays gone across reloads + devices.
-      supabase.from('alert_states').upsert(
-        { user_id: userId, alert_key: id, dismissed: true, starred: false, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id,alert_key' }
-      ).then(() => {})
-    } else {
-      supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
+    try {
+      if (isDerived(id)) {
+        // Persist dismissal in the DB so it stays gone across reloads + devices.
+        await supabase.from('alert_states').upsert(
+          { user_id: userId, alert_key: id, dismissed: true, starred: false, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,alert_key' }
+        )
+      } else {
+        await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', userId)
+      }
+    } catch (err) {
+      // Re-add the item if dismiss failed so the user knows to try again
+      if (dismissed) setItems(prev => [dismissed, ...prev])
+      setUnreadCount(prev => prev + 1)
+      console.error('Failed to dismiss notification', err)
     }
   }
 
