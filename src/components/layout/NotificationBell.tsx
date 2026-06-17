@@ -67,11 +67,13 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     ])
 
     const stateMap = new Map((alertStates ?? []).map(s => [s.alert_key, s]))
-    console.log('Alert states fetched:', alertStates?.length ?? 0, alertStates)
+    console.log('Alert states fetched:', alertStates?.length ?? 0, 'Keys:', [...stateMap.keys()].slice(0, 5))
     // Show a derived alert unless it's dismissed (and not starred).
     const visible = (key: string) => {
       const st = stateMap.get(key)
-      return !(st?.dismissed && !st?.starred)
+      const isVisible = !(st?.dismissed && !st?.starred)
+      if (!isVisible) console.log('HIDING alert:', key, 'state:', st)
+      return isVisible
     }
 
     const computed: Notification[] = []
