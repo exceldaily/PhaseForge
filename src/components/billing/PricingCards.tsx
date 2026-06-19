@@ -30,6 +30,22 @@ const PLANS = [
     ],
   },
   {
+    id: 'individual',
+    name: 'Individual',
+    price: '$3',
+    period: '/month',
+    description: 'Solo operators & freelancers',
+    features: [
+      '10 boards',
+      'Unlimited projects',
+      'Solo use (1 member)',
+      'Light & dark mode',
+      'Print & reports',
+      'Email support',
+    ],
+    highlighted: false,
+  },
+  {
     id: 'pro',
     name: 'Pro',
     price: '$49',
@@ -74,7 +90,7 @@ export function PricingCards({
 
     try {
       setUpgrading(plan)
-      const url = await createCheckoutSession(companyId, plan as 'pro' | 'business', window.location.href)
+      const url = await createCheckoutSession(companyId, plan as 'individual' | 'pro' | 'business', window.location.href)
       window.location.assign(url)
     } catch (error) {
       alert(`Failed to start checkout: ${error instanceof Error ? error.message : 'Unknown error'}`)

@@ -245,7 +245,7 @@ export async function updateUserProfile(userId: string, updates: { full_name?: s
 
 export async function updateCompanyPlan(
   companyId: string,
-  newPlan: 'free' | 'pro' | 'business' | 'enterprise',
+  newPlan: 'free' | 'individual' | 'pro' | 'business' | 'enterprise',
   reason?: string
 ) {
   try {
@@ -266,7 +266,7 @@ export async function updateCompanyPlan(
     const oldPlan = company.plan
 
     // Validate plan
-    const validPlans = ['free', 'pro', 'business', 'enterprise']
+    const validPlans = ['free', 'individual', 'pro', 'business', 'enterprise']
     if (!validPlans.includes(newPlan)) {
       throw new Error(`Invalid plan: ${newPlan}`)
     }

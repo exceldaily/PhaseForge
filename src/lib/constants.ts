@@ -106,6 +106,7 @@ export const PLAN_LIMITS: Record<string, {
   teams: number
 }> = {
   free:       { boards: 1,    projects: 5,    members: 3,    teams: 1    },
+  individual: { boards: 10,   projects: 0,    members: 1,    teams: 1    },
   pro:        { boards: 10,   projects: 0,    members: 25,   teams: 5    },
   business:   { boards: 0,    projects: 0,    members: 0,    teams: 0    },
   enterprise: { boards: 0,    projects: 0,    members: 0,    teams: 0    },
@@ -122,6 +123,7 @@ export const COLUMN_COLORS = [
 
 export const PLAN_LABELS: Record<string, string> = {
   free:       'Free',
+  individual: 'Individual',
   pro:        'Pro',
   business:   'Business',
   enterprise: 'Enterprise',
@@ -129,10 +131,11 @@ export const PLAN_LABELS: Record<string, string> = {
 
 /**
  * Per-plan feature flags (beyond the numeric limits above).
- * Printing and Reports are Pro/Business/Enterprise only.
+ * Printing and Reports are Pro/Business/Enterprise (and Individual) only.
  */
 export const PLAN_FEATURES: Record<string, { printAndReports: boolean; darkMode: boolean }> = {
   free:       { printAndReports: false, darkMode: false },
+  individual: { printAndReports: true,  darkMode: true  },
   pro:        { printAndReports: true,  darkMode: true  },
   business:   { printAndReports: true,  darkMode: true  },
   enterprise: { printAndReports: true,  darkMode: true  },

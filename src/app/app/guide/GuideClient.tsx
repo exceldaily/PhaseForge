@@ -192,8 +192,8 @@ const SECTIONS: GuideSection[] = [
     hrefLabel: 'Open Analytics',
     items: [
       { heading: 'Analytics', text: 'Completion rate, overdue projects, projects by status and priority, phase status donut, phase health stats, average project/phase durations, and per-member workload charts.' },
-      { heading: 'Reports (Pro/Business)', text: 'The Reports page is available on the Pro and Business plans. Three report types — Projects, Phases, Schedule — with text search, status and priority filters, a board filter, and an "include archived" toggle. On the Free plan the Reports page shows an upgrade prompt. Analytics stays available on every plan.' },
-      { heading: 'Export & print', text: 'On Pro/Business, any filtered report exports to CSV, and Print opens a clean landscape print sheet (matching the Gantt\'s print style) with a preview before the print dialog. What you filter is what you export.' },
+      { heading: 'Reports (paid plans)', text: 'The Reports page is available on the Individual, Pro, and Business plans. Three report types — Projects, Phases, Schedule — with text search, status and priority filters, a board filter, and an "include archived" toggle. On the Free plan the Reports page shows an upgrade prompt. Analytics stays available on every plan.' },
+      { heading: 'Export & print', text: 'On any paid plan, any filtered report exports to CSV, and Print opens a clean landscape print sheet (matching the Gantt\'s print style) with a preview before the print dialog. What you filter is what you export.' },
     ],
   },
   {
@@ -205,7 +205,7 @@ const SECTIONS: GuideSection[] = [
     hrefLabel: 'Open Organization',
     items: [
       { heading: 'Organization page', text: 'Company summary (plan, member/team/project counts), a role-structure breakdown, every team with its members and projects, and the full member roster with emails, titles, and role badges.' },
-      { heading: 'Plans', text: 'Free (1 board, 5 projects, 3 members, 1 team), Pro (10 boards, unlimited projects, 25 members, 5 teams), Business, and Enterprise. When you hit a limit, the app tells you which plan removes it.' },
+      { heading: 'Plans', text: 'Free (1 board, 5 projects, 3 members, 1 team), Individual ($3/mo — all Pro features for a single user: 10 boards, unlimited projects, 1 member), Pro (10 boards, unlimited projects, 25 members, 5 teams), Business, and Enterprise. When you hit a limit, the app tells you which plan removes it.' },
       { heading: 'Billing page', text: 'Three tabs: Plan (current tier and its limits), Usage (your counts against each limit), and Invoices (history with amounts and paid status). Payments run securely through Stripe; a past-due warning appears if a payment fails.' },
     ],
   },
@@ -218,7 +218,7 @@ const SECTIONS: GuideSection[] = [
     hrefLabel: 'Open Settings',
     items: [
       { heading: 'Profile', text: 'Edit your name and job title; your email and role are shown read-only (only owners/admins change roles).' },
-      { heading: 'Light & dark mode (Pro/Business)', text: 'On the Pro and Business plans a sun/moon button appears in the top bar — tap it to switch the whole app between light and dark. Your choice is remembered on that device. The toggle is hidden on the Free plan.' },
+      { heading: 'Light & dark mode (paid plans)', text: 'On any paid plan (Individual, Pro, Business) a sun/moon button appears in the top bar — tap it to switch the whole app between light and dark. Your choice is remembered on that device. The toggle is hidden on the Free plan.' },
       { heading: 'Members', text: 'Owners and admins see the full roster and invite new people from Settings → Members.' },
       { heading: 'Account & password', text: 'Sign-up creates your company workspace and requires email confirmation. Passwords currently need at least 8 characters. Tap the eye icon in any password field to reveal what you typed and double-check it. Forgot it? The login page sends a reset link to the email on your account.' },
     ],

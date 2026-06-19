@@ -10,13 +10,15 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 // Plan pricing in cents (used as a fallback only if no price ID is configured)
 export const PLAN_PRICING: Record<string, number> = {
-  pro: 4900,      // $49/month
-  business: 19900, // $199/month
+  individual: 300,   // $3/month
+  pro: 4900,         // $49/month
+  business: 19900,   // $199/month
 }
 
 // Stripe Price IDs created in the Stripe dashboard. Using these directly is
 // the source of truth for amount/interval — no separate product IDs needed.
 export const STRIPE_PRICE_IDS: Record<string, string | undefined> = {
+  individual: process.env.STRIPE_PRICE_INDIVIDUAL_ID,
   pro: process.env.STRIPE_PRICE_PRO_ID,
   business: process.env.STRIPE_PRICE_BUSINESS_ID,
 }
@@ -53,19 +55,20 @@ export async function getOrCreateStripeCustomer(
 
 export async function createCheckoutSession(
   customerId: string,
-  planType: 'pro' | 'business',
+  planType: 'individual' | 'pro' | 'business',
   returnUrl: string
 ) {
   const priceId = STRIPE_PRICE_IDS[planType]
 
   // Prefer the configured Stripe Price (real product/price in the dashboard).
   // Fall back to an inline price only if no price ID is configured.
+  const planLabels = { individual: 'Individual', pro: 'Pro', business: 'Business' }
   const lineItem = priceId
     ? { price: priceId, quantity: 1 }
     : {
         price_data: {
           currency: 'usd',
-          product_data: { name: `PhaseForge ${planType === 'pro' ? 'Pro' : 'Business'}` },
+          product_data: { name: `PhaseForge ${planLabels[planType]}` },
           unit_amount: PLAN_PRICING[planType],
           recurring: { interval: 'month' as const },
         },

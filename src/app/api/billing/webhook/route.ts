@@ -23,13 +23,15 @@ const getSupabase = () => {
   return supabase
 }
 
-const getPlanFromPriceId = (priceId: string): 'free' | 'pro' | 'business' | null => {
+const getPlanFromPriceId = (priceId: string): 'free' | 'individual' | 'pro' | 'business' | null => {
   // Map Stripe price IDs to plan types
   // In production, you'd store the mapping in an environment variable or database
+  if (priceId === process.env.STRIPE_PRICE_INDIVIDUAL_ID) return 'individual'
   if (priceId === process.env.STRIPE_PRICE_PRO_ID) return 'pro'
   if (priceId === process.env.STRIPE_PRICE_BUSINESS_ID) return 'business'
 
   // Fallback mapping for test mode
+  if (priceId.includes('individual')) return 'individual'
   if (priceId.includes('pro')) return 'pro'
   if (priceId.includes('business')) return 'business'
 

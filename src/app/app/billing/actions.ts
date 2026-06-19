@@ -5,7 +5,7 @@ import { stripe, getOrCreateStripeCustomer, createCheckoutSession as createStrip
 
 export async function createCheckoutSession(
   companyId: string,
-  planType: 'pro' | 'business',
+  planType: 'individual' | 'pro' | 'business',
   returnUrl: string
 ): Promise<string> {
   try {
