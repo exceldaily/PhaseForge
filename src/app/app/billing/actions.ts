@@ -38,6 +38,21 @@ export async function createCheckoutSession(
       throw new Error('Unauthorized')
     }
 
+    // Individual is a solo plan (1 member). Block the switch while the org still
+    // has other members so a subscription can't start over its own limit.
+    if (planType === 'individual') {
+      const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .eq('is_active', true)
+      if ((count ?? 0) > 1) {
+        throw new Error(
+          `The Individual plan is for a single user. Your workspace has ${count} active members — remove the others in Settings → Members before switching.`
+        )
+      }
+    }
+
     // Get or create Stripe customer
     let customer: any = company.stripe_customer_id
       ? await stripe.customers.retrieve(company.stripe_customer_id)

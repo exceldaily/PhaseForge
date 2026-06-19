@@ -13,6 +13,7 @@ interface PricingCardsProps {
   billingCycleStart: string | null
   billingCycleEnd: string | null
   companyId: string
+  memberCount: number
 }
 
 const PLANS = [
@@ -82,8 +83,15 @@ export function PricingCards({
   billingCycleStart,
   billingCycleEnd,
   companyId,
+  memberCount,
 }: PricingCardsProps) {
   const [upgrading, setUpgrading] = useState<string | null>(null)
+
+  // Individual is a solo plan: it only allows 1 member. Hide it entirely for
+  // organizations with more than 2 people (it's not a sensible option), and for
+  // a 2-person org show it but blocked until they're down to a single member.
+  const visiblePlans = PLANS.filter((p) => !(p.id === 'individual' && memberCount > 2))
+  const gridCols = visiblePlans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'
 
   const handleUpgrade = async (plan: string) => {
     if (plan === currentPlan || plan === 'free') return
@@ -117,10 +125,12 @@ export function PricingCards({
       )}
 
       {/* Pricing Cards */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {PLANS.map((plan) => {
+      <div className={cn('grid gap-6', gridCols)}>
+        {visiblePlans.map((plan) => {
           const isCurrent = plan.id === currentPlan
           const isUpgrade = PLANS.findIndex((p) => p.id === plan.id) > PLANS.findIndex((p) => p.id === currentPlan)
+          // Solo plan can't be selected while the org has more than one member.
+          const individualBlocked = plan.id === 'individual' && memberCount > 1
 
           return (
             <div
@@ -172,13 +182,22 @@ export function PricingCards({
                   <Button variant="secondary" className="w-full" disabled>
                     Free Forever
                   </Button>
+                ) : individualBlocked ? (
+                  <div className="space-y-2">
+                    <Button variant="secondary" className="w-full" disabled>
+                      Remove members to switch
+                    </Button>
+                    <p className="text-xs text-slate-500 text-center">
+                      Individual is a solo plan (1 member). Your workspace has {memberCount} active members — remove the others in Settings → Members first.
+                    </p>
+                  </div>
                 ) : isUpgrade ? (
                   <Button
                     onClick={() => handleUpgrade(plan.id)}
                     loading={upgrading === plan.id}
                     className="w-full"
                   >
-                    Upgrade to {plan.name}
+                    {plan.id === 'individual' ? 'Switch to Individual' : `Upgrade to ${plan.name}`}
                   </Button>
                 ) : (
                   <Button variant="secondary" className="w-full" disabled>

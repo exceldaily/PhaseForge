@@ -96,6 +96,7 @@ export function BillingClient({
             billingCycleStart={billingCycleStart}
             billingCycleEnd={billingCycleEnd}
             companyId={companyId}
+            memberCount={usage.members}
           />
         )}
 
