@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { isMissingLinksColumnError } from '@/lib/projectAudit'
+import { isMissingLinksColumnError, isMissingShowPunchColumnError } from '@/lib/projectAudit'
 import { logger } from '@/lib/logger'
 
 // ── Phase creation ────────────────────────────────────────────────────────
@@ -239,6 +239,16 @@ export async function updateProject(projectId: string, updates: Record<string, u
       ;({ error } = await supabase
         .from('projects')
         .update({ ...withoutLinks, updated_at: new Date().toISOString(), updated_by: user.id })
+        .eq('id', projectId))
+    }
+
+    // Graceful fallback if the show_punch_on_card column hasn't been migrated yet.
+    if (error && isMissingShowPunchColumnError(error)) {
+      const withoutPunch = { ...updates }
+      delete withoutPunch.show_punch_on_card
+      ;({ error } = await supabase
+        .from('projects')
+        .update({ ...withoutPunch, updated_at: new Date().toISOString(), updated_by: user.id })
         .eq('id', projectId))
     }
 

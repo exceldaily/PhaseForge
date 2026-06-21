@@ -75,12 +75,28 @@ export default async function ProjectsPage({
     }
   }
 
+  // Punch counts per project for the optional card button (fail-soft if not migrated).
+  const { data: punchRows } = projectIds.length > 0
+    ? await supabase.from('punch_items').select('project_id, status').in('project_id', projectIds)
+    : { data: [] as Array<{ project_id: string; status: string }> }
+
+  const punchSummary = new Map<string, { open: number; completed: number }>()
+  for (const row of punchRows ?? []) {
+    const current = punchSummary.get(row.project_id) ?? { open: 0, completed: 0 }
+    if (row.status === 'completed') current.completed += 1
+    else current.open += 1
+    punchSummary.set(row.project_id, current)
+  }
+
   const projectsWithBoardSignals = projects.map((project) => {
     const activity = activitySummary.get(project.id)
+    const punch = punchSummary.get(project.id)
     return {
       ...project,
       activity_count: activity?.count ?? 0,
       activity_updated_at: activity?.latest ?? project.updated_at,
+      punch_open_count: punch?.open ?? 0,
+      punch_completed_count: punch?.completed ?? 0,
     }
   })
 

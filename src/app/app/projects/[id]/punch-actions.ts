@@ -236,11 +236,11 @@ export async function completePunchItem(
       .eq('id', punchId)
       .single()
     if (!item) throw new Error('Punch item not found')
+    // Any member of the project's company can complete / upload a completion photo —
+    // not just the assignee (crews share punch-out duties in the field).
     if (!profile?.company_id || profile.company_id !== item.company_id) {
       throw new Error('Not authorized for this item')
     }
-    const canEdit = EDITOR_ROLES.includes(profile.role) || item.assigned_to === user.id
-    if (!canEdit) throw new Error('You can only complete items assigned to you.')
 
     const photoPath = punchPhotoPath(item.project_id, punchId, 'completion')
     const { error: uploadError } = await admin.storage

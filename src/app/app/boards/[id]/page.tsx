@@ -40,11 +40,30 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const canAdmin = ['owner', 'admin'].includes(profile.role)
   const memberMap = Object.fromEntries((membersRes.data ?? []).map(m => [m.id, m.full_name]))
 
+  // Punch counts per project for the optional card button (fail-soft if not migrated).
+  const baseProjects = (projectsRes.data ?? []) as Project[]
+  const projectIds = baseProjects.map((p) => p.id)
+  const { data: punchRows } = projectIds.length > 0
+    ? await supabase.from('punch_items').select('project_id, status').in('project_id', projectIds)
+    : { data: [] as Array<{ project_id: string; status: string }> }
+
+  const punchSummary = new Map<string, { open: number; completed: number }>()
+  for (const row of punchRows ?? []) {
+    const current = punchSummary.get(row.project_id) ?? { open: 0, completed: 0 }
+    if (row.status === 'completed') current.completed += 1
+    else current.open += 1
+    punchSummary.set(row.project_id, current)
+  }
+  const projects = baseProjects.map((p) => {
+    const punch = punchSummary.get(p.id)
+    return { ...p, punch_open_count: punch?.open ?? 0, punch_completed_count: punch?.completed ?? 0 }
+  })
+
   return (
     <BoardKanban
       board={board}
       columns={columns}
-      projects={(projectsRes.data ?? []) as Project[]}
+      projects={projects}
       memberMap={memberMap}
       currentUserId={user.id}
       canEdit={canEdit}

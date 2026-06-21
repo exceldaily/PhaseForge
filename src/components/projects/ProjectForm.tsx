@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
-import { isMissingLinksColumnError, isMissingUpdatedByColumnError } from '@/lib/projectAudit'
+import { isMissingLinksColumnError, isMissingShowPunchColumnError, isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { updateProject, updateProjectBoard } from '@/app/app/projects/[id]/actions'
 import { Project, ProjectLink } from '@/types/app'
 
@@ -67,6 +67,7 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
     notes: project?.notes || '',
     color: project?.color || DEFAULT_PHASE_COLORS[0],
     links: (project?.links || []) as ProjectLink[],
+    show_punch_on_card: project?.show_punch_on_card ?? true,
   })
 
   const selectedBoard = boards.find(b => b.id === selectedBoardId)
@@ -176,6 +177,20 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
         if (error && isMissingUpdatedByColumnError(error)) {
           ;({ data, error } = await supabase.from('projects').insert({
             ...formNoLinks, ...boardFields, company_id: companyId, created_by: currentUserId,
+          }).select().single())
+        }
+      }
+
+      // Graceful fallback if the show_punch_on_card column hasn't been migrated yet.
+      if (error && isMissingShowPunchColumnError(error)) {
+        const formNoPunch = { ...form } as Record<string, unknown>
+        delete formNoPunch.show_punch_on_card
+        ;({ data, error } = await supabase.from('projects').insert({
+          ...formNoPunch, ...boardFields, company_id: companyId, created_by: currentUserId, updated_by: currentUserId,
+        }).select().single())
+        if (error && isMissingUpdatedByColumnError(error)) {
+          ;({ data, error } = await supabase.from('projects').insert({
+            ...formNoPunch, ...boardFields, company_id: companyId, created_by: currentUserId,
           }).select().single())
         }
       }
@@ -375,6 +390,18 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
           <textarea value={form.notes} onChange={set('notes')} rows={3} placeholder="Any additional notes..."
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
         </div>
+        <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.show_punch_on_card}
+            onChange={(e) => setForm(f => ({ ...f, show_punch_on_card: e.target.checked }))}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          <span className="text-sm">
+            <span className="font-medium text-slate-700">Show a Punch List button on this project&apos;s card</span>
+            <span className="block text-xs text-slate-400">Adds a quick link with open / done counts to the board card.</span>
+          </span>
+        </label>
       </section>
 
       {/* Links */}

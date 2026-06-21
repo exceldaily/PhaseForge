@@ -26,6 +26,14 @@ export function isMissingLinksColumnError(
   return combined.includes('links') && (combined.includes('column') || combined.includes('schema cache'))
 }
 
+/** True when the projects.show_punch_on_card column hasn't been added yet (pre-migration). */
+export function isMissingShowPunchColumnError(
+  error: ProjectAuditError | null | undefined
+) {
+  const combined = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''}`.toLowerCase()
+  return combined.includes('show_punch_on_card') && (combined.includes('column') || combined.includes('schema cache'))
+}
+
 export function getProjectLastUpdatedByName(
   project: ProjectAuditFields,
   memberMap: Record<string, string>

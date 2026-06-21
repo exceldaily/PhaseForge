@@ -93,6 +93,7 @@ export interface Project {
   color: string
   tags: string[]
   links?: ProjectLink[]
+  show_punch_on_card?: boolean
   superintendent: string | null
   subcontractors: string[]
   permit_status: string | null
@@ -103,6 +104,8 @@ export interface Project {
   updated_by?: string | null
   activity_count?: number
   activity_updated_at?: string | null
+  punch_open_count?: number
+  punch_completed_count?: number
   board_id?: string | null
   board_column_id?: string | null
   board?: Board

@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import {
   Activity,
   CheckSquare,
+  ClipboardList,
   Edit,
   ExternalLink,
   GanttChartSquare,
@@ -122,6 +123,10 @@ export function ProjectBoardCard({
   const tasksHref = `${detailHref}?tab=tasks`
   const activityHref = `${detailHref}?tab=activity`
   const filesHref = `${detailHref}?tab=files`
+  const punchHref = `${detailHref}?tab=punch`
+  const showPunchButton = project.show_punch_on_card !== false
+  const punchOpen = project.punch_open_count ?? 0
+  const punchDone = project.punch_completed_count ?? 0
   const primaryProjectHref = canEdit ? editHref : detailHref
   const primaryProjectLabel = canEdit ? 'Edit Project' : 'Open Project'
   const showMenuButton = canEdit || Boolean(onDelete)
@@ -370,6 +375,19 @@ export function ProjectBoardCard({
             <Paperclip size={12} /> Files
           </Link>
         </div>
+
+        {showPunchButton && (
+          <Link
+            href={punchHref}
+            onClick={(event) => event.stopPropagation()}
+            data-card-action="true"
+            className="flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+          >
+            <ClipboardList size={13} />
+            Punch List
+            <span className="font-medium text-indigo-500">· {punchOpen} open · {punchDone} done</span>
+          </Link>
+        )}
 
         {canEdit && onStageChange && (
           <select
