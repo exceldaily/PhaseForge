@@ -51,6 +51,32 @@ export const BOARD_TEMPLATES: Record<string, BoardTemplate> = {
   },
 }
 
+/**
+ * Best-effort match of a board's custom_stages back to a template key.
+ * Returns null for boards that don't match any preset (legacy / hand-tuned).
+ */
+export function getBoardTemplateKey(customStages?: string[] | null): string | null {
+  if (!customStages || customStages.length === 0) return null
+  for (const [key, t] of Object.entries(BOARD_TEMPLATES)) {
+    if (
+      t.customStages.length === customStages.length &&
+      t.customStages.every((s, i) => s === customStages[i])
+    ) {
+      return key
+    }
+  }
+  return null
+}
+
+/**
+ * Punch lists are a construction/QA concept — a "General Tasks" board has no
+ * reason to surface them. Boards that don't match a known template (legacy,
+ * uncustomized) keep punch available so nothing silently disappears.
+ */
+export function boardSupportsPunch(customStages?: string[] | null): boolean {
+  return getBoardTemplateKey(customStages) !== 'general'
+}
+
 export const ALL_FIELD_OPTIONS = [
   { id: 'client_name', label: 'Client / Customer' },
   { id: 'job_location', label: 'Job Location' },

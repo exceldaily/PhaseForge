@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
+import { boardSupportsPunch } from '@/lib/boardTemplates'
 import { isMissingLinksColumnError, isMissingShowPunchColumnError, isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { updateProject, updateProjectBoard } from '@/app/app/projects/[id]/actions'
 import { Project, ProjectLink } from '@/types/app'
@@ -67,11 +68,16 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
     notes: project?.notes || '',
     color: project?.color || DEFAULT_PHASE_COLORS[0],
     links: (project?.links || []) as ProjectLink[],
-    show_punch_on_card: project?.show_punch_on_card ?? true,
+    show_punch_on_card: boardSupportsPunch(boardCustomStages)
+      ? (project?.show_punch_on_card ?? true)
+      : false,
   })
 
   const selectedBoard = boards.find(b => b.id === selectedBoardId)
   const columnOptions = selectedBoard?.board_columns || []
+
+  // General Tasks boards don't do punch lists, so don't offer the option.
+  const supportsPunch = boardSupportsPunch(boardCustomStages)
 
   // Check if board customization is active
   const hasCustomization = boardVisibleFields && boardVisibleFields.length > 0
@@ -390,18 +396,20 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
           <textarea value={form.notes} onChange={set('notes')} rows={3} placeholder="Any additional notes..."
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
         </div>
-        <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={form.show_punch_on_card}
-            onChange={(e) => setForm(f => ({ ...f, show_punch_on_card: e.target.checked }))}
-            className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          <span className="text-sm">
-            <span className="font-medium text-slate-700">Show a Punch List button on this project&apos;s card</span>
-            <span className="block text-xs text-slate-400">Adds a quick link with open / done counts to the board card.</span>
-          </span>
-        </label>
+        {supportsPunch && (
+          <label className="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.show_punch_on_card}
+              onChange={(e) => setForm(f => ({ ...f, show_punch_on_card: e.target.checked }))}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm">
+              <span className="font-medium text-slate-700">Show a Punch List button on this project&apos;s card</span>
+              <span className="block text-xs text-slate-400">Adds a quick link with open / done counts to the board card.</span>
+            </span>
+          </label>
+        )}
       </section>
 
       {/* Links */}
