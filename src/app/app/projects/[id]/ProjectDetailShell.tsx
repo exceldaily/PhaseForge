@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, GanttChartSquare, CheckSquare,
   Activity, Paperclip, Edit, MoreHorizontal,
-  MapPin, Calendar, User, Flag,
+  MapPin, Calendar, User, Flag, ClipboardList,
 } from 'lucide-react'
 import { GanttChart } from '@/components/gantt/GanttChart'
 import { PhaseList } from '@/components/phases/PhaseList'
@@ -13,19 +13,21 @@ import { Badge } from '@/components/ui/Badge'
 import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
 import { ActivityTimeline } from '@/components/projects/ActivityTimeline'
 import { ProjectAttachments } from '@/components/projects/ProjectAttachments'
+import { PunchListTab } from '@/components/punch/PunchListTab'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
-import { Phase, Profile, Project, ProjectPriority, ActivityLog, ProjectAttachment } from '@/types/app'
+import { Phase, Profile, Project, ProjectPriority, ActivityLog, ProjectAttachment, PunchItem } from '@/types/app'
 import { cn } from '@/lib/utils'
 
-type Tab = 'gantt' | 'tasks' | 'activity' | 'files'
+type Tab = 'gantt' | 'tasks' | 'punch' | 'activity' | 'files'
 
 interface ProjectDetailShellProps {
   project: Project & { phases: Phase[] }
   members: Profile[]
   activityLogs: ActivityLog[]
   attachments: ProjectAttachment[]
+  punchItems: PunchItem[]
   currentUserId: string
   companyId: string
   canEdit: boolean
@@ -34,14 +36,15 @@ interface ProjectDetailShellProps {
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'gantt',    label: 'Gantt',     icon: <GanttChartSquare size={15} /> },
-  { id: 'tasks',    label: 'Tasks',     icon: <CheckSquare size={15} /> },
-  { id: 'activity', label: 'Activity',  icon: <Activity size={15} /> },
-  { id: 'files',    label: 'Files',     icon: <Paperclip size={15} /> },
+  { id: 'gantt',    label: 'Gantt',      icon: <GanttChartSquare size={15} /> },
+  { id: 'tasks',    label: 'Tasks',      icon: <CheckSquare size={15} /> },
+  { id: 'punch',    label: 'Punch List', icon: <ClipboardList size={15} /> },
+  { id: 'activity', label: 'Activity',   icon: <Activity size={15} /> },
+  { id: 'files',    label: 'Files',      icon: <Paperclip size={15} /> },
 ]
 
 export function ProjectDetailShell({
-  project, members, activityLogs, attachments, currentUserId, companyId,
+  project, members, activityLogs, attachments, punchItems, currentUserId, companyId,
   canEdit, canPrint,
   initialTab = 'gantt',
 }: ProjectDetailShellProps) {
@@ -164,6 +167,11 @@ export function ProjectDetailShell({
                   {project.phases.length}
                 </span>
               )}
+              {tab.id === 'punch' && punchItems.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                  {punchItems.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -196,6 +204,22 @@ export function ProjectDetailShell({
               members={members}
               currentUserId={currentUserId}
               canEdit={canEdit}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* PUNCH LIST */}
+      {activeTab === 'punch' && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto p-6">
+            <PunchListTab
+              project={project}
+              items={punchItems}
+              members={members}
+              currentUserId={currentUserId}
+              canEdit={canEdit}
+              canPrint={canPrint}
             />
           </div>
         </div>

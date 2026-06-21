@@ -3,9 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { ProjectDetailShell } from './ProjectDetailShell'
 import { canUsePrintAndReports } from '@/lib/constants'
-import { Phase, Profile, Project, ProjectAttachment } from '@/types/app'
+import { Phase, Profile, Project, ProjectAttachment, PunchItem } from '@/types/app'
 
-const VALID_TABS = new Set(['gantt', 'tasks', 'activity', 'files'])
+const VALID_TABS = new Set(['gantt', 'tasks', 'punch', 'activity', 'files'])
 
 export default async function ProjectDetailPage({
   params,
@@ -25,7 +25,7 @@ export default async function ProjectDetailPage({
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
-  const [projectRes, membersRes, activityRes, attachmentsRes] = await Promise.all([
+  const [projectRes, membersRes, activityRes, attachmentsRes, punchRes] = await Promise.all([
     supabase.from('projects').select('*, phases(*)').eq('id', id).single(),
     supabase.from('profiles')
       .select('id, full_name, email, avatar_url, role, job_title')
@@ -39,6 +39,10 @@ export default async function ProjectDetailPage({
       .select('*')
       .eq('project_id', id)
       .order('uploaded_at', { ascending: false }),
+    supabase.from('punch_items')
+      .select('*')
+      .eq('project_id', id)
+      .order('number', { ascending: true }),
   ])
 
   if (!projectRes.data) notFound()
@@ -61,6 +65,27 @@ export default async function ProjectDetailPage({
     })
   )
 
+  // Punch items: hydrate signed URLs for the private issue/completion photos.
+  // punch_items may not exist yet (pre-migration) — fail soft to an empty list.
+  const rawPunchItems = (punchRes.data ?? []) as PunchItem[]
+  const punchItems = await Promise.all(
+    rawPunchItems.map(async (item) => {
+      const [issue, completion] = await Promise.all([
+        item.issue_photo_path
+          ? admin.storage.from('project-attachments').createSignedUrl(item.issue_photo_path, 60 * 60)
+          : Promise.resolve({ data: null }),
+        item.completion_photo_path
+          ? admin.storage.from('project-attachments').createSignedUrl(item.completion_photo_path, 60 * 60)
+          : Promise.resolve({ data: null }),
+      ])
+      return {
+        ...item,
+        issue_photo_url: issue.data?.signedUrl ?? null,
+        completion_photo_url: completion.data?.signedUrl ?? null,
+      }
+    })
+  )
+
   const canEdit = !['member', 'viewer'].includes(profile.role)
 
   const { data: company } = await supabase
@@ -76,11 +101,12 @@ export default async function ProjectDetailPage({
       members={(membersRes.data ?? []) as Profile[]}
       activityLogs={activityRes.data ?? []}
       attachments={attachments}
+      punchItems={punchItems}
       currentUserId={user.id}
       companyId={profile.company_id}
       canEdit={canEdit}
       canPrint={canPrint}
-      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'gantt' | 'tasks' | 'activity' | 'files') : 'gantt'}
+      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'gantt' | 'tasks' | 'punch' | 'activity' | 'files') : 'gantt'}
     />
   )
 }

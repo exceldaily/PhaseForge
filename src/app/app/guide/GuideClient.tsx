@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart2, Bell, BookOpen, Building2, FolderKanban,
+  BarChart2, Bell, BookOpen, Building2, ClipboardList, FolderKanban,
   GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
@@ -94,6 +94,19 @@ const SECTIONS: GuideSection[] = [
       { heading: 'What a phase holds', text: 'Name, start/end dates, status (Not Started, In Progress, Blocked, Completed, Skipped), percent complete, an owner (a team member or a trade), color, and notes. Changing status auto-updates percent complete.' },
       { heading: 'Milestones & critical path', text: 'Flag a phase as a milestone to surface it in the Dashboard\'s Upcoming Milestones card, or mark it critical-path to highlight schedule-driving work.' },
       { heading: 'Checklists & comments', text: 'Open a phase\'s Details to manage its checklist: add tasks, check them off, and assign each one to a teammate from the dropdown. Items save instantly and stay put. Each phase also has reminder notes and a comment thread for coordination right where the work is tracked.' },
+    ],
+  },
+  {
+    id: 'punch',
+    icon: ClipboardList,
+    title: 'Punch List',
+    summary: 'Photo-first issue tracking and sign-off inside each project.',
+    items: [
+      { heading: 'Where to find it', text: 'Open any project and select the Punch List tab. Items are grouped by status: Open, In Progress, Needs Review, and Completed, with a filter and a running count on each.' },
+      { heading: 'Logging an issue', text: 'Tap New Punch Item, take or upload a photo (required) and write an issue description (required). Optionally add a title, assignee, due date, location, priority, and category/trade. The item starts as Open. Photos are compressed on-device before upload.' },
+      { heading: 'Tracking & assigning', text: 'Open an item to change its status or reassign it. Assigning someone notifies them, and the person who logged the item is notified when it is completed. Assignees can update their own items; owners, admins, and managers can manage all of them.' },
+      { heading: 'Completing an item', text: 'Completion requires BOTH a completion photo and a completion description — the item cannot be closed without them. Once saved, the item records who completed it and when, and moves to Completed.' },
+      { heading: 'Printable report', text: 'Use Export to generate a professional field report: the full punch list, open items only, or completed items only. Each item prints with its number, issue photo, completion photo, descriptions, assignee, status, and sign-off. Use your browser\'s Save as PDF to keep one combined file. (Export follows your plan\'s reporting access.)' },
     ],
   },
   {

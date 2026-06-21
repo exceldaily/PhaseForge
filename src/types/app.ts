@@ -182,6 +182,34 @@ export interface ProjectAttachment {
   signed_url?: string | null
 }
 
+export type PunchStatus = 'open' | 'in_progress' | 'needs_review' | 'completed'
+
+export interface PunchItem {
+  id: string
+  project_id: string
+  company_id: string
+  number: number | null
+  title: string | null
+  issue_description: string
+  issue_photo_path: string
+  assigned_to: string | null
+  created_by: string | null
+  due_date: string | null
+  location: string | null
+  category: string | null
+  priority: ProjectPriority
+  status: PunchStatus
+  completion_description: string | null
+  completion_photo_path: string | null
+  completed_by: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  // Hydrated at read time (storage paths are private; served via signed URLs)
+  issue_photo_url?: string | null
+  completion_photo_url?: string | null
+}
+
 export type ZoomLevel = 'day' | 'week' | 'month' | 'quarter'
 
 export interface GanttConfig {
