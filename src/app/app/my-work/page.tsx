@@ -25,6 +25,17 @@ export interface MyPhase {
   projectColor: string
 }
 
+export interface MyPunch {
+  id: string
+  number: number | null
+  title: string | null
+  issue_description: string
+  status: string
+  projectId: string
+  projectName: string
+  projectColor: string
+}
+
 export default async function MyWorkPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,7 +44,7 @@ export default async function MyWorkPage() {
   const { data: profile } = await supabase.from('profiles').select('company_id, full_name').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
-  const [tasksRes, phasesRes] = await Promise.all([
+  const [tasksRes, phasesRes, punchRes] = await Promise.all([
     supabase
       .from('phase_checklists')
       .select('id, title, is_completed, assigned_to, phase:phases(name, project:projects(id, name, color))')
@@ -45,6 +56,12 @@ export default async function MyWorkPage() {
       .select('id, name, status, start_date, end_date, assigned_to, project:projects(id, name, color)')
       .eq('assigned_to', user.id)
       .order('end_date', { ascending: true }),
+    // Punch items assigned to me (fail-soft if punch_items isn't migrated yet).
+    supabase
+      .from('punch_items')
+      .select('id, number, title, issue_description, status, assigned_to, project:projects(id, name, color)')
+      .eq('assigned_to', user.id)
+      .order('number', { ascending: true }),
   ])
 
   const tasks: MyTask[] = ((tasksRes.data ?? []) as unknown[]).map((row) => {
@@ -74,5 +91,19 @@ export default async function MyWorkPage() {
     }
   })
 
-  return <MyWorkClient firstName={(profile.full_name ?? '').split(' ')[0]} tasks={tasks} phases={phases} />
+  const punch: MyPunch[] = ((punchRes.data ?? []) as unknown[]).map((row) => {
+    const r = row as { id: string; number: number | null; title: string | null; issue_description: string; status: string; project?: { id: string; name: string; color: string } }
+    return {
+      id: r.id,
+      number: r.number,
+      title: r.title,
+      issue_description: r.issue_description,
+      status: r.status,
+      projectId: r.project?.id ?? '',
+      projectName: r.project?.name ?? 'Project',
+      projectColor: r.project?.color ?? '#6366f1',
+    }
+  })
+
+  return <MyWorkClient firstName={(profile.full_name ?? '').split(' ')[0]} tasks={tasks} phases={phases} punch={punch} />
 }

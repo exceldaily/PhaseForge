@@ -2,17 +2,18 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Check, ListChecks, CalendarClock, ArrowRight } from 'lucide-react'
+import { Check, ListChecks, CalendarClock, ArrowRight, ClipboardList } from 'lucide-react'
 import { updatePhaseChecklist } from '@/app/app/projects/[id]/actions'
 import { PHASE_STATUS_LABELS, PHASE_STATUS_COLORS } from '@/lib/constants'
+import { PUNCH_STATUS_LABELS, PUNCH_STATUS_CHIP } from '@/lib/punch'
 import { formatDate } from '@/lib/dates'
-import { PhaseStatus } from '@/types/app'
+import { PhaseStatus, PunchStatus } from '@/types/app'
 import { cn } from '@/lib/utils'
-import type { MyPhase, MyTask } from './page'
+import type { MyPhase, MyPunch, MyTask } from './page'
 
 type TaskFilter = 'todo' | 'completed' | 'all'
 
-export function MyWorkClient({ firstName, tasks: initialTasks, phases }: { firstName: string; tasks: MyTask[]; phases: MyPhase[] }) {
+export function MyWorkClient({ firstName, tasks: initialTasks, phases, punch }: { firstName: string; tasks: MyTask[]; phases: MyPhase[]; punch: MyPunch[] }) {
   const [tasks, setTasks] = useState(initialTasks)
   const [filter, setFilter] = useState<TaskFilter>('todo')
 
@@ -24,6 +25,10 @@ export function MyWorkClient({ firstName, tasks: initialTasks, phases }: { first
   const todo = tasks.filter(t => !t.is_completed)
   const done = tasks.filter(t => t.is_completed)
   const visibleTasks = filter === 'todo' ? todo : filter === 'completed' ? done : [...todo, ...done]
+
+  const punchTodo = punch.filter(p => p.status !== 'completed')
+  const punchDone = punch.filter(p => p.status === 'completed')
+  const visiblePunch = filter === 'todo' ? punchTodo : filter === 'completed' ? punchDone : [...punchTodo, ...punchDone]
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 p-6">
@@ -119,6 +124,44 @@ export function MyWorkClient({ firstName, tasks: initialTasks, phases }: { first
                   {PHASE_STATUS_LABELS[phase.status as PhaseStatus] ?? phase.status}
                 </span>
                 <span className="hidden flex-shrink-0 text-xs text-slate-400 sm:inline">{formatDate(phase.end_date, 'MMM d')}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Assigned punch items */}
+      <section>
+        <div className="mb-3 flex items-center gap-2">
+          <ClipboardList size={18} className="text-indigo-500" />
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">My Punch Items</h2>
+          <span className="text-xs text-slate-400">{visiblePunch.length}</span>
+        </div>
+
+        {punch.length === 0 ? (
+          <EmptyCard text="No punch items are assigned to you right now." />
+        ) : visiblePunch.length === 0 ? (
+          <EmptyCard text={filter === 'completed' ? 'No completed punch items yet.' : 'No open punch items — all caught up!'} />
+        ) : (
+          <div className="space-y-2">
+            {visiblePunch.map(item => (
+              <Link
+                key={item.id}
+                href={`/app/projects/${item.projectId}?tab=punch`}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 transition hover:border-slate-300"
+              >
+                <span className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: item.projectColor }} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                    {item.number ? <span className="text-slate-400">#{item.number} </span> : null}
+                    {item.title?.trim() || item.issue_description}
+                  </p>
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">{item.projectName}</p>
+                </div>
+                <span className={cn('flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', PUNCH_STATUS_CHIP[item.status as PunchStatus])}>
+                  {PUNCH_STATUS_LABELS[item.status as PunchStatus] ?? item.status}
+                </span>
+                <ArrowRight size={16} className="hidden flex-shrink-0 text-slate-300 sm:block" />
               </Link>
             ))}
           </div>

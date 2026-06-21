@@ -48,7 +48,8 @@ const SECTIONS: GuideSection[] = [
     items: [
       { heading: 'My Tasks', text: 'Every checklist task assigned to you across all projects, with the project and phase it belongs to. Check items off right here, or jump to the project.' },
       { heading: 'My Phases', text: 'Phases where you are the assignee, with their status and finish date, sorted by what is due soonest.' },
-      { heading: 'Getting assigned', text: 'When someone assigns you a checklist task (from a phase\'s Details), you get a notification in the bell, and the task shows up under My Tasks.' },
+      { heading: 'My Punch Items', text: 'Punch-list items assigned to you, with their status. The To do / Done filter applies here too; tap one to open the project\'s Punch List.' },
+      { heading: 'Getting assigned', text: 'When someone assigns you a checklist task or punch item, you get a notification in the bell, and it shows up here under My Work.' },
     ],
   },
   {
