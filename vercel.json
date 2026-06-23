@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/dispatch/gmail-sync",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

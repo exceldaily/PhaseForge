@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { DEFAULT_DISPATCH_CARD_FIELDS, normalizeDispatchCardFields } from '@/lib/dispatchFields'
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ export async function createDispatchBoard(formData: FormData) {
     const name = String(formData.get('name') ?? '').trim()
     const description = String(formData.get('description') ?? '').trim() || null
     const columnsJson = String(formData.get('columns') ?? '[]')
+    const cardFieldsJson = String(formData.get('card_fields') ?? '[]')
 
     if (!name) return { error: 'Board name is required' }
 
@@ -86,11 +88,28 @@ export async function createDispatchBoard(formData: FormData) {
 
     if (columnDefs.length < 1) return { error: 'At least one column is required' }
 
-    const { data: board, error: boardErr } = await supabase
+    let cardFields = DEFAULT_DISPATCH_CARD_FIELDS
+    try {
+      cardFields = normalizeDispatchCardFields(JSON.parse(cardFieldsJson))
+    } catch {
+      return { error: 'Invalid card field data' }
+    }
+
+    let { data: board, error: boardErr } = await supabase
       .from('dispatch_boards')
-      .insert({ company_id: companyId, name, description, created_by: userId })
+      .insert({ company_id: companyId, name, description, card_fields: cardFields, created_by: userId })
       .select()
       .single()
+
+    if (boardErr && boardErr.message.toLowerCase().includes('card_fields')) {
+      const retry = await supabase
+        .from('dispatch_boards')
+        .insert({ company_id: companyId, name, description, created_by: userId })
+        .select()
+        .single()
+      board = retry.data
+      boardErr = retry.error
+    }
 
     if (boardErr || !board) return { error: boardErr?.message ?? 'Failed to create board' }
 
@@ -246,7 +265,15 @@ export async function createDispatchCard(formData: FormData) {
     const kalosJob  = String(formData.get('kalos_job_number') ?? '').trim() || null
     const desc      = String(formData.get('description') ?? '').trim() || null
     const dateStart = String(formData.get('date_started') ?? '').trim() || null
+    const eta       = String(formData.get('eta_scheduled') ?? '').trim()
+    const rackCase  = String(formData.get('rack_circuit_case') ?? '').trim() || null
+    const notes     = String(formData.get('notes') ?? '').trim() || null
+    const assigned  = String(formData.get('assigned_to') ?? '').trim() || null
+    const vendorId  = String(formData.get('vendor_id') ?? '').trim() || null
+    const vendorEmail = String(formData.get('vendor_email') ?? '').trim() || null
     const who       = String(formData.get('who_ordered') ?? '').trim() || null
+    const partOrdered = String(formData.get('part_ordered') ?? '') === 'true'
+    const needsReview = String(formData.get('needs_review') ?? '') === 'true'
 
     if (!boardId) return { error: 'Board ID required' }
 
@@ -262,7 +289,15 @@ export async function createDispatchCard(formData: FormData) {
         kalos_job_number: kalosJob,
         description: desc,
         date_started: dateStart || null,
+        eta_scheduled: eta ? new Date(eta).toISOString() : null,
+        rack_circuit_case: rackCase,
+        part_ordered: partOrdered,
         who_ordered: who,
+        notes,
+        assigned_to: assigned,
+        vendor_id: vendorId,
+        vendor_email: vendorEmail,
+        needs_review: needsReview,
         source: 'manual',
         created_by: userId,
       })
@@ -503,6 +538,34 @@ export async function updateDispatchVendor(vendorId: string, updates: { name?: s
       .from('dispatch_vendors')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', vendorId)
+      .eq('company_id', companyId)
+
+    if (error) return { error: error.message }
+
+    revalidatePath('/app/dispatch')
+    return { success: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unknown error' }
+  }
+}
+
+export async function updateBoardSettings(formData: FormData) {
+  try {
+    const { supabase, companyId, role } = await requireDispatchAccess()
+    if (!['owner', 'admin'].includes(role)) return { error: 'Admin access required' }
+
+    const boardId = formData.get('boardId') as string
+    const gmailLabel = (formData.get('gmailLabel') as string).trim() || null
+    const gmailDefaultColumnId = (formData.get('gmailDefaultColumnId') as string).trim() || null
+
+    const { error } = await supabase
+      .from('dispatch_boards')
+      .update({
+        gmail_label: gmailLabel,
+        gmail_default_column_id: gmailDefaultColumnId || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', boardId)
       .eq('company_id', companyId)
 
     if (error) return { error: error.message }

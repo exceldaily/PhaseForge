@@ -230,6 +230,8 @@ export interface DispatchBoard {
   name: string
   description: string | null
   card_fields?: DispatchCardFieldConfig[] | null
+  gmail_label?: string | null
+  gmail_default_column_id?: string | null
   is_active: boolean
   sort_order: number
   created_by: string | null
