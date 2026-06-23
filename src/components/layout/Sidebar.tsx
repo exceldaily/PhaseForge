@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
-  BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks,
+  BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/app/gantt',        label: 'Gantt',        icon: GanttChartSquare },
   { href: '/app/resources',    label: 'Resources',    icon: UsersRound },
   { href: '/app/analytics',    label: 'Analytics',    icon: BarChart2 },
+  { href: '/app/dispatch',     label: 'Dispatch',     icon: Radio },
   { href: '/app/reports',      label: 'Reports',      icon: FileText },
   { href: '/app/billing',      label: 'Billing',      icon: CreditCard },
   { href: '/app/organization', label: 'Organization', icon: Building2 },
@@ -30,16 +31,21 @@ const NAV_ITEMS = [
 interface SidebarProps {
   isSuperAdmin?: boolean
   canUseReports?: boolean
+  canUseDispatch?: boolean
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export function Sidebar({ isSuperAdmin = false, canUseReports = false, mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDispatch = false, mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
-  const navItems = NAV_ITEMS.filter((item) => canUseReports || item.href !== '/app/reports')
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.href === '/app/reports' && !canUseReports) return false
+    if (item.href === '/app/dispatch' && !canUseDispatch) return false
+    return true
+  })
 
   const handleSignOut = async () => {
     const supabase = createClient()

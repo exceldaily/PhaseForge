@@ -18,14 +18,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let canUseReports = false
   let canUseTheme = false
+  let canUseDispatch = false
   if (profile?.company_id) {
     const { data: company } = await supabase
       .from('companies')
-      .select('plan')
+      .select('plan, dispatch_enabled')
       .eq('id', profile.company_id)
       .single()
     canUseReports = canUsePrintAndReports(company?.plan)
     canUseTheme = canUseDarkMode(company?.plan)
+    canUseDispatch = company?.dispatch_enabled ?? false
   }
 
   return (
@@ -34,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       isSuperAdmin={profile?.is_super_admin ?? false}
       canUseReports={canUseReports}
       canUseDarkMode={canUseTheme}
+      canUseDispatch={canUseDispatch}
     >
       <ErrorBoundary>
         {children}

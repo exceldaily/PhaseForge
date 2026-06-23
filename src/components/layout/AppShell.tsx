@@ -11,10 +11,11 @@ interface AppShellProps {
   isSuperAdmin: boolean
   canUseReports?: boolean
   canUseDarkMode?: boolean
+  canUseDispatch?: boolean
   children: React.ReactNode
 }
 
-export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, children }: AppShellProps) {
+export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, canUseDispatch = false, children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Sync the theme whenever the app shell mounts (covers client-side nav into
@@ -37,6 +38,7 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
       <Sidebar
         isSuperAdmin={isSuperAdmin}
         canUseReports={canUseReports}
+        canUseDispatch={canUseDispatch}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
       />

@@ -221,3 +221,114 @@ export interface GanttConfig {
   viewEnd: Date
   pixelsPerDay: number
 }
+
+// ── Dispatch Module ────────────────────────────────────────────────────────────
+
+export interface DispatchBoard {
+  id: string
+  company_id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  sort_order: number
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  columns?: DispatchColumn[]
+  card_counts?: Record<string, number>
+  total_cards?: number
+  open_cards?: number
+}
+
+export interface DispatchColumn {
+  id: string
+  board_id: string
+  company_id: string
+  name: string
+  color: string
+  sort_order: number
+  is_done: boolean
+  created_at: string
+}
+
+export type DispatchUrgency = 'low' | 'medium' | 'high' | 'critical'
+export type DispatchSource = 'manual' | 'email' | 'import'
+
+export interface DispatchCard {
+  id: string
+  company_id: string
+  board_id: string
+  column_id: string | null
+  store: string | null
+  urgency: DispatchUrgency
+  date_started: string | null
+  sc_number: string | null
+  kalos_job_number: string | null
+  eta_scheduled: string | null
+  rack_circuit_case: string | null
+  description: string | null
+  part_ordered: boolean
+  who_ordered: string | null
+  notes: string | null
+  assigned_to: string | null
+  vendor_id: string | null
+  vendor_email: string | null
+  gmail_thread_id: string | null
+  last_gmail_msg_id: string | null
+  last_email_date: string | null
+  email_sender: string | null
+  email_subject: string | null
+  needs_review: boolean
+  source: DispatchSource
+  closed_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  assigned_profile?: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'email'>
+  vendor?: DispatchVendor
+}
+
+export type DispatchActivityType =
+  | 'card_created'
+  | 'status_changed'
+  | 'field_changed'
+  | 'note_added'
+  | 'email_received'
+  | 'vendor_forwarded'
+  | 'eta_updated'
+  | 'part_ordered'
+  | 'card_closed'
+  | 'card_reopened'
+  | 'review_flagged'
+  | 'review_cleared'
+
+export interface DispatchActivityLog {
+  id: string
+  card_id: string
+  company_id: string
+  actor_type: 'user' | 'system' | 'vendor' | 'email'
+  actor_id: string | null
+  actor_name: string | null
+  activity_type: DispatchActivityType | string
+  message: string
+  old_value: string | null
+  new_value: string | null
+  field_name: string | null
+  email_message_id: string | null
+  email_sender: string | null
+  email_subject: string | null
+  created_at: string
+  actor?: Pick<Profile, 'id' | 'full_name' | 'avatar_url'>
+}
+
+export interface DispatchVendor {
+  id: string
+  company_id: string
+  name: string
+  email: string | null
+  phone: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}

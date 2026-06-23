@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   BarChart2, Bell, BookOpen, Building2, ClipboardList, FolderKanban,
-  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Search,
+  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Radio, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour'
@@ -247,6 +247,23 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Overview', text: 'Super-admins get an Admin section in the sidebar with platform totals (users, companies, projects) and recent admin actions.' },
       { heading: 'User management', text: 'Search all users, edit names/titles, change roles, move users between companies, deactivate/reactivate accounts, promote or demote super-admins, or permanently delete a user.' },
       { heading: 'Companies & audit', text: 'View every company with member/project counts and change its plan tier. Every admin action lands in the audit log with actor, action, target, and timestamp.' },
+    ],
+  },
+  {
+    id: 'dispatch',
+    icon: Radio,
+    title: 'Dispatch',
+    summary: 'Service call tracking, ticketing, and work order management (enabled per organization).',
+    href: '/app/dispatch',
+    hrefLabel: 'Open Dispatch',
+    items: [
+      { heading: 'Overview', text: 'Dispatch is a flexible board system for tracking service calls, punch items, maintenance requests, and other division-specific tickets. It is enabled per organization and hidden from organizations that don\'t have it turned on.' },
+      { heading: 'Boards', text: 'Each organization can have multiple Dispatch boards — one per division or workflow (e.g. Refrigeration Service, Construction Punch, EMS/Controls). Each board has its own columns, card fields, and vendor list.' },
+      { heading: 'Columns', text: 'Columns represent the workflow stages for that board. Example stages for a refrigeration board: New Call → Reviewing → Forwarded to Vendor → Scheduled → Waiting on Parts → In Progress → Completed → Closed.' },
+      { heading: 'Cards', text: 'Each card is a service call, ticket, or work order. Kalos service call fields include Store, Urgency, Date Started, SC #, Kalos Job #, ETA/Scheduled, Rack/Circuit/Case, Description, Part Ordered, Who, and Notes. The Kalos Job # field is highlighted in red when blank — assign it as soon as the job number is created.' },
+      { heading: 'Activity log', text: 'Every card has a full activity timeline: card created, status changes, field edits, notes added, emails received, vendor replies, and more. Each entry records who did it and when, giving a complete history of the service call.' },
+      { heading: 'Vendors', text: 'Assign a vendor to any card, with optional vendor email. Vendor information is stored per organization and can be assigned to cards when forwarding service calls.' },
+      { heading: 'Email integration (coming)', text: 'Dispatch is designed to receive service calls from Gmail automatically: parse the store, urgency, SC#, and description from an incoming email, create a card, and track all replies in the same thread. Gmail Thread ID is stored on every card to prevent duplicates.' },
     ],
   },
 ]
