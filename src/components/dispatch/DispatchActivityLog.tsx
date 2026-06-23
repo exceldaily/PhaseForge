@@ -46,6 +46,16 @@ const ACTIVITY_COLORS: Record<string, string> = {
   review_cleared:  'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
 }
 
+// Only these activity types are shown — field edits are hidden to reduce noise.
+const VISIBLE_TYPES = new Set([
+  'note_added',
+  'status_changed',
+  'card_closed',
+  'card_reopened',
+  'email_received',
+  'card_created',
+])
+
 export function DispatchActivityLog({ cardId, boardId, initialLogs = [] }: Props) {
   const [logs, setLogs] = useState<ActivityLogType[]>(initialLogs)
   const [note, setNote] = useState('')
@@ -86,7 +96,7 @@ export function DispatchActivityLog({ cardId, boardId, initialLogs = [] }: Props
         {!loading && logs.length === 0 && (
           <div className="text-center py-8 text-sm text-slate-400">No activity yet</div>
         )}
-        {logs.map((log) => {
+        {logs.filter(log => VISIBLE_TYPES.has(log.activity_type)).map((log) => {
           const Icon = ACTIVITY_ICONS[log.activity_type] ?? Edit3
           const colorClass = ACTIVITY_COLORS[log.activity_type] ?? ACTIVITY_COLORS.field_changed
           const actorName = log.actor?.full_name ?? log.actor_name ?? (log.actor_type === 'system' ? 'System' : 'Unknown')
