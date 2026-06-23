@@ -229,6 +229,7 @@ export interface DispatchBoard {
   company_id: string
   name: string
   description: string | null
+  card_fields?: DispatchCardFieldConfig[] | null
   is_active: boolean
   sort_order: number
   created_by: string | null
@@ -238,6 +239,16 @@ export interface DispatchBoard {
   card_counts?: Record<string, number>
   total_cards?: number
   open_cards?: number
+}
+
+export interface DispatchCardFieldConfig {
+  key: string
+  label: string
+  type: 'text' | 'date' | 'datetime' | 'select' | 'checkbox' | 'textarea' | 'email'
+  visible: boolean
+  required?: boolean
+  fullWidth?: boolean
+  link_template?: string | null
 }
 
 export interface DispatchColumn {
