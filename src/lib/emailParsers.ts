@@ -42,6 +42,18 @@ function labelAfter(body: string, label: string): string | null {
   return m ? m[1].trim() : null
 }
 
+// ServiceChannel descriptions are prefixed with "CATEGORY / SUB / ASSET / PROBLEM / actual text".
+// Strip the all-caps path and return only the human-readable sentence at the end.
+function extractHumanDescription(raw: string): string {
+  const lastSlash = raw.lastIndexOf(' / ')
+  if (lastSlash !== -1) {
+    const after = raw.slice(lastSlash + 3).trim()
+    // Only use the tail if it contains lowercase (i.e. it's a real sentence)
+    if (after && /[a-z]/.test(after)) return after
+  }
+  return raw
+}
+
 // ── ServiceChannel parser ───────────────────────────────────────────────────
 
 // Subject: "New Service Request | Location ID: 0673 | P0 (12 HOURS) | 354494021 | Sprouts Farmers Market | Daytona Beach | FL"
@@ -63,9 +75,10 @@ function parseServiceChannel(subject: string, body: string, from: string): Parse
   // next section marker or end of meaningful content.
   const descMatch = /Problem Description[\s\n]+"?([\s\S]+?)(?="?\s*\n\s*(?:View Work Order|Follow Work Order)|\n\n\n|$)/i.exec(body)
   const shortDescMatch = /\bProblem\b[\s\n]+([^\n]{4,})/i.exec(body)
-  const description = descMatch
-    ? descMatch[1].replace(/\s+/g, ' ').trim().slice(0, 800)
+  const rawDesc = descMatch
+    ? descMatch[1].replace(/\s+/g, ' ').trim()
     : shortDescMatch ? shortDescMatch[1].trim() : null
+  const description = rawDesc ? extractHumanDescription(rawDesc).slice(0, 800) : null
 
   // Scheduled date — label on one line, date on next, time on the line after
   // e.g. "Scheduled\nJune 22, 2026\n9:16 PM"
