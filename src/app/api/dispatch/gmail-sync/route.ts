@@ -156,6 +156,7 @@ export async function GET(req: NextRequest) {
                 sc_number: parsed.sc_number,
                 description: parsed.description,
                 rack_circuit_case: parsed.rack_circuit_case,
+                eta_scheduled: parsed.eta_scheduled,
                 date_started: parsed.date_started,
                 email_sender: parsed.email_sender,
                 email_subject: parsed.email_subject,
