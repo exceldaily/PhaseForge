@@ -4,7 +4,7 @@ import { CompaniesTable } from '@/components/admin/CompaniesTable'
 export default async function AdminCompaniesPage() {
   const supabase = createAdminClient()
 
-  // Fetch all companies with member and project counts
+  // Fetch all companies with member, project, and board counts
   const { data: companies } = await supabase
     .from('companies')
     .select(`
@@ -15,7 +15,8 @@ export default async function AdminCompaniesPage() {
       created_at,
       updated_at,
       profiles(count),
-      projects(count)
+      projects(count),
+      boards(count)
     `)
     .order('created_at', { ascending: false })
 

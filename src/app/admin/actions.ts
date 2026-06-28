@@ -426,3 +426,34 @@ export async function updateUserRole(userId: string, newRole: string) {
     throw error
   }
 }
+
+export async function deleteCompany(companyId: string) {
+  try {
+    const actorId = await requireSuperAdmin()
+    const admin = createAdminClient()
+
+    const { data: company } = await admin
+      .from('companies')
+      .select('id, name')
+      .eq('id', companyId)
+      .single()
+
+    if (!company) throw new Error('Company not found')
+
+    const { error } = await admin
+      .from('companies')
+      .delete()
+      .eq('id', companyId)
+
+    if (error) throw error
+
+    await logAdminAction(actorId, 'delete_company', 'company', companyId, undefined, {
+      company_name: company.name,
+    })
+
+    return { success: true }
+  } catch (error) {
+    logger.error('Error deleting company', error)
+    throw error
+  }
+}

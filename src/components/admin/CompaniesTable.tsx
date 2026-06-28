@@ -1,9 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Edit2 } from 'lucide-react'
+import { Edit2, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { PlanSelectorModal } from './PlanSelectorModal'
+import { deleteCompany } from '@/app/admin/actions'
 
 const PAGE_SIZE = 25
 
@@ -16,6 +17,7 @@ interface Company {
   updated_at: string
   profiles?: { count: number }[]
   projects?: { count: number }[]
+  boards?: { count: number }[]
 }
 
 interface CompaniesTableProps {
@@ -26,6 +28,8 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
+  const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [companies, setCompanies] = useState(initialCompanies)
 
   const duplicateNames = useMemo(() => {
@@ -76,13 +80,16 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
               <th className="text-left py-3 px-4 font-medium text-slate-700">Plan</th>
               <th className="text-center py-3 px-4 font-medium text-slate-700">Members</th>
               <th className="text-center py-3 px-4 font-medium text-slate-700">Projects</th>
+              <th className="text-center py-3 px-4 font-medium text-slate-700">Boards</th>
               <th className="text-left py-3 px-4 font-medium text-slate-700">Created</th>
+              <th className="py-3 px-4"></th>
             </tr>
           </thead>
           <tbody>
             {pagedCompanies.map((company) => {
               const memberCount = company.profiles?.[0]?.count || 0
               const projectCount = company.projects?.[0]?.count || 0
+              const boardCount = company.boards?.[0]?.count || 0
               const isDuplicateName = (duplicateNames.get(company.name.trim().toLowerCase()) || 0) > 1
               return (
                 <tr key={company.id} className="border-b border-slate-100 hover:bg-slate-50">
@@ -116,8 +123,20 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
                   <td className="py-3 px-4 text-center font-medium text-slate-900">
                     {projectCount}
                   </td>
+                  <td className="py-3 px-4 text-center font-medium text-slate-900">
+                    {boardCount}
+                  </td>
                   <td className="py-3 px-4 text-slate-600 text-xs">
                     {new Date(company.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <button
+                      onClick={() => setDeletingCompanyId(company.id)}
+                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Delete company"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </td>
                 </tr>
               )
@@ -162,7 +181,6 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
           companyName={companies.find(c => c.id === editingCompanyId)?.name || ''}
           currentPlan={companies.find(c => c.id === editingCompanyId)?.plan || 'free'}
           onSuccess={(newPlan) => {
-            // Update local state with new plan
             const updatedCompanies = companies.map(c =>
               c.id === editingCompanyId ? { ...c, plan: newPlan } : c
             )
@@ -170,6 +188,50 @@ export function CompaniesTable({ companies: initialCompanies }: CompaniesTablePr
           }}
         />
       )}
+
+      {deletingCompanyId && (() => {
+        const company = companies.find(c => c.id === deletingCompanyId)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete Company</h3>
+              <p className="text-sm text-slate-600 mb-1">
+                Are you sure you want to delete <span className="font-semibold text-slate-900">{company?.name}</span>?
+              </p>
+              <p className="text-xs text-red-600 mb-6">
+                This will permanently delete the company and all associated data including members, projects, and boards.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeletingCompanyId(null)}
+                  disabled={deleteLoading}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setDeleteLoading(true)
+                    try {
+                      await deleteCompany(deletingCompanyId)
+                      setCompanies(prev => prev.filter(c => c.id !== deletingCompanyId))
+                      setDeletingCompanyId(null)
+                    } catch {
+                      alert('Failed to delete company. Check console for details.')
+                    } finally {
+                      setDeleteLoading(false)
+                    }
+                  }}
+                  disabled={deleteLoading}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deleteLoading ? 'Deleting…' : 'Delete Company'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
