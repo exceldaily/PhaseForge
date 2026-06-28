@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, ArrowLeft, AlertCircle, Package, Clock, Eye, EyeOff, Settings } from 'lucide-react'
+import { Plus, ArrowLeft, AlertCircle, Bell, Package, Clock, Eye, EyeOff, Settings, X } from 'lucide-react'
 import { DispatchBoard, DispatchColumn, DispatchCard, DispatchVendor, Profile } from '@/types/app'
 import { DispatchCardModal } from './DispatchCardModal'
 import { NewCardModal } from './NewCardModal'
@@ -34,6 +34,26 @@ export function DispatchKanban({ board, columns, initialCards, vendors, members,
   const [showClosed, setShowClosed] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [currentBoard, setCurrentBoard] = useState<DispatchBoard>(board)
+  const [firedAlerts, setFiredAlerts] = useState<DispatchCard[]>([])
+
+  // Check every 30s for cards whose alert_at has just passed
+  useEffect(() => {
+    const check = () => {
+      const now = new Date()
+      const due = cards.filter(c =>
+        c.alert_at && !c.closed_at &&
+        new Date(c.alert_at) <= now &&
+        new Date(c.alert_at) > new Date(now.getTime() - 60_000) // fired within last 60s
+      )
+      if (due.length) setFiredAlerts(prev => {
+        const existingIds = new Set(prev.map(c => c.id))
+        return [...prev, ...due.filter(c => !existingIds.has(c.id))]
+      })
+    }
+    check()
+    const id = setInterval(check, 30_000)
+    return () => clearInterval(id)
+  }, [cards])
 
   // Filters
   const [filterUrgency, setFilterUrgency] = useState('')
@@ -80,6 +100,21 @@ export function DispatchKanban({ board, columns, initialCards, vendors, members,
 
   return (
     <div className="flex flex-col h-full">
+      {/* Alert banners */}
+      {firedAlerts.map(c => (
+        <div key={c.id} className="flex items-center gap-3 bg-rose-600 text-white px-4 py-2.5 text-sm font-medium flex-shrink-0">
+          <Bell size={15} className="flex-shrink-0 animate-pulse" />
+          <span className="flex-1">
+            Alert: <strong>{c.store ?? 'Card'}</strong>
+            {c.alert_note ? ` — ${c.alert_note}` : ''}
+            <button onClick={() => setSelectedCard(c)} className="ml-2 underline opacity-80 hover:opacity-100">Open card</button>
+          </span>
+          <button onClick={() => setFiredAlerts(prev => prev.filter(a => a.id !== c.id))} className="opacity-70 hover:opacity-100">
+            <X size={15} />
+          </button>
+        </div>
+      ))}
+
       {/* Top bar */}
       <div className="flex-shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-5 py-3">
         <div className="flex items-center gap-3 flex-wrap">
@@ -193,7 +228,6 @@ export function DispatchKanban({ board, columns, initialCards, vendors, members,
           onUpdated={handleCardUpdated}
           onDeleted={handleCardDeleted}
           userRole={userRole}
-          userId={userId}
         />
       )}
 
@@ -280,8 +314,10 @@ function DispatchCardCompact({
 }) {
   const urgencyConf = URGENCY_CONFIG[card.urgency] ?? URGENCY_CONFIG.medium
   const vendor = card.vendor_id ? vendors.find(v => v.id === card.vendor_id) : null
-  const trackingHref = makeDispatchFieldHref(board, 'sc_number', card.sc_number)
-  const jobHref = makeDispatchFieldHref(board, 'kalos_job_number', card.kalos_job_number)
+  const trackingHref = makeDispatchFieldHref(board, 'sc_number', card.sc_number, card)
+  const jobHref = makeDispatchFieldHref(board, 'kalos_job_number', card.kalos_job_number, card)
+  const alertOverdue = card.alert_at && new Date(card.alert_at) <= new Date() && !card.closed_at
+  const alertUpcoming = card.alert_at && new Date(card.alert_at) > new Date() && !card.closed_at
 
   return (
     <button
@@ -290,6 +326,8 @@ function DispatchCardCompact({
         'w-full text-left bg-white dark:bg-slate-900 border rounded-xl px-3 py-2.5 hover:shadow-sm hover:border-indigo-300 dark:hover:border-indigo-600 transition-all group',
         card.closed_at
           ? 'border-slate-200 dark:border-slate-700 opacity-60'
+          : alertOverdue
+          ? 'border-rose-400 dark:border-rose-600'
           : card.needs_review
           ? 'border-amber-300 dark:border-amber-700'
           : 'border-slate-200 dark:border-slate-700'
@@ -324,6 +362,18 @@ function DispatchCardCompact({
 
       {/* Indicators */}
       <div className="flex items-center gap-2 flex-wrap">
+        {alertOverdue && (
+          <span className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 font-medium">
+            <Bell size={11} />
+            Alert
+          </span>
+        )}
+        {alertUpcoming && !alertOverdue && (
+          <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+            <Bell size={11} />
+            {new Date(card.alert_at!).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
         {card.needs_review && (
           <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
             <AlertCircle size={11} />

@@ -15,7 +15,7 @@ interface TopBarProps {
 
 export function TopBar({ profile, title, canUseDarkMode = false, onMenuClick }: TopBarProps) {
   return (
-    <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white border-b border-slate-200 flex-shrink-0">
+    <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white border-b border-slate-200 flex-shrink-0 print:hidden">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}

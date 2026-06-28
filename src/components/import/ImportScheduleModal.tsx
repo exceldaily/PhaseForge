@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { DetectedProject } from '@/lib/importParser'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { DEFAULT_PHASE_COLORS, KANBAN_COLUMNS, PROJECT_STATUS_LABELS } from '@/lib/constants'
+import { DEFAULT_PHASE_COLORS, KANBAN_COLUMNS } from '@/lib/constants'
 import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { cn } from '@/lib/utils'
 

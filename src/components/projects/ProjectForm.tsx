@@ -44,7 +44,7 @@ const DEFAULT_STAGES = [
   'queue', 'mobilization', 'construction_initiated', 'pct_30', 'pct_60', 'pct_90', 'final_punchlist', 'closeout', 'closed'
 ]
 
-export function ProjectForm({ companyId, members, currentUserId, project, boards = [], defaultBoardId, defaultColumnId, boardColumns = [], boardVisibleFields = [], boardCustomStages = [] }: ProjectFormProps) {
+export function ProjectForm({ companyId, members, currentUserId, project, boards = [], defaultBoardId, defaultColumnId, boardVisibleFields = [], boardCustomStages = [] }: ProjectFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

@@ -293,6 +293,65 @@ export async function completePunchItem(
   }
 }
 
+// ── Bulk import (from parsed Excel / PDF) ────────────────────────────────────
+
+export async function bulkCreatePunchItems(
+  projectId: string,
+  items: Array<{
+    issue_description: string
+    location: string | null
+    issue_photo_path: string | null
+  }>
+): Promise<ActionResult & { created?: number }> {
+  try {
+    const supabase = await createClient()
+    const admin = createAdminClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const [{ data: profile }, { data: project }] = await Promise.all([
+      supabase.from('profiles').select('company_id, role').eq('id', user.id).single(),
+      supabase.from('projects').select('id, company_id').eq('id', projectId).single(),
+    ])
+    if (!project) throw new Error('Project not found')
+    if (!profile?.company_id || profile.company_id !== project.company_id) {
+      throw new Error('Not authorized for this project')
+    }
+    if (!EDITOR_ROLES.includes(profile.role)) throw new Error('Only managers and above can import punch items.')
+
+    const { data: maxRow } = await admin
+      .from('punch_items')
+      .select('number')
+      .eq('project_id', projectId)
+      .order('number', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
+    let nextNumber = (maxRow?.number ?? 0) + 1
+
+    const rows = items.map(item => ({
+      id: crypto.randomUUID(),
+      project_id: projectId,
+      company_id: project.company_id,
+      number: nextNumber++,
+      issue_description: item.issue_description.trim(),
+      issue_photo_path: item.issue_photo_path ?? '',
+      location: item.location?.trim() || null,
+      created_by: user.id,
+      priority: 'medium',
+      status: 'open',
+    }))
+
+    const { error } = await admin.from('punch_items').insert(rows)
+    if (error) throw error
+
+    revalidatePath(`/app/projects/${projectId}`)
+    return { success: true, created: rows.length }
+  } catch (err) {
+    logger.error('bulkCreatePunchItems', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to import punch items' }
+  }
+}
+
 // ── Delete (owner / admin only) ──────────────────────────────────────────────
 
 export async function deletePunchItem(punchId: string): Promise<ActionResult> {

@@ -209,6 +209,80 @@ export async function updatePhaseReminders(phaseId: string, reminderNotes: strin
   }
 }
 
+// ── Checklist photo upload / removal ─────────────────────────────────
+
+type AttachPhotoResult =
+  | { success: true; path: string; signedUrl: string | null }
+  | { success: false; error: string }
+
+export async function attachChecklistPhoto(
+  checklistId: string,
+  phaseId: string,
+  file: File
+): Promise<AttachPhotoResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const admin = createAdminClient()
+    const rand = Math.random().toString(36).slice(2, 10)
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const path = `checklist-items/${phaseId}/${Date.now()}-${rand}.${ext}`
+
+    const { error: uploadError } = await admin.storage
+      .from('project-attachments')
+      .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
+
+    if (uploadError) throw uploadError
+
+    const { error } = await supabase
+      .from('phase_checklists')
+      .update({ photo_path: path })
+      .eq('id', checklistId)
+
+    if (error) {
+      await admin.storage.from('project-attachments').remove([path])
+      throw error
+    }
+
+    const { data: urlData } = await admin.storage
+      .from('project-attachments')
+      .createSignedUrl(path, 3600)
+
+    revalidatePath('/app/projects')
+    return { success: true, path, signedUrl: urlData?.signedUrl ?? null }
+  } catch (err) {
+    logger.error('attachChecklistPhoto', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Upload failed' }
+  }
+}
+
+export async function clearChecklistPhoto(checklistId: string, photoPath: string) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const admin = createAdminClient()
+
+    const { error } = await supabase
+      .from('phase_checklists')
+      .update({ photo_path: null })
+      .eq('id', checklistId)
+
+    if (error) throw error
+
+    await admin.storage.from('project-attachments').remove([photoPath])
+
+    revalidatePath('/app/projects')
+    return { success: true as const }
+  } catch (err) {
+    logger.error('clearChecklistPhoto', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to remove photo' }
+  }
+}
+
 // ── Project update with activity logging ──────────────────────────────
 
 export async function updateProject(projectId: string, updates: Record<string, unknown>) {

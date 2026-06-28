@@ -14,7 +14,7 @@ interface ProjectDetailPanelProps {
   canEdit: boolean
 }
 
-export function ProjectDetailPanel({ project, members, onClose, canEdit }: ProjectDetailPanelProps) {
+export function ProjectDetailPanel({ project, onClose, canEdit }: ProjectDetailPanelProps) {
   return (
     <>
       {/* Backdrop */}

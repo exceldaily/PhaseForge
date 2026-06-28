@@ -6,6 +6,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { createDispatchBoard } from '@/app/app/dispatch/actions'
+import { DEFAULT_DISPATCH_CARD_FIELDS, normalizeDispatchCardFields, DispatchCardFieldConfig } from '@/lib/dispatchFields'
 
 const TEMPLATES: Record<string, { label: string; columns: Array<{ name: string; color: string; is_done: boolean }> }> = {
   refrigeration: {
@@ -68,6 +69,7 @@ export function NewBoardModal({ open, onClose }: Props) {
   const [description, setDescription] = useState('')
   const [template, setTemplate] = useState<keyof typeof TEMPLATES>('refrigeration')
   const [columns, setColumns] = useState(TEMPLATES.refrigeration.columns.map(c => ({ ...c })))
+  const [cardFields, setCardFields] = useState<DispatchCardFieldConfig[]>(normalizeDispatchCardFields(DEFAULT_DISPATCH_CARD_FIELDS))
   const [error, setError] = useState('')
 
   const handleTemplateChange = (t: keyof typeof TEMPLATES) => {
@@ -87,15 +89,25 @@ export function NewBoardModal({ open, onClose }: Props) {
     setColumns(prev => prev.map((c, idx) => idx === i ? { ...c, [key]: value } : c))
   }
 
+  const updateCardField = (i: number, key: keyof DispatchCardFieldConfig, value: string | boolean) => {
+    setCardFields(prev => prev.map((field, idx) => idx === i ? { ...field, [key]: value } : field))
+  }
+
   const handleSubmit = () => {
     if (!name.trim()) { setError('Board name is required'); return }
     if (columns.some(c => !c.name.trim())) { setError('All columns must have a name'); return }
+    if (cardFields.some(field => field.visible && !field.label.trim())) { setError('Visible card fields must have labels'); return }
     setError('')
 
     const fd = new FormData()
     fd.set('name', name.trim())
     fd.set('description', description.trim())
     fd.set('columns', JSON.stringify(columns))
+    fd.set('card_fields', JSON.stringify(cardFields.map(field => ({
+      ...field,
+      label: field.label.trim(),
+      link_template: field.link_template?.trim() || null,
+    }))))
 
     startTransition(async () => {
       const result = await createDispatchBoard(fd)
@@ -107,6 +119,7 @@ export function NewBoardModal({ open, onClose }: Props) {
       setDescription('')
       setTemplate('refrigeration')
       setColumns(TEMPLATES.refrigeration.columns.map(c => ({ ...c })))
+      setCardFields(normalizeDispatchCardFields(DEFAULT_DISPATCH_CARD_FIELDS))
       onClose()
       if (result.boardId) router.push(`/app/dispatch/${result.boardId}`)
     })
@@ -155,6 +168,46 @@ export function NewBoardModal({ open, onClose }: Props) {
               >
                 {t.label}
               </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Card field editor */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Card fields</label>
+            <span className="text-xs text-slate-400">Shown on cards you create</span>
+          </div>
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {cardFields.map((field, i) => (
+              <div key={field.key} className="grid grid-cols-[auto_1fr] gap-2 rounded-xl border border-slate-200 dark:border-slate-700 p-2">
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={field.visible}
+                    onChange={e => updateCardField(i, 'visible', e.target.checked)}
+                    className="rounded"
+                  />
+                  Show
+                </label>
+                <input
+                  className="px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-white"
+                  value={field.label}
+                  onChange={e => updateCardField(i, 'label', e.target.value)}
+                  placeholder="Field label"
+                />
+                {(field.key === 'sc_number' || field.key === 'kalos_job_number') && (
+                  <>
+                    <span className="text-xs text-slate-400 self-center">Link</span>
+                    <input
+                      className="px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-white"
+                      value={field.link_template ?? ''}
+                      onChange={e => updateCardField(i, 'link_template', e.target.value)}
+                      placeholder="Optional URL template, use {value}"
+                    />
+                  </>
+                )}
+              </div>
             ))}
           </div>
         </div>

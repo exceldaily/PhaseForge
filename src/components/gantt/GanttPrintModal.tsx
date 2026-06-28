@@ -200,8 +200,11 @@ export function GanttPrintModal({
         )}
 
         {style === 'chart' && projectsToPrint.length > 0 && (
-          <div className="gantt-print-scroll px-8 py-6">
-            <table className="gantt-print-table border-collapse" style={{ minWidth: SIDEBAR_WIDTH + totalWidth }}>
+          <div className="gantt-print-scroll gantt-print-chart-scroll px-8 py-6">
+            <table
+              className="gantt-print-table gantt-print-chart-table border-collapse"
+              style={{ minWidth: SIDEBAR_WIDTH + totalWidth }}
+            >
               <thead>
                 <tr>
                   <th
@@ -294,7 +297,7 @@ export function GanttPrintModal({
       <style>{`
         @page {
           size: landscape;
-          margin: 0.35in;
+          margin: 0.5in;
         }
 
         @media print {
@@ -308,6 +311,7 @@ export function GanttPrintModal({
             margin: 0 !important;
             padding: 0 !important;
             height: auto !important;
+            width: auto !important;
             overflow: visible !important;
             background: white !important;
           }
@@ -331,16 +335,46 @@ export function GanttPrintModal({
           }
 
           .gantt-print-sheet {
+            width: 100% !important;
+            max-width: none !important;
             min-height: 0 !important;
             box-shadow: none !important;
           }
 
+          .gantt-print-header {
+            padding: 0 0 12pt !important;
+            margin-bottom: 12pt !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
+          }
+
+          .gantt-print-header h1 {
+            font-size: 18pt !important;
+          }
+
+          .gantt-print-header p {
+            font-size: 10pt !important;
+          }
+
           .gantt-print-scroll {
+            max-width: 100% !important;
             overflow: visible !important;
+            padding: 0 !important;
           }
 
           .gantt-print-table {
             border-collapse: collapse !important;
+            font-size: 10pt !important;
+            max-width: 100% !important;
+          }
+
+          .gantt-print-chart-table {
+            transform: scale(0.72);
+            transform-origin: top left;
+          }
+
+          .gantt-print-chart-scroll {
+            width: calc(100% / 0.72) !important;
           }
 
           .gantt-print-table thead {
@@ -360,6 +394,14 @@ export function GanttPrintModal({
 
           .gantt-print-list-table {
             width: 100% !important;
+            table-layout: fixed !important;
+            font-size: 9pt !important;
+          }
+
+          .gantt-print-list-table th,
+          .gantt-print-list-table td {
+            overflow-wrap: anywhere !important;
+            padding: 5pt 6pt !important;
           }
 
           .print\\:hidden {
@@ -422,4 +464,3 @@ function getPrintTimelineSegments(
     }
   })
 }
-

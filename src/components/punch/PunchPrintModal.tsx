@@ -127,12 +127,12 @@ export function PunchPrintModal({ project, items, memberMap, scope, onClose }: P
       </div>
 
       <style>{`
-        @page { size: portrait; margin: 0.4in; }
+        @page { size: portrait; margin: 0.5in; }
         @media print {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           html, body {
             margin: 0 !important; padding: 0 !important; height: auto !important;
-            overflow: visible !important; background: white !important;
+            width: auto !important; overflow: visible !important; background: white !important;
           }
           body * { visibility: hidden !important; }
           .punch-print-root, .punch-print-root * { visibility: visible !important; }
@@ -140,8 +140,20 @@ export function PunchPrintModal({ project, items, memberMap, scope, onClose }: P
             position: absolute !important; inset: 0 !important; overflow: visible !important;
             height: auto !important; width: 100% !important; background: white !important;
           }
-          .punch-print-sheet { min-height: 0 !important; box-shadow: none !important; }
+          .punch-print-sheet {
+            width: 100% !important;
+            max-width: none !important;
+            min-height: 0 !important;
+            box-shadow: none !important;
+          }
+          .punch-print-sheet > .space-y-5 {
+            padding: 0 !important;
+          }
           .punch-print-card { break-inside: avoid !important; page-break-inside: avoid !important; }
+          .punch-print-card * { overflow-wrap: anywhere !important; }
+          .punch-print-card .text-3xl { font-size: 18pt !important; }
+          .punch-print-card .text-xs, .punch-print-card .text-sm { font-size: 9pt !important; }
+          .punch-print-photo { height: 110px !important; }
           .print\\:hidden { display: none !important; }
         }
       `}</style>
@@ -172,7 +184,7 @@ function PhotoBlock({
   return (
     <div>
       <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">{heading}</p>
-      <div className="mb-2 h-44 w-full overflow-hidden rounded border border-slate-200 bg-slate-50">
+      <div className="punch-print-photo mb-2 h-44 w-full overflow-hidden rounded border border-slate-200 bg-slate-50">
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={`${heading} photo`} className="h-full w-full object-contain" />

@@ -99,3 +99,36 @@ body {
 
 /* Off-bar label pills / inline inputs floated over the timeline */
 .dark .bg-white\/95 { background-color: rgba(17, 24, 39, 0.95) !important; }
+
+@media print {
+  html,
+  body {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  img,
+  svg,
+  canvas,
+  video {
+    max-width: 100% !important;
+  }
+
+  table {
+    max-width: 100% !important;
+  }
+
+  pre,
+  code {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+  }
+}

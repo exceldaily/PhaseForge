@@ -28,7 +28,7 @@ export default async function DispatchPage() {
 
   const { data: boards } = await supabase
     .from('dispatch_boards')
-    .select('*, columns:dispatch_columns(*)')
+    .select('*, columns:dispatch_columns!dispatch_columns_board_id_fkey(*)')
     .eq('company_id', profile.company_id)
     .order('sort_order')
     .order('created_at')

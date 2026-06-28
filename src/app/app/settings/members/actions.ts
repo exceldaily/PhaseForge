@@ -252,7 +252,6 @@ export async function sendInvite(
       return { error: getFriendlyInviteError(emailResult.error ?? 'Failed to send invitation email.') }
     }
 
-    console.log('[SendInvite] Email sent successfully:', { email: normalizedEmail, messageId: emailResult.messageId })
     return { success: true, message: `Invitation sent to ${normalizedEmail}.` }
   } catch (err) {
     console.error('sendInvite error:', err)

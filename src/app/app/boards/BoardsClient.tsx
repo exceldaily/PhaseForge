@@ -36,14 +36,13 @@ const BOARD_COLORS = [
   '#f59e0b', '#f43f5e', '#3b82f6', '#ec4899',
 ]
 
-export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, canAdmin, companyId }: BoardsClientProps) {
+export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, canAdmin }: BoardsClientProps) {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(BOARD_COLORS[0])
   const [newDesc, setNewDesc] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [customizingFields, setCustomizingFields] = useState(false)
   const [visibleFields, setVisibleFields] = useState<string[]>([])
   const [customStages, setCustomStages] = useState<string[]>([])
   type Visibility = 'everyone' | 'teams' | 'private'
@@ -77,7 +76,6 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
   const handleCustomizationSave = (fields: string[], stages: string[]) => {
     setVisibleFields(fields)
     setCustomStages(stages)
-    setCustomizingFields(false)
   }
 
   const handleCreate = async () => {

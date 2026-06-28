@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Printer, ClipboardList, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Printer, ClipboardList, Trash2, Loader2, Upload } from 'lucide-react'
 import { PunchItemCard } from './PunchItemCard'
 import { PunchItemForm } from './PunchItemForm'
 import { PunchCompleteForm } from './PunchCompleteForm'
 import { PunchPrintModal, PunchPrintScope } from './PunchPrintModal'
+import { PunchImportModal } from './PunchImportModal'
 import { updatePunchItem, deletePunchItem } from '@/app/app/projects/[id]/punch-actions'
 import { PUNCH_STATUS_ORDER, PUNCH_STATUS_LABELS, PUNCH_STATUS_COLOR } from '@/lib/punch'
 import { formatDate } from '@/lib/dates'
@@ -27,6 +28,7 @@ type StatusFilter = PunchStatus | 'all'
 export function PunchListTab({ project, items, members, currentUserId, canEdit, canPrint }: PunchListTabProps) {
   const router = useRouter()
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [completing, setCompleting] = useState<PunchItem | null>(null)
   const [detail, setDetail] = useState<PunchItem | null>(null)
   const [printScope, setPrintScope] = useState<PunchPrintScope | null>(null)
@@ -91,6 +93,14 @@ export function PunchListTab({ project, items, members, currentUserId, canEdit, 
               )}
             </div>
           )}
+          {canEdit && (
+            <button
+              onClick={() => setImporting(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <Upload size={15} /> Import
+            </button>
+          )}
           <button
             onClick={() => setCreating(true)}
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
@@ -154,6 +164,9 @@ export function PunchListTab({ project, items, members, currentUserId, canEdit, 
       {/* Modals */}
       {creating && (
         <PunchItemForm projectId={project.id} members={members} onClose={() => setCreating(false)} />
+      )}
+      {importing && (
+        <PunchImportModal projectId={project.id} onClose={() => setImporting(false)} />
       )}
       {completing && (
         <PunchCompleteForm item={completing} onClose={() => setCompleting(null)} />

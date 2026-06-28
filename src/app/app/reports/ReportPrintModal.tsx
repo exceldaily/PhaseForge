@@ -256,7 +256,7 @@ export function ReportPrintModal({
       <style>{`
         @page {
           size: landscape;
-          margin: 0.35in;
+          margin: 0.5in;
         }
 
         @media print {
@@ -270,6 +270,7 @@ export function ReportPrintModal({
             margin: 0 !important;
             padding: 0 !important;
             height: auto !important;
+            width: auto !important;
             overflow: visible !important;
             background: white !important;
           }
@@ -293,17 +294,45 @@ export function ReportPrintModal({
           }
 
           .report-print-sheet {
+            width: 100% !important;
+            max-width: none !important;
             min-height: 0 !important;
             box-shadow: none !important;
           }
 
+          .report-print-header {
+            padding: 0 0 12pt !important;
+            margin-bottom: 12pt !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
+          }
+
+          .report-print-header h1 {
+            font-size: 18pt !important;
+          }
+
+          .report-print-header p {
+            font-size: 10pt !important;
+          }
+
           .report-print-scroll {
+            max-width: 100% !important;
             overflow: visible !important;
+            padding: 0 !important;
           }
 
           .report-print-table {
             border-collapse: collapse !important;
             width: 100% !important;
+            max-width: 100% !important;
+            table-layout: fixed !important;
+            font-size: 9pt !important;
+          }
+
+          .report-print-table th,
+          .report-print-table td {
+            overflow-wrap: anywhere !important;
+            padding: 5pt 6pt !important;
           }
 
           .report-print-table thead {

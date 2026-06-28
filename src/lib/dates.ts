@@ -90,10 +90,6 @@ export function getBarPosition(
   return { left, width }
 }
 
-export function getDateFromPixel(pixel: number, viewStart: Date, pixelsPerDay: number): Date {
-  const days = Math.round(pixel / pixelsPerDay)
-  return addDays(viewStart, days)
-}
 
 export function getTimelineHeaders(zoom: ZoomLevel, viewStart: Date, viewEnd: Date) {
   switch (zoom) {

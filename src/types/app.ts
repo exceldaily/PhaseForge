@@ -147,6 +147,7 @@ export interface PhaseChecklist {
   description: string | null
   is_completed: boolean
   assigned_to?: string | null
+  photo_path?: string | null
   sort_order: number
   created_at: string
   updated_at: string
@@ -277,6 +278,7 @@ export interface DispatchCard {
   date_started: string | null
   sc_number: string | null
   kalos_job_number: string | null
+  card_links?: Record<string, string> | null
   eta_scheduled: string | null
   rack_circuit_case: string | null
   description: string | null
@@ -292,6 +294,8 @@ export interface DispatchCard {
   email_sender: string | null
   email_subject: string | null
   needs_review: boolean
+  alert_at: string | null
+  alert_note: string | null
   source: DispatchSource
   closed_at: string | null
   created_by: string | null

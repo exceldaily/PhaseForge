@@ -1,7 +1,5 @@
 'use client'
 
-import { Profile } from '@/types/app'
-
 interface AdminAuditLog {
   id: string
   actor_id: string

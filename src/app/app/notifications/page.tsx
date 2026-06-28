@@ -39,7 +39,6 @@ export default async function NotificationsPage() {
     .select('alert_key, starred, dismissed')
     .eq('user_id', user.id)
   const stateMap = new Map((alertStates ?? []).map(s => [s.alert_key, s]))
-  console.log('[Notifications page] Alert states fetched:', alertStates?.length ?? 0)
 
   // Build computed alerts (not stored — generated fresh each page load)
   const alerts: {

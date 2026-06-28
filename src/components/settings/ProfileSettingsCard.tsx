@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { PencilLine, Save, UserRound } from 'lucide-react'
+import { PencilLine, Save, Trash2, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { deleteOwnAccount } from '@/app/app/settings/actions'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Profile, UserRole } from '@/types/app'
+import { Profile } from '@/types/app'
 import { ROLE_LABELS, ROLE_COLORS as ROLE_COLOR_MAP } from '@/lib/constants'
 
 const ROLE_COLORS: Record<string, string> = ROLE_COLOR_MAP
@@ -28,6 +29,10 @@ export function ProfileSettingsCard({ profile, canManageRoles }: ProfileSettings
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [currentProfile, setCurrentProfile] = useState(profile)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [form, setForm] = useState({
     full_name: profile.full_name,
     job_title: profile.job_title || '',
@@ -199,6 +204,56 @@ export function ProfileSettingsCard({ profile, canManageRoles }: ProfileSettings
           </div>
         </div>
       )}
+
+      {/* Danger zone */}
+      <div className="mt-6 border-t border-slate-100 pt-6">
+        <h3 className="text-sm font-semibold text-rose-600 mb-3">Danger zone</h3>
+        {!deleting ? (
+          <button
+            onClick={() => setDeleting(true)}
+            className="flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+          >
+            <Trash2 size={14} /> Delete my account
+          </button>
+        ) : (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
+            <p className="text-sm text-rose-800 font-medium">This will permanently delete your account and all your data. This cannot be undone.</p>
+            <p className="text-xs text-rose-700">Type your email address <strong>{currentProfile.email}</strong> to confirm:</p>
+            <input
+              type="email"
+              value={deleteConfirm}
+              onChange={e => setDeleteConfirm(e.target.value)}
+              placeholder={currentProfile.email}
+              className="w-full rounded-lg border border-rose-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-300"
+            />
+            {deleteError && <p className="text-xs text-rose-700">{deleteError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setDeleting(false); setDeleteConfirm(''); setDeleteError('') }}
+                className="px-3 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={deleteLoading || deleteConfirm !== currentProfile.email}
+                onClick={async () => {
+                  if (deleteConfirm !== currentProfile.email) return
+                  setDeleteLoading(true)
+                  setDeleteError('')
+                  const result = await deleteOwnAccount()
+                  if (result?.error) {
+                    setDeleteError(result.error)
+                    setDeleteLoading(false)
+                  }
+                }}
+                className="px-3 py-2 rounded-lg bg-rose-600 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteLoading ? 'Deleting…' : 'Delete my account'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

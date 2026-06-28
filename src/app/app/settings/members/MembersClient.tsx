@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Trash2, AlertCircle } from 'lucide-react'
+import { Trash2, AlertCircle } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { ROLE_LABELS, ROLE_COLORS as ROLE_COLOR_MAP } from '@/lib/constants'
 import { Profile } from '@/types/app'
-import { cn } from '@/lib/utils'
 import { updateUserRole, deleteUser } from './actions'
 
 interface MembersClientProps {
@@ -19,7 +18,7 @@ interface MembersClientProps {
 
 const ROLES = ['owner', 'manager', 'member']
 
-export function MembersClient({ members, currentUserId, currentUserRole, companyId, canManage }: MembersClientProps) {
+export function MembersClient({ members, currentUserId, companyId, canManage }: MembersClientProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>('')

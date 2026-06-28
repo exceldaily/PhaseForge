@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Building2, Plus, ShieldCheck, Settings } from 'lucide-react'
+import { Building2, Plus, Settings } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { InviteMemberButton } from '@/components/settings/InviteMemberButton'

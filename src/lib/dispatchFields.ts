@@ -1,4 +1,4 @@
-import { DispatchBoard, DispatchCardFieldConfig } from '@/types/app'
+import { DispatchBoard, DispatchCard, DispatchCardFieldConfig } from '@/types/app'
 
 export type { DispatchCardFieldConfig }
 
@@ -69,8 +69,11 @@ export function getDispatchFieldLabel(board: DispatchBoard, key: string): string
 }
 
 // Returns an external link href for a field value, using board-level link_template when set.
-export function makeDispatchFieldHref(board: DispatchBoard, key: string, value: string | null): string | null {
+export function makeDispatchFieldHref(board: DispatchBoard, key: string, value: string | null, card?: Pick<DispatchCard, 'card_links'>): string | null {
   if (!value) return null
+  const cardLink = card?.card_links?.[key]?.trim()
+  if (cardLink) return cardLink
+
   const boardField = board.card_fields?.find(f => f.key === key)
   const template = boardField?.link_template
     ?? DEFAULT_DISPATCH_CARD_FIELDS.find(f => f.key === key)?.link_template

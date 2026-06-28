@@ -50,7 +50,7 @@ export async function checkBoardLimit(companyId: string): Promise<UsageResult> {
 }
 
 // ── Projects ──────────────────────────────────────────────────────────────────
-export async function checkProjectLimit(companyId: string, boardId?: string): Promise<UsageResult> {
+export async function checkProjectLimit(companyId: string): Promise<UsageResult> {
   const supabase = await createClient()
 
   const [{ data: company }, { count }] = await Promise.all([

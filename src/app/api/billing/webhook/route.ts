@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
         const companyId = (customer.metadata as any)?.company_id
 
         if (!companyId) {
-          console.log('No company_id in customer metadata')
           return NextResponse.json({ received: true })
         }
 
@@ -92,7 +91,6 @@ export async function POST(req: NextRequest) {
         const plan = getPlanFromPriceId(item.price.id)
 
         if (!plan) {
-          console.log('Could not determine plan from price:', item.price.id)
           return NextResponse.json({ received: true })
         }
 

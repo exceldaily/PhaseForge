@@ -29,7 +29,7 @@ export function GanttSidebar({
   rowsRef,
   onRowsScroll,
 }: GanttSidebarProps) {
-  const { collapsedProjects, toggleProjectCollapse, selectedPhaseId, setSelectedPhase, selectedProjectId, setSelectedProject } = useGanttStore()
+  const { collapsedProjects, toggleProjectCollapse, selectedPhaseId, setSelectedPhase, setSelectedProject } = useGanttStore()
 
   return (
     <div

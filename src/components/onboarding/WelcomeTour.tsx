@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
-  ArrowLeft, ArrowRight, BarChart2, BookOpen, FolderKanban,
+  ArrowLeft, ArrowRight, BookOpen, FolderKanban,
   GanttChartSquare, Layers, LayoutDashboard, Rocket, UsersRound, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

@@ -60,7 +60,7 @@ export function DispatchBoardList({ boards, userRole }: Props) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {boards.map((board) => (
-            <BoardCard key={board.id} board={board} canManage={canManage} />
+            <BoardCard key={board.id} board={board} />
           ))}
           {canManage && (
             <button
@@ -79,7 +79,7 @@ export function DispatchBoardList({ boards, userRole }: Props) {
   )
 }
 
-function BoardCard({ board, canManage }: { board: DispatchBoard; canManage: boolean }) {
+function BoardCard({ board }: { board: DispatchBoard }) {
   const columns = (board.columns ?? []).sort((a, b) => a.sort_order - b.sort_order) as DispatchColumn[]
   const openCount = board.open_cards ?? 0
 

@@ -99,15 +99,3 @@ export async function getCustomerPortalUrl(
   return portalSession.url
 }
 
-export async function getSubscription(subscriptionId: string) {
-  return stripe.subscriptions.retrieve(subscriptionId, {
-    expand: ['latest_invoice'],
-  })
-}
-
-export async function listInvoices(customerId: string) {
-  return stripe.invoices.list({
-    customer: customerId,
-    limit: 12,
-  })
-}

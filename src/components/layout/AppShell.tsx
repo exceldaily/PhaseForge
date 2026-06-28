@@ -34,7 +34,7 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
   }, [canUseDarkMode])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors print:block print:h-auto print:overflow-visible">
       <Sidebar
         isSuperAdmin={isSuperAdmin}
         canUseReports={canUseReports}
@@ -42,13 +42,13 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden print:overflow-visible">
         <TopBar
           profile={profile}
           canUseDarkMode={canUseDarkMode}
           onMenuClick={() => setMobileNavOpen((o) => !o)}
         />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto print:overflow-visible">
           {children}
         </main>
         <FirstRunTour />
