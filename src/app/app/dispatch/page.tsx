@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DispatchBoardList } from '@/components/dispatch/DispatchBoardList'
 import { DispatchBoard } from '@/types/app'
+import { canUseTickets } from '@/lib/constants'
 
 export const metadata = { title: 'Dispatch — PhaseForge' }
 
@@ -20,11 +21,11 @@ export default async function DispatchPage() {
 
   const { data: company } = await supabase
     .from('companies')
-    .select('dispatch_enabled')
+    .select('plan, dispatch_enabled')
     .eq('id', profile.company_id)
     .single()
 
-  if (!company?.dispatch_enabled) redirect('/app/dashboard')
+  if (!canUseTickets(company?.plan) && !company?.dispatch_enabled) redirect('/app/dashboard')
 
   const { data: boards } = await supabase
     .from('dispatch_boards')

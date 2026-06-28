@@ -133,12 +133,12 @@ export const PLAN_LABELS: Record<string, string> = {
  * Per-plan feature flags (beyond the numeric limits above).
  * Printing and Reports are Pro/Business/Enterprise (and Individual) only.
  */
-export const PLAN_FEATURES: Record<string, { printAndReports: boolean; darkMode: boolean }> = {
-  free:       { printAndReports: false, darkMode: false },
-  individual: { printAndReports: true,  darkMode: true  },
-  pro:        { printAndReports: true,  darkMode: true  },
-  business:   { printAndReports: true,  darkMode: true  },
-  enterprise: { printAndReports: true,  darkMode: true  },
+export const PLAN_FEATURES: Record<string, { printAndReports: boolean; darkMode: boolean; tickets: boolean }> = {
+  free:       { printAndReports: false, darkMode: false, tickets: false },
+  individual: { printAndReports: true,  darkMode: true,  tickets: true  },
+  pro:        { printAndReports: true,  darkMode: true,  tickets: true  },
+  business:   { printAndReports: true,  darkMode: true,  tickets: true  },
+  enterprise: { printAndReports: true,  darkMode: true,  tickets: true  },
 }
 
 /** Whether a plan can print Gantt charts and use the Reports page. */
@@ -149,6 +149,11 @@ export function canUsePrintAndReports(plan: string | null | undefined): boolean 
 /** Whether a plan can switch between light and dark appearance. */
 export function canUseDarkMode(plan: string | null | undefined): boolean {
   return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.darkMode ?? false
+}
+
+/** Whether a plan can use the Tickets (dispatch) module. */
+export function canUseTickets(plan: string | null | undefined): boolean {
+  return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.tickets ?? false
 }
 
 /** Board column constraints */

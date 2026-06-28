@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DEFAULT_DISPATCH_CARD_FIELDS, normalizeDispatchCardFields } from '@/lib/dispatchFields'
 import { sendTicketForward } from '@/lib/brevo'
+import { canUseTickets } from '@/lib/constants'
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -22,11 +23,11 @@ async function requireDispatchAccess() {
 
   const { data: company } = await supabase
     .from('companies')
-    .select('dispatch_enabled')
+    .select('plan, dispatch_enabled')
     .eq('id', profile.company_id)
     .single()
 
-  if (!company?.dispatch_enabled) throw new Error('Dispatch not enabled for this organization')
+  if (!canUseTickets(company?.plan) && !company?.dispatch_enabled) throw new Error('Tickets not available on your current plan')
 
   return { supabase, userId: user.id, companyId: profile.company_id, role: profile.role }
 }

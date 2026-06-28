@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { DispatchKanban } from '@/components/dispatch/DispatchKanban'
 import { DispatchBoard, DispatchColumn, DispatchCard, DispatchVendor, Profile } from '@/types/app'
+import { canUseTickets } from '@/lib/constants'
 
 export default async function DispatchBoardPage({ params }: { params: Promise<{ boardId: string }> }) {
   const { boardId } = await params
@@ -19,11 +20,11 @@ export default async function DispatchBoardPage({ params }: { params: Promise<{ 
 
   const { data: company } = await supabase
     .from('companies')
-    .select('dispatch_enabled')
+    .select('plan, dispatch_enabled')
     .eq('id', profile.company_id)
     .single()
 
-  if (!company?.dispatch_enabled) redirect('/app/dashboard')
+  if (!canUseTickets(company?.plan) && !company?.dispatch_enabled) redirect('/app/dashboard')
 
   const { data: board } = await supabase
     .from('dispatch_boards')

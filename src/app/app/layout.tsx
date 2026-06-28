@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
-import { canUsePrintAndReports, canUseDarkMode } from '@/lib/constants'
+import { canUsePrintAndReports, canUseDarkMode, canUseTickets } from '@/lib/constants'
 import { Profile } from '@/types/app'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .single()
     canUseReports = canUsePrintAndReports(company?.plan)
     canUseTheme = canUseDarkMode(company?.plan)
-    canUseDispatch = company?.dispatch_enabled ?? false
+    canUseDispatch = canUseTickets(company?.plan) || (company?.dispatch_enabled ?? false)
   }
 
   return (
