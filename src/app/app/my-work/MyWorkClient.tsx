@@ -31,7 +31,7 @@ export function MyWorkClient({ firstName, tasks: initialTasks, phases, punch }: 
   const visiblePunch = filter === 'todo' ? punchTodo : filter === 'completed' ? punchDone : [...punchTodo, ...punchDone]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 p-6">
+    <div className="mx-auto max-w-3xl space-y-6 sm:space-y-8 p-4 sm:p-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">My Work</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

@@ -40,11 +40,11 @@ export default async function OrganizationPage() {
   }, {} as Record<string, typeof members>)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-10">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-8 sm:space-y-10">
 
       {/* ── Org header ── */}
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        <div className="flex items-center justify-between gap-4 border-b border-slate-100 px-8 py-6">
+        <div className="flex items-center justify-between gap-3 flex-wrap border-b border-slate-100 px-4 sm:px-8 py-4 sm:py-6">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white">
               <Building2 size={26} />
@@ -121,13 +121,13 @@ export default async function OrganizationPage() {
               return (
                 <div key={team.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                   {/* Team header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100"
+                  <div className="flex items-center justify-between flex-wrap gap-2 px-4 sm:px-6 py-4 border-b border-slate-100"
                     style={{ borderLeftWidth: 4, borderLeftColor: team.color }}>
                     <div className="flex items-center gap-3">
                       <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: team.color }} />
                       <span className="font-semibold text-slate-900 text-lg">{team.name}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-500">
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
                       <span>{teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''}</span>
                       <span>·</span>
                       <span>{teamProjects.length} project{teamProjects.length !== 1 ? 's' : ''}</span>
@@ -204,7 +204,7 @@ export default async function OrganizationPage() {
                 (t.team_members ?? []).some((tm: any) => tm.profile_id === m.id)
               )
               return (
-                <div key={m.id} className="flex items-center gap-4 px-6 py-4">
+                <div key={m.id} className="flex items-center gap-3 px-4 sm:px-6 py-4">
                   <Avatar name={m.full_name} avatarUrl={m.avatar_url} size="md" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-900">{m.full_name}</p>

@@ -24,7 +24,7 @@ export function ProjectDetailPanel({ project, onClose, canEdit }: ProjectDetailP
       />
 
       {/* Side Panel */}
-      <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-lg z-50 overflow-y-auto">
+      <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-lg z-50 overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">

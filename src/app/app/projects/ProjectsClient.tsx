@@ -60,7 +60,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
   }, [projects, deferredSearch, statusFilter])
 
   return (
-    <div className={cn('p-6 space-y-5', view === 'kanban' ? 'max-w-none' : 'max-w-7xl mx-auto')}>
+    <div className={cn('p-4 sm:p-6 space-y-4 sm:space-y-5', view === 'kanban' ? 'max-w-none' : 'max-w-7xl mx-auto')}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -77,7 +77,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-0 sm:min-w-[200px] max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}

@@ -69,7 +69,7 @@ export function MembersClient({ members, currentUserId, companyId, canManage }: 
 
       <div className="divide-y divide-slate-100">
         {members.map(member => (
-          <div key={member.id} className="flex items-center gap-4 px-6 py-4">
+          <div key={member.id} className="flex items-center gap-3 px-4 sm:px-6 py-4">
             <Avatar name={member.full_name} avatarUrl={member.avatar_url} size="md" />
             <div className="flex-1 min-w-0">
               <p className="font-medium text-slate-900">{member.full_name}</p>

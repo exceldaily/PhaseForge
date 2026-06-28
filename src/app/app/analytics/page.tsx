@@ -126,7 +126,7 @@ export default async function AnalyticsPage({
   const maxWorkload = Math.max(...workload.map(w => w.total), 1)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 sm:space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
@@ -165,7 +165,7 @@ export default async function AnalyticsPage({
           {totalPhases === 0 ? (
             <p className="text-sm text-slate-400 py-8 text-center">No phases yet</p>
           ) : (
-            <div className="flex items-center gap-6 mt-2">
+            <div className="flex flex-wrap items-center gap-4 mt-2">
               <DonutChart segments={phasesByStatus.map(s => ({ value: s.count, color: s.color }))} total={totalPhases} />
               <div className="flex-1 space-y-2">
                 {phasesByStatus.map(s => (
@@ -255,7 +255,7 @@ export default async function AnalyticsPage({
               </div>
             ))}
           </div>
-          <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded bg-emerald-400" /> Completed</span>
             <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded bg-indigo-500" /> In Progress</span>
             <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-4 rounded bg-slate-300" /> Upcoming</span>
