@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { href: '/app/gantt',        label: 'Gantt',        icon: GanttChartSquare },
   { href: '/app/resources',    label: 'Resources',    icon: UsersRound },
   { href: '/app/analytics',    label: 'Analytics',    icon: BarChart2 },
-  { href: '/app/dispatch',     label: 'Dispatch',     icon: Radio },
+  { href: '/app/dispatch',     label: 'Tickets',      icon: Radio },
   { href: '/app/reports',      label: 'Reports',      icon: FileText },
   { href: '/app/billing',      label: 'Billing',      icon: CreditCard },
   { href: '/app/organization', label: 'Organization', icon: Building2 },
@@ -69,7 +69,7 @@ export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDis
       )}
 
       <aside className={cn(
-        'flex flex-col h-full bg-slate-900 text-slate-400 transition-all duration-300',
+        'flex flex-col h-full bg-slate-900 text-slate-400 transition-all duration-300 print:hidden',
         /* Desktop: collapsible sidebar */
         'hidden md:flex',
         collapsed ? 'md:w-16' : 'md:w-60',

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DEFAULT_DISPATCH_CARD_FIELDS, normalizeDispatchCardFields } from '@/lib/dispatchFields'
+import { sendTicketForward } from '@/lib/brevo'
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -274,6 +275,8 @@ export async function createDispatchCard(formData: FormData) {
     const who       = String(formData.get('who_ordered') ?? '').trim() || null
     const partOrdered = String(formData.get('part_ordered') ?? '') === 'true'
     const needsReview = String(formData.get('needs_review') ?? '') === 'true'
+    const alertAt   = String(formData.get('alert_at') ?? '').trim() || null
+    const alertNote = String(formData.get('alert_note') ?? '').trim() || null
 
     if (!boardId) return { error: 'Board ID required' }
 
@@ -298,6 +301,8 @@ export async function createDispatchCard(formData: FormData) {
         vendor_id: vendorId,
         vendor_email: vendorEmail,
         needs_review: needsReview,
+        alert_at: alertAt ? new Date(alertAt).toISOString() : null,
+        alert_note: alertNote,
         source: 'manual',
         created_by: userId,
       })
@@ -543,6 +548,29 @@ export async function updateDispatchVendor(vendorId: string, updates: { name?: s
     if (error) return { error: error.message }
 
     revalidatePath('/app/dispatch')
+    return { success: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unknown error' }
+  }
+}
+
+export async function forwardTicketEmail(cardId: string, boardId: string, toEmail: string, subject: string, body: string) {
+  try {
+    const { supabase, userId, companyId } = await requireDispatchAccess()
+
+    const result = await sendTicketForward(toEmail, subject, body)
+    if (!result.success) return { error: result.error ?? 'Failed to send email' }
+
+    await logActivity(supabase, {
+      cardId,
+      companyId,
+      userId,
+      activityType: 'email_forwarded',
+      message: `Ticket forwarded to ${toEmail}`,
+      newValue: toEmail,
+    })
+
+    revalidatePath(`/app/dispatch/${boardId}`)
     return { success: true }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Unknown error' }

@@ -150,6 +150,26 @@ export async function sendPasswordResetEmail(email: string, resetLink: string) {
   })
 }
 
+export async function sendTicketForward(toEmail: string, subject: string, body: string) {
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="white-space: pre-wrap; color: #0f172a; font-size: 14px; line-height: 1.7;">
+${body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+      </div>
+      <p style="margin-top: 30px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+        Sent via PhaseForge Tickets
+      </p>
+    </div>
+  `
+
+  return sendEmail({
+    sender: { email: SENDER_EMAIL, name: SENDER_NAME },
+    to: [{ email: toEmail }],
+    subject,
+    htmlContent,
+  })
+}
+
 export async function sendNotificationEmail(
   email: string,
   subject: string,

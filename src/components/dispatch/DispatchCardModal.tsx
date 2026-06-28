@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { X, AlertCircle, Trash2, CheckCircle, RefreshCw } from 'lucide-react'
+import { useRef, useState, useTransition } from 'react'
+import { X, AlertCircle, Trash2, CheckCircle, RefreshCw, Link2, Send } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { DispatchBoard, DispatchColumn, DispatchCard, DispatchVendor, Profile } from '@/types/app'
 import { DispatchActivityLog } from './DispatchActivityLog'
@@ -11,8 +11,11 @@ import {
   closeDispatchCard,
   reopenDispatchCard,
   deleteDispatchCard,
+  createDispatchVendor,
+  forwardTicketEmail,
 } from '@/app/app/dispatch/actions'
 import { cn } from '@/lib/utils'
+import { getDispatchFieldLabel, makeDispatchFieldHref } from '@/lib/dispatchFields'
 
 interface Props {
   card: DispatchCard
@@ -24,7 +27,6 @@ interface Props {
   onUpdated: (card: DispatchCard) => void
   onDeleted: (cardId: string) => void
   userRole: string
-  userId: string
 }
 
 const URGENCY_STYLES = {
@@ -34,11 +36,33 @@ const URGENCY_STYLES = {
   low:      'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600',
 }
 
-export function DispatchCardModal({ card, board, columns, vendors, members, onClose, onUpdated, onDeleted, userRole, userId }: Props) {
+function buildForwardBody(card: DispatchCard) {
+  const lines: string[] = []
+  if (card.store)             lines.push(`Store: ${card.store}`)
+  if (card.sc_number)         lines.push(`SC #: ${card.sc_number}`)
+  if (card.kalos_job_number)  lines.push(`Job #: ${card.kalos_job_number}`)
+  lines.push(`Urgency: ${card.urgency.charAt(0).toUpperCase() + card.urgency.slice(1)}`)
+  if (card.eta_scheduled)     lines.push(`ETA: ${new Date(card.eta_scheduled).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`)
+  if (card.rack_circuit_case) lines.push(`Rack/Circuit/Case: ${card.rack_circuit_case}`)
+  if (card.description)       lines.push('', `Description:`, card.description)
+  if (card.notes)             lines.push('', `Notes:`, card.notes)
+  return lines.join('\n')
+}
+
+export function DispatchCardModal({ card, board, columns, vendors, members, onClose, onUpdated, onDeleted, userRole }: Props) {
   const [editing, setEditing] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [localVendors, setLocalVendors] = useState<DispatchVendor[]>(vendors)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
+  const [forwarding, setForwarding] = useState(false)
+  const [forwardForm, setForwardForm] = useState(() => ({
+    to: card.vendor_email ?? '',
+    subject: `Ticket: ${[card.store, card.sc_number].filter(Boolean).join(' – ')}`,
+    body: buildForwardBody(card),
+  }))
+  const [forwardLoading, setForwardLoading] = useState(false)
+  const [forwardResult, setForwardResult] = useState<{ success?: boolean; error?: string } | null>(null)
 
   // Edit form state
   const [form, setForm] = useState({
@@ -57,18 +81,41 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
     vendor_id:        card.vendor_id ?? '',
     vendor_email:     card.vendor_email ?? '',
     needs_review:     card.needs_review,
+    alert_at:         card.alert_at ? card.alert_at.slice(0, 16) : '',
+    alert_note:       card.alert_note ?? '',
     column_id:        card.column_id ?? '',
   })
+  const [fieldLinks, setFieldLinks] = useState<Record<string, string>>(card.card_links ?? {})
 
   const canManage = ['owner', 'admin', 'manager'].includes(userRole)
   const canEdit = ['owner', 'admin', 'manager', 'member'].includes(userRole)
   const isClosed = !!card.closed_at
 
   const currentColumn = columns.find(c => c.id === card.column_id)
-  const assignedMember = members.find(m => m.id === card.assigned_to)
-  const currentVendor = vendors.find(v => v.id === card.vendor_id)
+  const trackingHref = makeDispatchFieldHref(board, 'sc_number', card.sc_number, card)
 
   const set = (key: string, value: unknown) => setForm(prev => ({ ...prev, [key]: value }))
+
+  const setFieldLink = (field: 'sc_number' | 'kalos_job_number') => {
+    const label = getDispatchFieldLabel(board, field)
+    const current = fieldLinks[field] ?? ''
+    const next = window.prompt(`Paste a link for ${label}. Leave blank to remove it.`, current)
+    if (next === null) return
+    setFieldLinks(prev => {
+      const updated = { ...prev }
+      const clean = next.trim()
+      if (clean) updated[field] = clean
+      else delete updated[field]
+      return updated
+    })
+  }
+
+  const handleLinkKeyDown = (field: 'sc_number' | 'kalos_job_number') => (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault()
+      setFieldLink(field)
+    }
+  }
 
   const handleSave = () => {
     setError('')
@@ -88,6 +135,9 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
       vendor_id:         form.vendor_id || null,
       vendor_email:      form.vendor_email.trim() || null,
       needs_review:      form.needs_review,
+      alert_at:          form.alert_at ? new Date(form.alert_at).toISOString() : null,
+      alert_note:        form.alert_note.trim() || null,
+      card_links:        fieldLinks,
     }
 
     // Build change log for activity tracking
@@ -96,6 +146,7 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
       { field: 'urgency', label: 'Urgency', oldValue: card.urgency, newValue: form.urgency },
       { field: 'sc_number', label: 'SC #', oldValue: card.sc_number ?? '', newValue: form.sc_number.trim() },
       { field: 'kalos_job_number', label: 'Kalos Job #', oldValue: card.kalos_job_number ?? '', newValue: form.kalos_job_number.trim() },
+      { field: 'card_links', label: 'Field links', oldValue: JSON.stringify(card.card_links ?? {}), newValue: JSON.stringify(fieldLinks) },
       { field: 'description', label: 'Description', oldValue: card.description ?? '', newValue: form.description.trim() },
       { field: 'rack_circuit_case', label: 'Rack/Circuit/Case', oldValue: card.rack_circuit_case ?? '', newValue: form.rack_circuit_case.trim() },
       { field: 'part_ordered', label: 'Part Ordered', oldValue: String(card.part_ordered), newValue: String(form.part_ordered) },
@@ -120,7 +171,8 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
         ...updates,
         column_id: newColId,
         updated_at: new Date().toISOString(),
-        vendor: vendors.find(v => v.id === form.vendor_id),
+        card_links: fieldLinks,
+        vendor: localVendors.find(v => v.id === form.vendor_id),
         assigned_profile: members.find(m => m.id === form.assigned_to) as DispatchCard['assigned_profile'],
       }
       onUpdated(updatedCard)
@@ -152,6 +204,20 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
     })
   }
 
+  const handleForwardSend = async () => {
+    if (!forwardForm.to.trim()) return
+    setForwardLoading(true)
+    setForwardResult(null)
+    const result = await forwardTicketEmail(card.id, board.id, forwardForm.to.trim(), forwardForm.subject.trim(), forwardForm.body)
+    setForwardLoading(false)
+    if (result.error) {
+      setForwardResult({ error: result.error })
+    } else {
+      setForwardResult({ success: true })
+      setTimeout(() => { setForwarding(false); setForwardResult(null) }, 2000)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
@@ -179,7 +245,16 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
                 )}
               </div>
               <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-                {card.sc_number && <span>SC# {card.sc_number}</span>}
+                {card.sc_number && (
+                  <span>
+                    {getDispatchFieldLabel(board, 'sc_number')}{' '}
+                    {trackingHref ? (
+                      <a href={trackingHref} target="_blank" rel="noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                        {card.sc_number}
+                      </a>
+                    ) : card.sc_number}
+                  </span>
+                )}
                 {currentColumn && (
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentColumn.color }} />
@@ -187,7 +262,7 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
                   </span>
                 )}
                 {!card.kalos_job_number && (
-                  <span className="text-rose-500 font-medium">Missing Kalos Job #</span>
+                  <span className="text-rose-500 font-medium">Missing {getDispatchFieldLabel(board, 'kalos_job_number')}</span>
                 )}
               </div>
             </div>
@@ -207,9 +282,20 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
           {/* Left: Fields */}
           <div className="flex-1 overflow-y-auto p-6 border-r border-slate-200 dark:border-slate-700">
             {!editing ? (
-              <ReadView card={card} columns={columns} vendors={vendors} members={members} />
+              <ReadView board={board} card={card} columns={columns} vendors={localVendors} members={members} />
             ) : (
-              <EditForm form={form} set={set} columns={columns} vendors={vendors} members={members} />
+              <EditForm
+                board={board}
+                form={form}
+                set={set}
+                columns={columns}
+                vendors={localVendors}
+                onVendorAdded={v => { setLocalVendors(prev => [...prev, v]); set('vendor_id', v.id) }}
+                members={members}
+                fieldLinks={fieldLinks}
+                setFieldLink={setFieldLink}
+                handleLinkKeyDown={handleLinkKeyDown}
+              />
             )}
 
             {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
@@ -225,31 +311,91 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
 
             {/* Card actions */}
             {!editing && (
-              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2 flex-wrap">
-                {!isClosed ? (
-                  <Button variant="secondary" size="sm" onClick={handleClose} loading={isPending}>
-                    <CheckCircle size={14} />
-                    Close Card
-                  </Button>
-                ) : (
-                  <Button variant="secondary" size="sm" onClick={handleReopen} loading={isPending}>
-                    <RefreshCw size={14} />
-                    Reopen Card
-                  </Button>
-                )}
-                {canManage && (
-                  confirmDelete ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">Are you sure?</span>
-                      <Button variant="danger" size="sm" onClick={handleDelete} loading={isPending}>Delete</Button>
-                      <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-                    </div>
-                  ) : (
-                    <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 ml-auto">
-                      <Trash2 size={14} />
-                      Delete
+              <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!isClosed ? (
+                    <Button variant="secondary" size="sm" onClick={handleClose} loading={isPending}>
+                      <CheckCircle size={14} />
+                      Close Card
                     </Button>
-                  )
+                  ) : (
+                    <Button variant="secondary" size="sm" onClick={handleReopen} loading={isPending}>
+                      <RefreshCw size={14} />
+                      Reopen Card
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => { setForwarding(f => !f); setForwardResult(null) }}
+                  >
+                    <Send size={14} />
+                    Forward
+                  </Button>
+                  {canManage && (
+                    confirmDelete ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">Are you sure?</span>
+                        <Button variant="danger" size="sm" onClick={handleDelete} loading={isPending}>Delete</Button>
+                        <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)} className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 ml-auto">
+                        <Trash2 size={14} />
+                        Delete
+                      </Button>
+                    )
+                  )}
+                </div>
+
+                {/* Forward compose panel */}
+                {forwarding && (
+                  <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Forward Ticket</p>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">To</label>
+                      <input
+                        type="email"
+                        value={forwardForm.to}
+                        onChange={e => setForwardForm(f => ({ ...f, to: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="vendor@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Subject</label>
+                      <input
+                        type="text"
+                        value={forwardForm.subject}
+                        onChange={e => setForwardForm(f => ({ ...f, subject: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Body</label>
+                      <textarea
+                        rows={8}
+                        value={forwardForm.body}
+                        onChange={e => setForwardForm(f => ({ ...f, body: e.target.value }))}
+                        className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y font-mono"
+                      />
+                    </div>
+                    {forwardResult?.error && (
+                      <p className="text-xs text-rose-600">{forwardResult.error}</p>
+                    )}
+                    {forwardResult?.success && (
+                      <p className="text-xs text-emerald-600 font-medium">Email sent successfully.</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleForwardSend} loading={forwardLoading} disabled={!forwardForm.to.trim()}>
+                        <Send size={13} />
+                        Send
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => { setForwarding(false); setForwardResult(null) }} disabled={forwardLoading}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -267,7 +413,8 @@ export function DispatchCardModal({ card, board, columns, vendors, members, onCl
 
 // ── Read view ─────────────────────────────────────────────────────────────────
 
-function ReadView({ card, columns, vendors, members }: {
+function ReadView({ board, card, columns, vendors, members }: {
+  board: DispatchBoard
   card: DispatchCard
   columns: DispatchColumn[]
   vendors: DispatchVendor[]
@@ -275,6 +422,7 @@ function ReadView({ card, columns, vendors, members }: {
 }) {
   const vendor = vendors.find(v => v.id === card.vendor_id)
   const assignee = members.find(m => m.id === card.assigned_to)
+  void board
 
   return (
     <div className="space-y-6">
@@ -294,8 +442,8 @@ function ReadView({ card, columns, vendors, members }: {
         <FieldGrid>
           <Field label="Store" value={card.store ?? '—'} />
           <Field label="Date Started" value={card.date_started ? new Date(card.date_started + 'T00:00:00').toLocaleDateString() : '—'} />
-          <Field label="SC #" value={card.sc_number ?? '—'} />
-          <Field label="Kalos Job #" value={card.kalos_job_number ?? '—'} highlight={!card.kalos_job_number} />
+          <Field label={getDispatchFieldLabel(board, 'sc_number')} value={card.sc_number ?? '—'} href={makeDispatchFieldHref(board, 'sc_number', card.sc_number, card)} />
+          <Field label={getDispatchFieldLabel(board, 'kalos_job_number')} value={card.kalos_job_number ?? '—'} highlight={!card.kalos_job_number} href={makeDispatchFieldHref(board, 'kalos_job_number', card.kalos_job_number, card)} />
           <Field label="ETA / Scheduled" value={card.eta_scheduled ? new Date(card.eta_scheduled).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'} />
           <Field label="Rack / Circuit / Case" value={card.rack_circuit_case ?? '—'} />
         </FieldGrid>
@@ -322,6 +470,25 @@ function ReadView({ card, columns, vendors, members }: {
         )}
       </Section>
 
+      {/* Alert */}
+      {card.alert_at && (() => {
+        const alertDate = new Date(card.alert_at)
+        const isOverdue = alertDate <= new Date()
+        return (
+          <Section title="Alert">
+            <div className={`flex items-start gap-2 rounded-lg px-3 py-2.5 ${isOverdue ? 'bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700' : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700'}`}>
+              <span className={`text-lg ${isOverdue ? 'text-rose-500' : 'text-amber-500'}`}>🔔</span>
+              <div>
+                <p className={`text-sm font-semibold ${isOverdue ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                  {isOverdue ? 'Alert overdue' : 'Alert scheduled'} — {alertDate.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+                {card.alert_note && <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{card.alert_note}</p>}
+              </div>
+            </div>
+          </Section>
+        )
+      })()}
+
       {/* Email details (if present) */}
       {card.gmail_thread_id && (
         <Section title="Email Thread">
@@ -347,14 +514,37 @@ function ReadView({ card, columns, vendors, members }: {
 
 // ── Edit form ─────────────────────────────────────────────────────────────────
 
-function EditForm({ form, set, columns, vendors, members }: {
+function EditForm({ board, form, set, columns, vendors, onVendorAdded, members, fieldLinks, setFieldLink, handleLinkKeyDown }: {
+  board: DispatchBoard
   form: Record<string, unknown>
   set: (key: string, value: unknown) => void
   columns: DispatchColumn[]
   vendors: DispatchVendor[]
+  onVendorAdded: (v: DispatchVendor) => void
   members: Props['members']
+  fieldLinks: Record<string, string>
+  setFieldLink: (field: 'sc_number' | 'kalos_job_number') => void
+  handleLinkKeyDown: (field: 'sc_number' | 'kalos_job_number') => (event: React.KeyboardEvent<HTMLInputElement>) => void
 }) {
+  const [addingVendor, setAddingVendor] = useState(false)
+  const [newVendorName, setNewVendorName] = useState('')
+  const [vendorSaving, setVendorSaving] = useState(false)
+  const vendorInputRef = useRef<HTMLInputElement>(null)
   const f = form as Record<string, string | boolean>
+  void board
+
+  const confirmNewVendor = async () => {
+    const name = newVendorName.trim()
+    if (!name) { setAddingVendor(false); return }
+    setVendorSaving(true)
+    const fd = new FormData(); fd.set('name', name)
+    const res = await createDispatchVendor(fd)
+    setVendorSaving(false)
+    if (res.error || !res.vendor) { setAddingVendor(false); setNewVendorName(''); return }
+    onVendorAdded(res.vendor as DispatchVendor)
+    setAddingVendor(false)
+    setNewVendorName('')
+  }
 
   return (
     <div className="space-y-5">
@@ -389,11 +579,35 @@ function EditForm({ form, set, columns, vendors, members }: {
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Vendor</label>
-            <select value={String(f.vendor_id)} onChange={e => set('vendor_id', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">None</option>
-              {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
+            {addingVendor ? (
+              <div className="flex gap-1.5">
+                <input
+                  ref={vendorInputRef}
+                  autoFocus
+                  type="text"
+                  placeholder="Vendor name"
+                  value={newVendorName}
+                  onChange={e => setNewVendorName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmNewVendor(); if (e.key === 'Escape') { setAddingVendor(false); setNewVendorName('') } }}
+                  className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={vendorSaving}
+                />
+                <button onClick={confirmNewVendor} disabled={vendorSaving || !newVendorName.trim()} className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+                  {vendorSaving ? '…' : 'Add'}
+                </button>
+                <button onClick={() => { setAddingVendor(false); setNewVendorName('') }} className="px-2 py-1.5 rounded-lg border border-slate-300 text-sm text-slate-600 hover:bg-slate-50">✕</button>
+              </div>
+            ) : (
+              <select
+                value={String(f.vendor_id)}
+                onChange={e => { if (e.target.value === '__new__') { setAddingVendor(true); return } set('vendor_id', e.target.value) }}
+                className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">None</option>
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                <option value="__new__">+ Add new vendor…</option>
+              </select>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Vendor Email</label>
@@ -419,18 +633,30 @@ function EditForm({ form, set, columns, vendors, members }: {
               className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">SC #</label>
-            <input value={String(f.sc_number)} onChange={e => set('sc_number', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">SC #</label>
+              <button type="button" onClick={() => setFieldLink('sc_number')} className="text-slate-400 hover:text-indigo-500" title="Add link (Ctrl+K)">
+                <Link2 size={13} />
+              </button>
+            </div>
+            <input value={String(f.sc_number)} onChange={e => set('sc_number', e.target.value)} onKeyDown={handleLinkKeyDown('sc_number')}
+              className={cn('w-full px-2.5 py-1.5 text-sm rounded-lg border dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500', fieldLinks.sc_number ? 'border-indigo-400 dark:border-indigo-500' : 'border-slate-300 dark:border-slate-600')}
               placeholder="Service call #" />
+            {fieldLinks.sc_number && <p className="mt-1 text-[11px] text-indigo-500 truncate">Linked</p>}
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-              Kalos Job # <span className="text-rose-500">*</span>
-            </label>
-            <input value={String(f.kalos_job_number)} onChange={e => set('kalos_job_number', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400">
+                Kalos Job # <span className="text-rose-500">*</span>
+              </label>
+              <button type="button" onClick={() => setFieldLink('kalos_job_number')} className="text-slate-400 hover:text-indigo-500" title="Add link (Ctrl+K)">
+                <Link2 size={13} />
+              </button>
+            </div>
+            <input value={String(f.kalos_job_number)} onChange={e => set('kalos_job_number', e.target.value)} onKeyDown={handleLinkKeyDown('kalos_job_number')}
+              className={cn('w-full px-2.5 py-1.5 text-sm rounded-lg border dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500', fieldLinks.kalos_job_number ? 'border-indigo-400 dark:border-indigo-500' : 'border-slate-300 dark:border-slate-600')}
               placeholder="Leave blank if not yet assigned" />
+            {fieldLinks.kalos_job_number && <p className="mt-1 text-[11px] text-indigo-500 truncate">Linked</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">ETA / Scheduled</label>
@@ -481,6 +707,29 @@ function EditForm({ form, set, columns, vendors, members }: {
             placeholder="Additional notes..." />
         </div>
       </Section>
+
+      {/* Alert */}
+      <Section title="Alert">
+        <FieldGrid>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alert time</label>
+            <input type="datetime-local" value={String(f.alert_at)} onChange={e => set('alert_at', e.target.value)}
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Alert note</label>
+            <input value={String(f.alert_note)} onChange={e => set('alert_note', e.target.value)}
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="e.g. Follow up with vendor" />
+          </div>
+        </FieldGrid>
+        {f.alert_at && (
+          <button onClick={() => { set('alert_at', ''); set('alert_note', '') }}
+            className="mt-2 text-xs text-rose-500 hover:text-rose-700">
+            Clear alert
+          </button>
+        )}
+      </Section>
     </div>
   )
 }
@@ -500,7 +749,18 @@ function FieldGrid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-2 gap-x-6 gap-y-3">{children}</div>
 }
 
-function Field({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Field({ label, value, highlight, href }: { label: string; value: string; highlight?: boolean; href?: string | null }) {
+  if (href && value) {
+    return (
+      <div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{label}</p>
+        <a href={href} target="_blank" rel="noreferrer" className={cn('text-sm font-medium hover:underline', highlight ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400')}>
+          {value}
+        </a>
+      </div>
+    )
+  }
+
   return (
     <div>
       <p className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">{label}</p>
