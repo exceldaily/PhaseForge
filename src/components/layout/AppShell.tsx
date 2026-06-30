@@ -34,7 +34,7 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
   }, [canUseDarkMode])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors print:block print:h-auto print:overflow-visible">
+    <div className="flex h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors print:block print:h-auto print:overflow-visible">
       <Sidebar
         isSuperAdmin={isSuperAdmin}
         canUseReports={canUseReports}
