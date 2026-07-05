@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { FilterBar, useUrlFilters, splitMulti, type FilterDef } from '@/components/operations/FilterBar'
 import { OpsPageHeader, StatusPill, EmptyState } from '@/components/operations/shared'
 import { upsertStaffDetails, setOpsRole, addCertification } from './actions'
-import type { StaffDetails, StaffCertification, Division, OpsRole } from '@/lib/operations/types'
+import type { StaffDetails, StaffCertification, Division } from '@/lib/operations/types'
 import { cn } from '@/lib/utils'
 
 interface ProfileLite {
@@ -67,6 +67,13 @@ export function StaffClient({
     return m
   }, [calls])
 
+  // Date snapshot for cert-expiration highlighting — intentionally fixed per mount.
+  const { today, soon60 } = useMemo(() => ({
+    today: new Date().toISOString().slice(0, 10),
+    // eslint-disable-next-line react-hooks/purity
+    soon60: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10),
+  }), [])
+
   const q = (filters.q ?? '').toLowerCase()
   const filtered = profiles.filter((p) => {
     const d = detailByProfile.get(p.id)
@@ -76,9 +83,8 @@ export function StaffClient({
     if (filters.division && d?.division_id !== filters.division) return false
     if (filters.employment && (d?.employment_status ?? 'active') !== filters.employment) return false
     if (filters.expiring === 'yes') {
-      const soon = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
       const staffCerts = d ? (certsByStaff.get(d.id) ?? []) : []
-      if (!staffCerts.some((c) => c.expires_on && c.expires_on <= soon)) return false
+      if (!staffCerts.some((c) => c.expires_on && c.expires_on <= soon60)) return false
     }
     return true
   })
@@ -91,8 +97,6 @@ export function StaffClient({
       { value: 'inactive', label: 'Inactive' }, { value: 'terminated', label: 'Terminated' }] },
     { key: 'expiring', label: 'Certifications', type: 'select', options: [{ value: 'yes', label: 'Expiring within 60 days' }] },
   ]
-
-  const today = new Date().toISOString().slice(0, 10)
 
   return (
     <div>
@@ -121,7 +125,7 @@ export function StaffClient({
               {filtered.map((p) => {
                 const d = detailByProfile.get(p.id)
                 const staffCerts = d ? (certsByStaff.get(d.id) ?? []) : []
-                const hasExpiring = staffCerts.some((c) => c.expires_on && c.expires_on <= new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10))
+                const hasExpiring = staffCerts.some((c) => c.expires_on && c.expires_on <= soon60)
                 return (
                   <tr
                     key={p.id}

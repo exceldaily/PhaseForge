@@ -31,8 +31,10 @@ export default async function OperationsReportsPage() {
     supabase.from('divisions').select('id, name').eq('company_id', ctx.companyId),
   ])
 
+  // Per-request timestamps are intentional: this is a force-dynamic server page.
+  // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date(now).toISOString().slice(0, 10)
   const in90 = new Date(now + 90 * 86400000).toISOString().slice(0, 10)
 
   const open = (calls ?? []).filter((c) => !CLOSED.has(c.status))

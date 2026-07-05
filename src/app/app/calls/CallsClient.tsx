@@ -192,11 +192,11 @@ export function CallsClient({
           action={canCreate && !calls.length ? <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={14} /> Create</Button> : undefined}
         />
       ) : view === 'board' ? (
-        <BoardView calls={sorted} settings={settings} statusLabel={statusLabel} hasUnread={hasUnread} onOpen={openCall} />
+        <BoardView calls={sorted} settings={settings} hasUnread={hasUnread} onOpen={openCall} />
       ) : view === 'card' ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {sorted.map((c) => (
-            <CallCard key={c.id} call={c} settings={settings} statusLabel={statusLabel} priorityDef={priorityDef} unread={hasUnread(c)} onOpen={() => openCall(c.id)} />
+            <CallCard key={c.id} call={c} statusLabel={statusLabel} priorityDef={priorityDef} unread={hasUnread(c)} onOpen={() => openCall(c.id)} />
           ))}
         </div>
       ) : (
@@ -318,10 +318,9 @@ function CallRow({
 // ── Card view ────────────────────────────────────────────────────────────────
 
 function CallCard({
-  call, settings, statusLabel, priorityDef, unread, onOpen,
+  call, statusLabel, priorityDef, unread, onOpen,
 }: {
   call: Call
-  settings: OrgCallSettings
   statusLabel: Map<string, string>
   priorityDef: Map<string, { key: string; label: string; color: string }>
   unread: boolean
@@ -363,11 +362,10 @@ function CallCard({
 // ── Board view (status lanes) ────────────────────────────────────────────────
 
 function BoardView({
-  calls, settings, statusLabel, hasUnread, onOpen,
+  calls, settings, hasUnread, onOpen,
 }: {
   calls: Call[]
   settings: OrgCallSettings
-  statusLabel: Map<string, string>
   hasUnread: (c: Call) => boolean
   onOpen: (id: string) => void
 }) {

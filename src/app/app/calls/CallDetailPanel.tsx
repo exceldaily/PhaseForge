@@ -39,7 +39,7 @@ const fieldLabel = 'mb-1 block text-[11px] font-medium uppercase tracking-wide t
 const selectClass = 'w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
 
 export function CallDetailPanel({
-  call, settings, customers, locations, assets, divisions, vendors, staff, noteTemplates, userId, opsRole, onClose,
+  call, settings, divisions, vendors, staff, noteTemplates, userId, opsRole, onClose,
 }: {
   call: Call
   settings: OrgCallSettings

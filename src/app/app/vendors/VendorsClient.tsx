@@ -48,8 +48,12 @@ export function VendorsClient({
     return m
   }, [calls])
 
-  const today = new Date().toISOString().slice(0, 10)
-  const soon = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+  // Date snapshot for compliance highlighting — intentionally fixed per mount.
+  const { today, soon } = useMemo(() => ({
+    today: new Date().toISOString().slice(0, 10),
+    // eslint-disable-next-line react-hooks/purity
+    soon: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+  }), [])
   const q = (filters.q ?? '').toLowerCase()
 
   const filtered = vendors.filter((v) => {
