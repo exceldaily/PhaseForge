@@ -18,6 +18,7 @@ import { touchProjectAudit } from '@/lib/projectAudit'
 import { cn } from '@/lib/utils'
 import { Phase, PhaseStatus, Profile, Project } from '@/types/app'
 import { PhaseComments } from '@/components/phases/PhaseComments'
+import { PhaseSyncSection } from '@/components/gantt/PhaseSyncSection'
 
 interface GanttEditPanelProps {
   phase: Phase
@@ -459,6 +460,8 @@ export function GanttEditPanel({
           </Button>
         </div>
       )}
+
+      {canEdit && <PhaseSyncSection phaseId={phase.id} />}
 
       <PhaseComments phaseId={phase.id} currentUserId={currentUserId} />
     </div>
