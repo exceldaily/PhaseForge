@@ -3,21 +3,22 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Mail, Phone, MapPin, Wrench, PhoneCall, Receipt, FolderOpen, Star, Gauge } from 'lucide-react'
+import { ArrowLeft, Plus, Mail, Phone, MapPin, Wrench, PhoneCall, Receipt, FolderOpen, Star, Gauge, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { StatusPill, EmptyState, timeAgo } from '@/components/operations/shared'
 import { AssetHistoryModal } from '@/components/operations/AssetHistoryModal'
+import { ConfirmDialog } from '@/components/operations/ConfirmDialog'
 import { mapsUrl } from '@/lib/operations/readings'
-import { createContact, createLocation, createAsset, updateCustomer } from '../actions'
+import { createContact, createLocation, createAsset, updateCustomer, deleteCustomer } from '../actions'
 import type { Customer, CustomerContact, Location, Asset, Division, OpsActivity, OrgFile } from '@/lib/operations/types'
 
 type CallLite = { id: string; call_number: number; title: string; status: string; priority: string; location_id: string | null; created_at: string }
 type InvoiceLite = { id: string; invoice_number: number; status: string; due_date: string | null; created_at: string }
 
 export function CustomerDetailClient({
-  customer, contacts, locations, assets, calls, invoices, files, activity, divisions, canWrite,
+  customer, contacts, locations, assets, calls, invoices, files, activity, divisions, canWrite, canDelete = false,
 }: {
   customer: Customer
   contacts: CustomerContact[]
@@ -29,11 +30,14 @@ export function CustomerDetailClient({
   activity: OpsActivity[]
   divisions: Division[]
   canWrite: boolean
+  canDelete?: boolean
 }) {
   const router = useRouter()
   const [contactModal, setContactModal] = useState(false)
   const [locationModal, setLocationModal] = useState(false)
   const [assetModal, setAssetModal] = useState(false)
+  const [editModal, setEditModal] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [historyAsset, setHistoryAsset] = useState<Asset | null>(null)
   const [pending, startTransition] = useTransition()
   const [notes, setNotes] = useState(customer.notes ?? '')
@@ -64,11 +68,17 @@ export function CustomerDetailClient({
         </div>
         {canWrite && (
           <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setEditModal(true)} title="Edit customer details"><Pencil size={14} /> Edit</Button>
             <Button size="sm" variant="outline" onClick={() => setContactModal(true)}><Plus size={14} /> Contact</Button>
             <Button size="sm" variant="outline" onClick={() => setLocationModal(true)}><Plus size={14} /> Location</Button>
             <Button size="sm" onClick={() => setAssetModal(true)} disabled={locations.length === 0} title={locations.length === 0 ? 'Add a location first' : undefined}>
               <Plus size={14} /> Asset
             </Button>
+            {canDelete && (
+              <Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(true)} title="Delete customer" className="text-rose-500 hover:bg-rose-50 hover:text-rose-600">
+                <Trash2 size={14} />
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -296,7 +306,99 @@ export function CustomerDetailClient({
 
       {/* Equipment service history */}
       {historyAsset && <AssetHistoryModal asset={historyAsset} onClose={() => setHistoryAsset(null)} />}
+
+      {/* Edit customer */}
+      <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Customer">
+        <EditCustomerForm
+          customer={customer}
+          divisions={divisions}
+          onDone={() => { setEditModal(false); router.refresh() }}
+        />
+      </Modal>
+
+      {/* Delete customer */}
+      <ConfirmDialog
+        open={deleteConfirm}
+        title="Delete customer"
+        message={`Delete "${customer.name}"? Their locations, equipment, and contacts will be permanently deleted. Calls and invoices keep their history but lose the customer link.`}
+        confirmLabel="Delete customer"
+        onConfirm={async () => {
+          const res = await deleteCustomer(customer.id)
+          if (res?.error) return res
+          router.push('/app/customers')
+          router.refresh()
+        }}
+        onClose={() => setDeleteConfirm(false)}
+      />
     </div>
+  )
+}
+
+function EditCustomerForm({ customer, divisions, onDone }: { customer: Customer; divisions: Division[]; onDone: () => void }) {
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        const fd = new FormData(e.currentTarget)
+        startTransition(async () => {
+          const res = await updateCustomer(customer.id, {
+            name: String(fd.get('name') ?? '').trim() || customer.name,
+            status: String(fd.get('status') ?? customer.status),
+            customer_type: String(fd.get('customer_type') ?? '') || null,
+            phone: String(fd.get('phone') ?? '') || null,
+            email: String(fd.get('email') ?? '') || null,
+            billing_address: String(fd.get('billing_address') ?? '') || null,
+            division_id: String(fd.get('division_id') ?? '') || null,
+          })
+          if (res?.error) setError(res.error)
+          else onDone()
+        })
+      }}
+    >
+      <Input name="name" label="Customer name" defaultValue={customer.name} required autoFocus />
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+          Status
+          <select name="status" defaultValue={customer.status} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="prospect">Prospect</option>
+            <option value="active">Active</option>
+            <option value="on_hold">On Hold</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+          Type
+          <select name="customer_type" defaultValue={customer.customer_type ?? ''} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="">—</option>
+            <option value="commercial">Commercial</option>
+            <option value="residential">Residential</option>
+            <option value="government">Government</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input name="phone" label="Phone" defaultValue={customer.phone ?? ''} />
+        <Input name="email" label="Email" type="email" defaultValue={customer.email ?? ''} />
+      </div>
+      <Input name="billing_address" label="Billing address" defaultValue={customer.billing_address ?? ''} />
+      {divisions.length > 0 && (
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+          Division
+          <select name="division_id" defaultValue={customer.division_id ?? ''} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="">—</option>
+            {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </label>
+      )}
+      {error && <p className="text-sm text-rose-600">{error}</p>}
+      <div className="flex justify-end pt-2">
+        <Button type="submit" loading={pending}>Save Changes</Button>
+      </div>
+    </form>
   )
 }
 

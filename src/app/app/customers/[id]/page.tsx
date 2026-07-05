@@ -52,6 +52,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         activity={activity ?? []}
         divisions={divisions ?? []}
         canWrite={['owner', 'admin', 'dispatcher', 'project_manager'].includes(ctx.opsRole)}
+        canDelete={['owner', 'admin'].includes(ctx.opsRole)}
       />
     </div>
   )

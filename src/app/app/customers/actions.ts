@@ -79,6 +79,40 @@ export async function updateCustomer(id: string, patch: Record<string, string | 
   return { ok: true }
 }
 
+// Permanently delete a customer. Admin-only (RLS enforces too). Locations,
+// assets, and contacts cascade-delete; calls and invoices KEEP their history
+// but lose the customer link (FK is ON DELETE SET NULL).
+export async function deleteCustomer(id: string) {
+  const ctx = await requireModule('customers')
+  if (!['owner', 'admin'].includes(ctx.opsRole)) {
+    return { error: 'Only organization owners and admins can delete customers.' }
+  }
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('customers')
+    .select('id, name')
+    .eq('id', id)
+    .eq('company_id', ctx.companyId)
+    .single()
+  if (!existing) return { error: 'Customer not found (it may have already been deleted).' }
+
+  const { error } = await supabase
+    .from('customers')
+    .delete()
+    .eq('id', id)
+    .eq('company_id', ctx.companyId)
+  if (error) return { error: error.message }
+
+  await logOpsActivity({
+    companyId: ctx.companyId, actorId: ctx.userId,
+    recordType: 'customer', recordId: id, action: 'deleted',
+    detail: { name: existing.name },
+  })
+  revalidatePath('/app/customers')
+  return { ok: true }
+}
+
 export async function createContact(input: {
   customer_id: string
   location_id?: string | null
