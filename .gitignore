@@ -41,3 +41,5 @@ tsconfig.tsbuildinfo
 
 # Vercel
 .vercel
+backup_pre_operations.sql
+scripts/apply_all_operations.sql

@@ -2,11 +2,13 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, Download, FileText, Image as ImageIcon, File as FileIcon } from 'lucide-react'
+import { Upload, Download, FileText, Image as ImageIcon, File as FileIcon, Trash2, Pencil, Check, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { FilterBar, useUrlFilters, type FilterDef } from '@/components/operations/FilterBar'
 import { OpsPageHeader, EmptyState, timeAgo } from '@/components/operations/shared'
+import { ConfirmDialog } from '@/components/operations/ConfirmDialog'
+import { deleteOrgFile, renameOrgFile } from './actions'
 import type { OrgFile } from '@/lib/operations/types'
 
 interface Option { id: string; name: string }
@@ -42,6 +44,10 @@ export function FilesClient({
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<OrgFile | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameBusy, setRenameBusy] = useState(false)
 
   const profileName = useMemo(() => new Map(profiles.map((p) => [p.id, p.full_name])), [profiles])
   const customerName = useMemo(() => new Map(customers.map((c) => [c.id, c.name])), [customers])
@@ -99,6 +105,22 @@ export function FilesClient({
     window.open(data.signedUrl, '_blank')
   }
 
+  function startRename(f: OrgFile) {
+    setRenamingId(f.id)
+    setRenameValue(f.file_name)
+  }
+
+  async function commitRename() {
+    if (!renamingId || renameBusy) return
+    setRenameBusy(true)
+    const res = await renameOrgFile(renamingId, renameValue)
+    setRenameBusy(false)
+    if (res?.error) { setError(res.error); return }
+    setError(null)
+    setRenamingId(null)
+    router.refresh()
+  }
+
   return (
     <div>
       <OpsPageHeader
@@ -142,10 +164,33 @@ export function FilesClient({
                 return (
                   <tr key={f.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
                     <td className="px-4 py-2.5">
-                      <span className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
-                        <Icon size={15} className="shrink-0 text-slate-400" />
-                        <span className="max-w-xs truncate">{f.file_name}</span>
-                      </span>
+                      {renamingId === f.id ? (
+                        <span className="flex items-center gap-1.5">
+                          <Icon size={15} className="shrink-0 text-slate-400" />
+                          <input
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') commitRename()
+                              if (e.key === 'Escape') setRenamingId(null)
+                            }}
+                            autoFocus
+                            disabled={renameBusy}
+                            className="w-56 rounded-lg border border-indigo-300 px-2 py-1 text-sm focus:outline-none dark:border-indigo-600 dark:bg-slate-800 dark:text-slate-200"
+                          />
+                          <button onClick={commitRename} disabled={renameBusy} title="Save name" className="rounded p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30">
+                            <Check size={14} />
+                          </button>
+                          <button onClick={() => setRenamingId(null)} disabled={renameBusy} title="Cancel" className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                            <X size={14} />
+                          </button>
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-200">
+                          <Icon size={15} className="shrink-0 text-slate-400" />
+                          <span className="max-w-xs truncate">{f.file_name}</span>
+                        </span>
+                      )}
                     </td>
                     <td className="hidden px-4 py-2.5 capitalize text-slate-500 md:table-cell">{f.record_type ?? 'Library'}</td>
                     <td className="hidden px-4 py-2.5 text-slate-500 md:table-cell">{f.customer_id ? customerName.get(f.customer_id) ?? '—' : '—'}</td>
@@ -154,9 +199,21 @@ export function FilesClient({
                       {f.uploaded_by ? profileName.get(f.uploaded_by) ?? '—' : '—'} · {timeAgo(f.created_at)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <button onClick={() => download(f)} title="Download" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800">
-                        <Download size={15} />
-                      </button>
+                      <span className="flex items-center justify-end gap-0.5">
+                        <button onClick={() => download(f)} title="Download" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800">
+                          <Download size={15} />
+                        </button>
+                        {canWrite && (
+                          <>
+                            <button onClick={() => startRename(f)} title="Rename" className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => setPendingDelete(f)} title="Delete" className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30">
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 )
@@ -165,6 +222,20 @@ export function FilesClient({
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete file"
+        message={`Delete "${pendingDelete?.file_name}"? The file will be permanently removed from storage${pendingDelete?.record_type ? ' and unlinked from its record' : ''}.`}
+        confirmLabel="Delete file"
+        onConfirm={async () => {
+          if (!pendingDelete) return
+          const res = await deleteOrgFile(pendingDelete.id)
+          if (res?.error) return res
+          router.refresh()
+        }}
+        onClose={() => setPendingDelete(null)}
+      />
     </div>
   )
 }
