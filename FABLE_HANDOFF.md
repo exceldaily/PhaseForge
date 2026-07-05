@@ -1,4 +1,51 @@
-# FABLE_HANDOFF — PhaseForge Operations Foundation
+# FABLE_HANDOFF
+
+## Sprint 2 — Product Stabilization (`fable/phaseforge-stabilization`)
+
+Based on the operations branch below. Zero migrations; UI/reliability only.
+
+**What was fixed**
+- Files page (operations): added **delete** (storage object first, then metadata — no-orphan
+  ordering, tolerated not-found, inline failure reasons) and **rename** (metadata display
+  name; storage path immutable by design). Was upload/download only — deletion impossible.
+- Project attachments: `window.confirm`/`alert` replaced with the shared `ConfirmDialog`
+  (permanence explained, inline errors, double-click guarded); upload errors now inline.
+
+**What was redesigned**
+- Sidebar: 19 flat items → grouped collapsible nav (Work / Directory / Insights / Financial /
+  Library / Admin), per-user collapse persistence, active-group auto-open, gated items drop
+  out, empty groups vanish.
+- Dashboard: additive **Command Band** (Attention Required · My Work · Quick Actions) with
+  live counts (overdue calls, unread call updates, my overdue tasks, my punch items); "New
+  call" quick action deep-links into the open create form (`/app/calls?new=1`). All existing
+  dashboard sections preserved.
+
+**Docs added:** PRODUCT_STABILIZATION_AUDIT.md · UX_REDESIGN_DECISIONS.md ·
+FILE_MANAGEMENT_AND_DELETION.md · PRODUCTION_READINESS_CHECKLIST.md
+
+**Intentionally NOT done (documented in audit):** global search; saved-views/tags UI;
+legacy project-card badge trim (spec written); Tickets/Analytics consolidation; legacy
+attachments-table unification; ops_role hardening trigger (risk #1 below still open).
+
+**Sprint 2 commits**
+```bash
+git log --oneline fable/phaseforge-operations-foundation..fable/phaseforge-stabilization
+# d36e1da fix: bulletproof file management - delete with confirmation, rename, inline errors
+# 495e5a7 feat: grouped collapsible sidebar navigation
+# ce33de6 feat: dashboard Command Band - attention required, my work, quick actions
+# (+ docs commit)
+```
+
+**Revert sprint 2 only:** stay on / merge `fable/phaseforge-operations-foundation` instead
+of this branch — sprint 2 is purely additive commits on top. Revert a single milestone with
+`git revert --no-edit <sha>`.
+
+**Verification:** `npm run build` green; ESLint clean on touched files; manual file
+upload→rename→delete verified locally. Full human pass: PRODUCTION_READINESS_CHECKLIST.md.
+
+---
+
+# Sprint 1 — PhaseForge Operations Foundation
 
 Branch: `fable/phaseforge-operations-foundation` · Checkpoint: tag `pre-operations-platform` (= `main` @ 8ca2dd9)
 Companion docs: ARCHITECTURE.md · DISPATCHFORGE_REFERENCE_AUDIT.md · MULTI_TENANT_SECURITY.md ·
