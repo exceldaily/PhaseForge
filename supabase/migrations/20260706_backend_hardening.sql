@@ -1,0 +1,108 @@
+-- ============================================================================
+-- PhaseForge — Backend hardening (ADDITIVE; based on live Supabase advisors)
+-- 1. Block self-elevation of roles/tenancy on profiles (CRITICAL)
+-- 2. Pin search_path on legacy SECURITY DEFINER functions (advisor 0011)
+-- 3. Revoke PUBLIC/anon EXECUTE on internal functions (advisors 0028/0029)
+-- 4. Tighten companies INSERT policy (advisor 0024)
+-- Rollback for each section at the bottom of SUPABASE_SECURITY_AND_RLS_AUDIT.md
+-- ============================================================================
+
+-- ─── 1. Profiles privilege-escalation guard ─────────────────────────────────
+-- The legacy "profiles_update USING (id = auth.uid())" policy lets users edit
+-- their own row — which now includes ops_role. This trigger makes the
+-- sensitive columns immutable except for org admins / super admins, while
+-- normal self-service profile edits (name, avatar, preferences) keep working.
+
+CREATE OR REPLACE FUNCTION public.protect_profile_privileges()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_is_admin boolean;
+BEGIN
+  -- No auth context = service role / internal job → allow.
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF (NEW.role IS DISTINCT FROM OLD.role)
+     OR (NEW.ops_role IS DISTINCT FROM OLD.ops_role)
+     OR (NEW.company_id IS DISTINCT FROM OLD.company_id)
+     OR (NEW.is_super_admin IS DISTINCT FROM OLD.is_super_admin) THEN
+
+    SELECT (p.role IN ('owner','admin'))
+           OR (p.ops_role IN ('owner','admin'))
+           OR COALESCE(p.is_super_admin, false)
+      INTO v_is_admin
+      FROM public.profiles p
+     WHERE p.id = auth.uid();
+
+    IF NOT COALESCE(v_is_admin, false) THEN
+      RAISE EXCEPTION 'Only organization admins can change roles or company membership.';
+    END IF;
+
+    -- Nobody flips is_super_admin through the API except an existing super admin.
+    IF (NEW.is_super_admin IS DISTINCT FROM OLD.is_super_admin) THEN
+      IF NOT COALESCE((SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()), false) THEN
+        RAISE EXCEPTION 'Only a super admin can change super admin status.';
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_profile_privileges ON public.profiles;
+CREATE TRIGGER trg_protect_profile_privileges
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION public.protect_profile_privileges();
+
+-- ─── 1b. Let org admins update member profiles (BUG FIX) ────────────────────
+-- The legacy policy only allowed self-updates (USING id = auth.uid()), so an
+-- admin changing a member's ops_role on the Staff page silently updated
+-- nothing. Admins may now update rows in their own company; the trigger above
+-- still governs WHICH columns imply admin rights.
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'profiles'
+      AND policyname = 'profiles_update_admin'
+  ) THEN
+    CREATE POLICY "profiles_update_admin" ON public.profiles FOR UPDATE
+      USING (company_id = public.get_my_company_id() AND public.ops_is_admin());
+  END IF;
+END $$;
+
+-- ─── 2. Pin search_path on legacy functions (advisor: 0011) ─────────────────
+
+ALTER FUNCTION public.handle_new_user() SET search_path = public;
+ALTER FUNCTION public.get_my_company_id() SET search_path = public;
+ALTER FUNCTION public.get_my_team_ids() SET search_path = public;
+ALTER FUNCTION public.initialize_user_preferences() SET search_path = public;
+ALTER FUNCTION public.initialize_notification_preferences() SET search_path = public;
+
+-- ─── 3. Revoke anon/PUBLIC EXECUTE on internal functions (0028/0029) ────────
+-- These are used inside RLS policies (run as the authenticated role) or by
+-- triggers — anonymous visitors have no business calling them via /rest/v1/rpc.
+
+REVOKE EXECUTE ON FUNCTION public.get_my_ops_role() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.ops_is_admin() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.ops_is_manager() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.org_has_module(text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.company_has_dispatch() FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.next_org_number(text) FROM anon, public;
+-- Trigger-only functions: nobody should call these directly at all.
+REVOKE EXECUTE ON FUNCTION public.seed_org_modules() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.touch_call_on_note() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.protect_profile_privileges() FROM anon, authenticated, public;
+
+-- ─── 4. companies INSERT: require a signed-in user (advisor: 0024) ──────────
+-- Signup creates the company AFTER auth, so requiring auth.uid() is safe and
+-- stops anonymous API clients from inserting junk company rows.
+
+DROP POLICY IF EXISTS "company_insert" ON public.companies;
+CREATE POLICY "company_insert" ON public.companies FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
