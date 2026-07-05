@@ -81,7 +81,7 @@ export default function LoginPage() {
   })
 
   return (
-    <div className={manrope.className} style={{ backgroundColor: '#080F1A', color: '#D4DCE8', minHeight: '100vh' }}>
+    <div className={`${manrope.className} pf-page`} style={{ backgroundColor: '#080F1A', color: '#D4DCE8', minHeight: '100vh' }}>
       <ForceLightTheme />
 
       {/* ── Global keyframes ── */}
@@ -94,6 +94,14 @@ export default function LoginPage() {
         @keyframes pf-gantt { from{transform:scaleX(0)} to{transform:scaleX(1)} }
         @keyframes pf-fade  { from{opacity:0} to{opacity:1} }
         @keyframes pf-blink { 0%,100%{opacity:.5} 50%{opacity:1} }
+        @keyframes pf-pulse { 0%,100%{opacity:.45; transform:scale(1)} 50%{opacity:1; transform:scale(1.25)} }
+        @media (prefers-reduced-motion: reduce) {
+          .pf-page *, .pf-page *::before, .pf-page *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
       `}</style>
 
       {/* ════════════════════════════════════════════════════
@@ -109,12 +117,12 @@ export default function LoginPage() {
           <div style={{ opacity: on ? 1 : 0, transition: 'opacity 600ms ease' }}>
             <GantticLogo variant="lockup" width={188} priority alt="PhaseForge" />
           </div>
-          <div className="hidden items-center gap-8 md:flex" style={{ fontSize: '13px', color: '#6B8099' }}>
-            {[['#capabilities', 'Capabilities'], ['#timeline', 'Timeline'], ['#signin', 'Sign in']].map(([href, label]) => (
+          <div className="hidden items-center gap-8 md:flex" style={{ fontSize: '13px', fontWeight: 500, color: '#9FB4CC' }}>
+            {[['#capabilities', 'Capabilities'], ['#timeline', 'Timeline'], ['#workflow', 'Workflow'], ['#signin', 'Sign in']].map(([href, label]) => (
               <a key={href} href={href}
                 style={{ transition: 'color 200ms' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#E8EDF2')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#6B8099')}>
+                onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#9FB4CC')}>
                 {label}
               </a>
             ))}
@@ -277,13 +285,65 @@ export default function LoginPage() {
             border: '1px solid rgba(255,255,255,0.09)',
             borderBottom: 'none',
             boxShadow: '0 -8px 60px rgba(0,0,0,0.5), 0 -2px 0 rgba(255,255,255,0.05)',
+            position: 'relative',
           }}>
+            {/* Browser chrome */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '14px',
+              padding: '10px 16px', backgroundColor: '#0C1624',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {['#E85B4B', '#E8B44B', '#4BC26B'].map(c => (
+                  <span key={c} style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: c, opacity: 0.75 }} />
+                ))}
+              </div>
+              <div style={{
+                flex: 1, maxWidth: '340px', margin: '0 auto',
+                fontFamily: 'monospace', fontSize: '10.5px', color: '#5A7590',
+                backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '6px', padding: '4px 12px', textAlign: 'center',
+                letterSpacing: '0.04em',
+              }}>
+                app.phase-forge.com
+              </div>
+              <div style={{ width: '58px' }} />
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/login-bg.png"
               alt="PhaseForge — where plans become progress"
               style={{ width: '100%', display: 'block' }}
             />
+            {/* Live activity chips — restrained, honest indicators */}
+            <div style={{
+              position: 'absolute', top: '58px', right: '18px',
+              display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end',
+            }}>
+              {[
+                ['Phase completed', '#4BC26B'],
+                ['Punch item closed', '#D8891C'],
+                ['Crew assigned', '#4B9BE8'],
+              ].map(([label, color], i) => (
+                <div key={label} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  backgroundColor: 'rgba(10,19,32,0.92)', border: '1px solid rgba(255,255,255,0.10)',
+                  borderRadius: '999px', padding: '5px 12px',
+                  fontSize: '11px', fontWeight: 500, color: '#C8D4E0',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                  opacity: on ? 1 : 0,
+                  transform: on ? 'translateX(0)' : 'translateX(16px)',
+                  transition: `opacity 600ms ${1200 + i * 350}ms ease, transform 600ms ${1200 + i * 350}ms ease`,
+                }}>
+                  <span style={{
+                    width: '6px', height: '6px', borderRadius: '50%', backgroundColor: color as string,
+                    animation: `pf-pulse 3s ${i * 0.8}s ease-in-out infinite`,
+                  }} />
+                  {label}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -312,14 +372,15 @@ export default function LoginPage() {
           {/* Engineering panel list */}
           <div ref={capsRef}>
             {CAPS.map(({ n, tag, title, body, specs }, i) => (
-              <div key={n} style={{
-                display: 'grid', gridTemplateColumns: '100px 1fr 220px', gap: '32px',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                padding: '32px 0',
-                opacity: capsOn ? 1 : 0,
-                transform: capsOn ? 'translateY(0)' : 'translateY(18px)',
-                transition: `opacity 600ms ${i * 75}ms cubic-bezier(.4,0,.2,1), transform 600ms ${i * 75}ms cubic-bezier(.4,0,.2,1)`,
-              }}>
+              <div key={n}
+                className="grid gap-4 md:grid-cols-[100px_1fr_220px] md:gap-8"
+                style={{
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  padding: '32px 0',
+                  opacity: capsOn ? 1 : 0,
+                  transform: capsOn ? 'translateY(0)' : 'translateY(18px)',
+                  transition: `opacity 600ms ${i * 75}ms cubic-bezier(.4,0,.2,1), transform 600ms ${i * 75}ms cubic-bezier(.4,0,.2,1)`,
+                }}>
                 {/* Number */}
                 <div>
                   <p className={sora.className} style={{ fontSize: '42px', fontWeight: 800, color: 'rgba(255,255,255,0.05)', lineHeight: 1 }}>{n}</p>
@@ -355,7 +416,7 @@ export default function LoginPage() {
             <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>TIMELINE DEMO</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', alignItems: 'end', marginBottom: '40px' }}>
+          <div className="grid gap-6 md:grid-cols-2 md:items-end md:gap-16" style={{ marginBottom: '40px' }}>
             <h2 className={sora.className} style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.1 }}>
               Complete schedule<br />visibility, from day one.
             </h2>
@@ -436,11 +497,143 @@ export default function LoginPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════
+          WORKFLOW — one connected operating system
+      ════════════════════════════════════════════════════ */}
+      <section id="workflow" style={{ padding: '96px 0' }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+            <div style={{ height: '1px', width: '28px', backgroundColor: '#D8891C' }} />
+            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>WORKFLOW</span>
+          </div>
+          <h2 className={sora.className} style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.15, marginBottom: '48px', maxWidth: '560px' }}>
+            One operating system,<br />from first plan to final closeout.
+          </h2>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {[
+              ['01', 'Plan',       'Phases, dependencies, and milestones on one Gantt.'],
+              ['02', 'Coordinate', 'Assign crews, vendors, and boards by division.'],
+              ['03', 'Execute',    'Field updates, photos, and status from the job.'],
+              ['04', 'Verify',     'Punch lists, QA photos, and required closeout.'],
+              ['05', 'Close Out',  'Documentation, warranties, and invoice-ready work.'],
+            ].map(([n, title, body], i) => (
+              <div key={n} style={{
+                position: 'relative',
+                backgroundColor: '#0A1320',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '12px',
+                padding: '22px 18px',
+              }}>
+                <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#D8891C', letterSpacing: '0.16em', marginBottom: '10px' }}>{n}</p>
+                <p className={sora.className} style={{ fontSize: '16px', fontWeight: 700, color: '#EEF2F7', marginBottom: '8px' }}>{title}</p>
+                <p style={{ fontSize: '12px', lineHeight: 1.65, color: '#6B8099' }}>{body}</p>
+                {i < 4 && (
+                  <div className="hidden lg:block" style={{
+                    position: 'absolute', right: '-14px', top: '50%', transform: 'translateY(-50%)',
+                    color: '#D8891C', fontSize: '14px', zIndex: 1,
+                  }}>→</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════
+          PLATFORM — beyond a Gantt tool
+      ════════════════════════════════════════════════════ */}
+      <section style={{ backgroundColor: '#060C14', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '88px 0' }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:gap-20">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+                <div style={{ height: '1px', width: '28px', backgroundColor: '#D8891C' }} />
+                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>PLATFORM</span>
+              </div>
+              <h2 className={sora.className} style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.15, marginBottom: '18px' }}>
+                Built as an operations platform, not a point tool.
+              </h2>
+              <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B8099' }}>
+                Projects are the start. PhaseForge grows with the way service and
+                construction companies actually run — the office plans, the field
+                executes, the paperwork keeps up.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                ['Projects', 'Schedules, phases, boards, and progress in one place.'],
+                ['Field Coordination', 'Assignments, service calls, and daily updates from anywhere.'],
+                ['Punch Lists', 'Photo-first QA from walk to sign-off.'],
+                ['Documentation', 'Files, photos, and records tied to the work they belong to.'],
+                ['Operational Visibility', 'Dashboards and reports that show what needs attention now.'],
+              ].map(([title, body]) => (
+                <div key={title} style={{
+                  backgroundColor: '#0A1320',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '12px',
+                  padding: '20px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                    <div style={{ width: '14px', height: '1px', backgroundColor: '#D8891C' }} />
+                    <p className={sora.className} style={{ fontSize: '14px', fontWeight: 700, color: '#EEF2F7' }}>{title}</p>
+                  </div>
+                  <p style={{ fontSize: '12px', lineHeight: 1.65, color: '#6B8099' }}>{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════
+          FINAL CTA
+      ════════════════════════════════════════════════════ */}
+      <section style={{ padding: '110px 0', position: 'relative', overflow: 'hidden' }}>
+        <div style={{
+          position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
+          width: '640px', height: '320px',
+          background: 'radial-gradient(ellipse at center, rgba(216,137,28,0.10) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div className="relative mx-auto max-w-3xl px-6 text-center">
+          <h2 className={sora.className} style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.12 }}>
+            Build with clarity.<br />
+            <span style={{ color: '#F2B94B' }}>Deliver with control.</span>
+          </h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', marginTop: '36px', justifyContent: 'center' }}>
+            <Link href="/signup" style={{
+              display: 'inline-flex', alignItems: 'center', gap: '10px',
+              padding: '15px 32px', borderRadius: '8px', fontSize: '15px', fontWeight: 600,
+              background: 'linear-gradient(135deg, #D8891C 0%, #A86210 100%)',
+              boxShadow: '0 4px 28px rgba(216,137,28,0.32)',
+              color: '#fff', textDecoration: 'none',
+              transition: 'transform 180ms, box-shadow 180ms',
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.04)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)' }}>
+              Start Building
+              <ArrowRight size={17} />
+            </Link>
+            <a href="#signin" style={{
+              display: 'inline-flex', alignItems: 'center',
+              padding: '15px 28px', borderRadius: '8px', fontSize: '15px', fontWeight: 500,
+              border: '1px solid rgba(255,255,255,0.13)', color: '#A8B8CC', textDecoration: 'none',
+              transition: 'border-color 200ms, color 200ms',
+            }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.28)'; (e.currentTarget as HTMLElement).style.color = '#fff' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.13)'; (e.currentTarget as HTMLElement).style.color = '#A8B8CC' }}>
+              Sign In
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════
           SIGN IN
       ════════════════════════════════════════════════════ */}
       <section id="signin" style={{ padding: '96px 0' }}>
         <div className="mx-auto max-w-7xl px-6">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'center' }}>
+          <div className="grid gap-12 lg:grid-cols-2 lg:items-center lg:gap-20">
             {/* Left */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
