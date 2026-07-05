@@ -12,6 +12,11 @@ export async function createCustomer(input: {
   email?: string
   division_id?: string | null
   notes?: string
+  // Residential quick-create: providing an address auto-creates the home location
+  address?: string
+  city?: string
+  state?: string
+  postal_code?: string
 }) {
   const ctx = await requireModule('customers')
   const supabase = await createClient()
@@ -32,6 +37,22 @@ export async function createCustomer(input: {
     .select('id')
     .single()
   if (error) return { error: error.message }
+
+  // Residential customers usually ARE their location — one step, not two.
+  if (input.address?.trim()) {
+    await supabase.from('locations').insert({
+      company_id: ctx.companyId,
+      customer_id: data.id,
+      name: input.customer_type === 'residential' ? 'Home' : 'Main location',
+      address: input.address.trim(),
+      city: input.city?.trim() || null,
+      state: input.state?.trim() || null,
+      postal_code: input.postal_code?.trim() || null,
+      division_id: input.division_id || null,
+      created_by: ctx.userId,
+    })
+  }
+
   await logOpsActivity({
     companyId: ctx.companyId, actorId: ctx.userId,
     recordType: 'customer', recordId: data.id, action: 'created',

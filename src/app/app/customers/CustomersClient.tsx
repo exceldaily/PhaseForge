@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { FilterBar, useUrlFilters, splitMulti, type FilterDef } from '@/components/operations/FilterBar'
 import { OpsPageHeader, StatusPill, EmptyState, timeAgo } from '@/components/operations/shared'
+import { AssetHistoryModal } from '@/components/operations/AssetHistoryModal'
 import { createCustomer, createLocation, createAsset } from './actions'
 import type { Customer, Location, Asset, Division } from '@/lib/operations/types'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ export function CustomersClient({
   const [filters, setFilters] = useUrlFilters()
   const tab = (TABS as readonly string[]).includes(filters.tab) ? filters.tab : 'customers'
   const [modal, setModal] = useState<'customer' | 'location' | 'asset' | null>(null)
+  const [historyAsset, setHistoryAsset] = useState<Asset | null>(null)
 
   const openCallsByCustomer = useMemo(() => {
     const m = new Map<string, number>()
@@ -271,7 +273,11 @@ export function CustomersClient({
               </thead>
               <tbody>
                 {filteredAssets.map((a) => (
-                  <tr key={a.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                  <tr
+                    key={a.id}
+                    onClick={() => setHistoryAsset(a)}
+                    className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50"
+                  >
                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{a.name}</td>
                     <td className="hidden px-4 py-3 text-slate-500 md:table-cell">{a.asset_type ?? '—'}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{locationName.get(a.location_id) ?? '—'}</td>
@@ -297,6 +303,7 @@ export function CustomersClient({
       <CreateCustomerModal open={modal === 'customer'} onClose={() => setModal(null)} divisions={divisions} />
       <CreateLocationModal open={modal === 'location'} onClose={() => setModal(null)} customers={customers} divisions={divisions} />
       <CreateAssetModal open={modal === 'asset'} onClose={() => setModal(null)} customers={customers} locations={locations} />
+      {historyAsset && <AssetHistoryModal asset={historyAsset} onClose={() => setHistoryAsset(null)} />}
     </div>
   )
 }
@@ -307,6 +314,7 @@ function CreateCustomerModal({ open, onClose, divisions }: { open: boolean; onCl
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [customerType, setCustomerType] = useState('')
 
   return (
     <Modal open={open} onClose={onClose} title="New Customer">
@@ -318,11 +326,15 @@ function CreateCustomerModal({ open, onClose, divisions }: { open: boolean; onCl
           startTransition(async () => {
             const res = await createCustomer({
               name: String(fd.get('name') ?? ''),
-              customer_type: String(fd.get('customer_type') ?? '') || undefined,
+              customer_type: customerType || undefined,
               status: String(fd.get('status') ?? 'active'),
               phone: String(fd.get('phone') ?? '') || undefined,
               email: String(fd.get('email') ?? '') || undefined,
               division_id: String(fd.get('division_id') ?? '') || null,
+              address: String(fd.get('address') ?? '') || undefined,
+              city: String(fd.get('city') ?? '') || undefined,
+              state: String(fd.get('state') ?? '') || undefined,
+              postal_code: String(fd.get('postal_code') ?? '') || undefined,
             })
             if (res?.error) setError(res.error)
             else { setError(null); onClose(); router.refresh() }
@@ -333,7 +345,7 @@ function CreateCustomerModal({ open, onClose, divisions }: { open: boolean; onCl
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Type
-            <select name="customer_type" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <select value={customerType} onChange={(e) => setCustomerType(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
               <option value="">—</option>
               <option value="commercial">Commercial</option>
               <option value="residential">Residential</option>
@@ -355,6 +367,19 @@ function CreateCustomerModal({ open, onClose, divisions }: { open: boolean; onCl
           <Input name="phone" label="Phone" />
           <Input name="email" label="Email" type="email" />
         </div>
+        {/* Residential customers ARE their address — one step creates both the
+            customer and their "Home" service location. */}
+        {customerType === 'residential' && (
+          <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
+            <p className="text-xs font-medium text-indigo-700">Home address — creates the service location automatically</p>
+            <Input name="address" label="Street address" placeholder="123 Main St" />
+            <div className="grid grid-cols-3 gap-3">
+              <Input name="city" label="City" />
+              <Input name="state" label="State" />
+              <Input name="postal_code" label="ZIP" />
+            </div>
+          </div>
+        )}
         {divisions.length > 0 && (
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Division

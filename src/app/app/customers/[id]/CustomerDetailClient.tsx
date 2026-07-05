@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { StatusPill, EmptyState, timeAgo } from '@/components/operations/shared'
+import { mapsUrl } from '@/lib/operations/readings'
 import { createContact, createLocation, updateCustomer } from '../actions'
 import type { Customer, CustomerContact, Location, Asset, Division, OpsActivity, OrgFile } from '@/lib/operations/types'
 
@@ -97,7 +98,20 @@ export function CustomerDetailClient({
                         {l.name}
                         {l.location_number && <span className="ml-2 font-mono text-xs text-slate-400">#{l.location_number}</span>}
                       </p>
-                      <p className="text-xs text-slate-500">{[l.address, l.city, l.state].filter(Boolean).join(', ') || 'No address'}</p>
+                      <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                        {[l.address, l.city, l.state].filter(Boolean).join(', ') || 'No address'}
+                        {mapsUrl(l.address, l.city, l.state) && (
+                          <a
+                            href={mapsUrl(l.address, l.city, l.state)!}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Open in Google Maps"
+                            className="text-indigo-500 hover:text-indigo-600"
+                          >
+                            <MapPin size={12} />
+                          </a>
+                        )}
+                      </p>
                     </div>
                     <div className="text-right text-xs text-slate-400">
                       <p>{assets.filter((a) => a.location_id === l.id).length} assets</p>

@@ -24,7 +24,7 @@ export default async function CallsPage() {
       .from('calls')
       .select(`*,
         customer:customers(id, name),
-        location:locations(id, name, location_number, city, state),
+        location:locations(id, name, location_number, address, city, state),
         vendor:vendors(id, name),
         assigned_staff:profiles!calls_assigned_staff_id_fkey(id, full_name),
         division:divisions(id, name, color)`)
@@ -33,7 +33,7 @@ export default async function CallsPage() {
       .limit(500),
     supabase.from('customers').select('id, name').eq('company_id', ctx.companyId).order('name'),
     supabase.from('locations').select('id, customer_id, name, location_number').eq('company_id', ctx.companyId).order('name'),
-    supabase.from('assets').select('id, location_id, name').eq('company_id', ctx.companyId).order('name'),
+    supabase.from('assets').select('id, location_id, name, trade_category').eq('company_id', ctx.companyId).order('name'),
     supabase.from('divisions').select('*').eq('company_id', ctx.companyId).eq('is_active', true).order('sort_order'),
     supabase.from('vendors').select('id, name').eq('company_id', ctx.companyId).eq('status', 'active').order('name'),
     supabase.from('profiles').select('id, full_name, ops_role').eq('company_id', ctx.companyId).order('full_name'),

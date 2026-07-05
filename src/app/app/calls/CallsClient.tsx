@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 
 export interface Option { id: string; name: string }
 export interface LocationOpt extends Option { customer_id: string; location_number: string | null }
-export interface AssetOpt extends Option { location_id: string }
+export interface AssetOpt extends Option { location_id: string; trade_category: string | null }
 export interface StaffOpt { id: string; full_name: string; ops_role: string | null }
 export interface ReadRow { call_id: string; last_read_at: string }
 export interface NoteTemplate { id: string; name: string; body: string }
@@ -98,6 +98,7 @@ export function CallsClient({
     if (filters.location && c.location_id !== filters.location) return false
     if (filters.assigned && c.assigned_staff_id !== filters.assigned) return false
     if (filters.vendor && c.vendor_id !== filters.vendor) return false
+    if (filters.unassigned === 'yes' && (c.assigned_staff_id || c.vendor_id)) return false
     if (filters.sla === 'overdue' && slaState(c) !== 'overdue') return false
     if (filters.sla === 'at_risk' && slaState(c) !== 'at_risk') return false
     if (filters.unread === 'yes' && !hasUnread(c)) return false
@@ -184,6 +185,9 @@ export function CallsClient({
         }
       />
 
+      {/* Smart queue chips — one-tap operational queues, DispatchForge-style */}
+      <QueueChips calls={calls} closedKeys={closedKeys} hasUnread={hasUnread} filters={filters} onChange={setFilters} />
+
       <FilterBar defs={defs} filters={filters} onChange={setFilters} searchPlaceholder={`Search ${settings.terminology.toLowerCase()}…`} />
 
       {sorted.length === 0 ? (
@@ -237,6 +241,65 @@ export function CallsClient({
           onClose={() => { setCreateOpen(false); router.refresh() }}
         />
       )}
+    </div>
+  )
+}
+
+// ── Queue chips — rule-based operational queues with live counts ─────────────
+
+function QueueChips({
+  calls, closedKeys, hasUnread, filters, onChange,
+}: {
+  calls: Call[]
+  closedKeys: Set<string>
+  hasUnread: (c: Call) => boolean
+  filters: Record<string, string>
+  onChange: (next: Record<string, string>) => void
+}) {
+  const active = calls.filter((c) => !closedKeys.has(c.status))
+  const aging7 = active.filter((c) => daysOpen(c.created_at) >= 7).length
+
+  const chips: { key: string; label: string; count: number; apply: Record<string, string>; tone: string }[] = [
+    { key: 'all', label: 'All Active', count: active.length, apply: {}, tone: 'border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300' },
+    { key: 'unread', label: 'New Updates', count: active.filter(hasUnread).length, apply: { unread: 'yes' }, tone: 'border-yellow-400 text-yellow-700 dark:text-yellow-400' },
+    { key: 'unassigned', label: 'No Tech or Vendor', count: active.filter((c) => !c.assigned_staff_id && !c.vendor_id).length, apply: { unassigned: 'yes' }, tone: 'border-rose-300 text-rose-600 dark:border-rose-600 dark:text-rose-400' },
+    { key: 'sla', label: 'SLA Overdue', count: active.filter((c) => slaState(c) === 'overdue').length, apply: { sla: 'overdue' }, tone: 'border-rose-300 text-rose-600 dark:border-rose-600 dark:text-rose-400' },
+    { key: 'aging', label: 'Aging 7d+', count: aging7, apply: { aging: '7' }, tone: 'border-orange-300 text-orange-600 dark:border-orange-600 dark:text-orange-400' },
+    { key: 'invoice', label: 'Invoice Ready', count: active.filter((c) => c.invoice_ready).length, apply: { invoice_ready: 'yes' }, tone: 'border-emerald-300 text-emerald-600 dark:border-emerald-600 dark:text-emerald-400' },
+  ]
+
+  const QUEUE_KEYS = ['unread', 'unassigned', 'sla', 'aging', 'invoice_ready']
+  const isChipActive = (apply: Record<string, string>) => {
+    const activeQueue = QUEUE_KEYS.filter((k) => filters[k])
+    const applyKeys = Object.keys(apply)
+    if (applyKeys.length === 0) return activeQueue.length === 0
+    return applyKeys.every((k) => filters[k] === apply[k]) && activeQueue.length === applyKeys.length
+  }
+
+  const applyChip = (apply: Record<string, string>) => {
+    const next = { ...filters }
+    for (const k of QUEUE_KEYS) delete next[k]
+    onChange({ ...next, ...apply })
+  }
+
+  return (
+    <div className="mb-3 flex flex-wrap gap-1.5">
+      {chips.filter((c) => c.key === 'all' || c.count > 0).map((chip) => (
+        <button
+          key={chip.key}
+          onClick={() => applyChip(chip.apply)}
+          className={cn(
+            'flex items-center gap-1.5 rounded-full border bg-white px-3 py-1 text-xs font-medium transition dark:bg-slate-900',
+            chip.tone,
+            isChipActive(chip.apply)
+              ? 'ring-2 ring-indigo-500/40 shadow-sm'
+              : 'opacity-80 hover:opacity-100'
+          )}
+        >
+          {chip.label}
+          <span className="font-bold">{chip.count}</span>
+        </button>
+      ))}
     </div>
   )
 }

@@ -195,7 +195,7 @@ export interface Call {
   updated_at: string
   // joined
   customer?: Pick<Customer, 'id' | 'name'> | null
-  location?: Pick<Location, 'id' | 'name' | 'location_number' | 'city' | 'state'> | null
+  location?: Pick<Location, 'id' | 'name' | 'location_number' | 'address' | 'city' | 'state'> | null
   vendor?: Pick<Vendor, 'id' | 'name'> | null
   assigned_staff?: { id: string; full_name: string } | null
   division?: Pick<Division, 'id' | 'name' | 'color'> | null
@@ -253,6 +253,18 @@ export interface InvoiceItem {
   call_id: string | null
   project_id: string | null
   sort_order: number
+}
+
+export interface AssetReading {
+  id: string
+  company_id: string
+  asset_id: string
+  call_id: string | null
+  trade_category: string | null
+  readings: Record<string, string>
+  notes: string | null
+  recorded_by: string | null
+  recorded_at: string
 }
 
 export interface OpsActivity {

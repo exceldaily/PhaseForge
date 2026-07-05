@@ -134,6 +134,49 @@ export async function addCallNote(callId: string, category: string, body: string
   return { ok: true }
 }
 
+// Record an equipment update (trade-specific readings) against an asset,
+// optionally linked to the call the tech is running. Photos are attached
+// client-side to org_files with record_type 'asset_reading'.
+export async function addAssetReading(input: {
+  assetId: string
+  callId?: string | null
+  tradeCategory: string
+  readings: Record<string, string>
+  notes?: string
+}) {
+  const ctx = await requireModule('customers')
+  const filled = Object.fromEntries(
+    Object.entries(input.readings).filter(([, v]) => v !== '' && v != null)
+  )
+  if (Object.keys(filled).length === 0 && !input.notes?.trim()) {
+    return { error: 'Enter at least one reading or a note.' }
+  }
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('asset_readings')
+    .insert({
+      company_id: ctx.companyId,
+      asset_id: input.assetId,
+      call_id: input.callId || null,
+      trade_category: input.tradeCategory,
+      readings: filled,
+      notes: input.notes?.trim() || null,
+      recorded_by: ctx.userId,
+    })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+
+  await logOpsActivity({
+    companyId: ctx.companyId, actorId: ctx.userId,
+    recordType: 'asset', recordId: input.assetId, action: 'reading_recorded',
+    detail: { call_id: input.callId ?? null, fields: Object.keys(filled) },
+  })
+  if (input.callId) revalidatePath('/app/calls')
+  return { ok: true, id: data.id }
+}
+
 export async function markCallRead(callId: string) {
   const ctx = await requireModule('calls')
   const supabase = await createClient()

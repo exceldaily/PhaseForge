@@ -6,13 +6,14 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { X, Send } from 'lucide-react'
+import { X, Send, MapPin, Gauge, Camera, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { StatusPill, timeAgo, daysOpen } from '@/components/operations/shared'
-import { updateCall, addCallNote, markCallRead } from './actions'
+import { readingFieldsForTrade, mapsUrl } from '@/lib/operations/readings'
+import { updateCall, addCallNote, markCallRead, addAssetReading } from './actions'
 import { slaState, type Option, type LocationOpt, type AssetOpt, type StaffOpt, type NoteTemplate } from './CallsClient'
-import type { Call, CallNote, OrgCallSettings, Division } from '@/lib/operations/types'
+import type { Call, CallNote, OrgCallSettings, Division, AssetReading } from '@/lib/operations/types'
 import { cn } from '@/lib/utils'
 
 const NOTE_CATEGORIES = [
@@ -39,7 +40,7 @@ const fieldLabel = 'mb-1 block text-[11px] font-medium uppercase tracking-wide t
 const selectClass = 'w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
 
 export function CallDetailPanel({
-  call, settings, divisions, vendors, staff, noteTemplates, userId, opsRole, onClose,
+  call, settings, assets, divisions, vendors, staff, noteTemplates, userId, opsRole, onClose,
 }: {
   call: Call
   settings: OrgCallSettings
@@ -129,7 +130,23 @@ export function CallDetailPanel({
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{c.title}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
               {c.customer && <span>{c.customer.name}</span>}
-              {c.location && <span>· {c.location.name}</span>}
+              {c.location && (
+                <span className="inline-flex items-center gap-1">
+                  · {c.location.name}
+                  {mapsUrl(c.location.address, c.location.city, c.location.state) && (
+                    <a
+                      href={mapsUrl(c.location.address, c.location.city, c.location.state)!}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open in Google Maps"
+                      className="text-indigo-500 hover:text-indigo-600"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MapPin size={12} />
+                    </a>
+                  )}
+                </span>
+              )}
               <span>· {daysOpen(c.created_at)}d open</span>
               {sla && (
                 <span className={cn('font-semibold', sla === 'overdue' ? 'text-rose-600' : 'text-orange-600')}>
@@ -231,6 +248,17 @@ export function CallDetailPanel({
             </div>
           )}
 
+          {/* Equipment update — trade-aware readings for the linked asset */}
+          {c.asset_id && (
+            <EquipmentUpdateSection
+              call={c}
+              asset={assets.find((a) => a.id === c.asset_id) ?? null}
+              canEdit={canEdit}
+              companyId={c.company_id}
+              userId={userId}
+            />
+          )}
+
           {/* Notes timeline */}
           <div>
             <label className={fieldLabel}>Notes</label>
@@ -298,5 +326,180 @@ export function CallDetailPanel({
         </div>
       </aside>
     </>
+  )
+}
+
+// ── Equipment update: trade-specific readings + photos for the linked asset ──
+
+function EquipmentUpdateSection({
+  call, asset, canEdit, companyId, userId,
+}: {
+  call: Call
+  asset: AssetOpt | null
+  canEdit: boolean
+  companyId: string
+  userId: string
+}) {
+  const trade = asset?.trade_category ?? 'general'
+  const fields = readingFieldsForTrade(trade)
+  const [open, setOpen] = useState(false)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [note, setNote] = useState('')
+  const [photos, setPhotos] = useState<File[]>([])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [history, setHistory] = useState<AssetReading[]>([])
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (!call.asset_id) return
+    const supabase = createClient()
+    supabase
+      .from('asset_readings')
+      .select('*')
+      .eq('asset_id', call.asset_id)
+      .order('recorded_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => setHistory(data ?? []))
+  }, [call.asset_id, saved])
+
+  async function save() {
+    if (saving) return
+    setSaving(true)
+    setError(null)
+    const res = await addAssetReading({
+      assetId: call.asset_id!,
+      callId: call.id,
+      tradeCategory: trade,
+      readings: values,
+      notes: note,
+    })
+    if (res?.error || !res?.id) {
+      setError(res?.error ?? 'Could not save the reading.')
+      setSaving(false)
+      return
+    }
+    // Attach photos to the reading via org_files (record_type 'asset_reading')
+    if (photos.length) {
+      const supabase = createClient()
+      for (const photo of photos) {
+        const path = `${companyId}/asset_reading/${crypto.randomUUID()}-${photo.name}`
+        const { error: upErr } = await supabase.storage.from('org-files').upload(path, photo)
+        if (upErr) { setError(`Reading saved, but a photo failed: ${upErr.message}`); continue }
+        await supabase.from('org_files').insert({
+          company_id: companyId,
+          storage_path: path,
+          file_name: photo.name,
+          mime_type: photo.type || null,
+          size_bytes: photo.size,
+          record_type: 'asset_reading',
+          record_id: res.id,
+          customer_id: call.customer_id,
+          location_id: call.location_id,
+          uploaded_by: userId,
+        })
+      }
+    }
+    setValues({})
+    setNote('')
+    setPhotos([])
+    setSaving(false)
+    setSaved((s) => !s) // triggers history refetch
+    setOpen(false)
+  }
+
+  const labelFor = (key: string) => fields.find((f) => f.key === key)?.label ?? key.replace(/_/g, ' ')
+  const unitFor = (key: string) => fields.find((f) => f.key === key)?.unit
+
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200"
+      >
+        <span className="flex items-center gap-2">
+          <Gauge size={15} className="text-indigo-500" />
+          Equipment update
+          {asset && <span className="text-xs font-normal text-slate-400">{asset.name} · {trade}</span>}
+        </span>
+        <ChevronDown size={15} className={cn('text-slate-400 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="space-y-3 border-t border-slate-100 px-3 py-3 dark:border-slate-800">
+          {canEdit && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {fields.map((f) => (
+                  <label key={f.key} className="flex flex-col gap-1 text-[11px] font-medium text-slate-500">
+                    {f.label}{f.unit ? ` (${f.unit})` : ''}
+                    {f.type === 'select' ? (
+                      <select
+                        value={values[f.key] ?? ''}
+                        onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                        className={selectClass}
+                      >
+                        <option value="">—</option>
+                        {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        type={f.type === 'number' ? 'number' : 'text'}
+                        step="any"
+                        value={values[f.key] ?? ''}
+                        onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                        className={selectClass}
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                placeholder="Technician notes for this reading…"
+                className={selectClass}
+              />
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-500 hover:text-indigo-600">
+                  <Camera size={14} />
+                  {photos.length ? `${photos.length} photo${photos.length > 1 ? 's' : ''} attached` : 'Attach photos'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(e) => setPhotos(Array.from(e.target.files ?? []))}
+                  />
+                </label>
+                <Button size="sm" onClick={save} loading={saving}>Save reading</Button>
+              </div>
+              {error && <p className="text-xs text-rose-600">{error}</p>}
+            </>
+          )}
+
+          {/* Service history */}
+          {history.length > 0 && (
+            <div className="space-y-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Recent history</p>
+              {history.map((r) => (
+                <div key={r.id} className="rounded-lg bg-slate-50 px-2.5 py-2 text-xs dark:bg-slate-800">
+                  <p className="mb-1 text-[10px] text-slate-400">{new Date(r.recorded_at).toLocaleString()}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                    {Object.entries(r.readings).map(([k, v]) => (
+                      <span key={k} className="text-slate-600 dark:text-slate-300">
+                        {labelFor(k)}: <span className="font-semibold">{v}{unitFor(k) ? ` ${unitFor(k)}` : ''}</span>
+                      </span>
+                    ))}
+                  </div>
+                  {r.notes && <p className="mt-1 italic text-slate-500">{r.notes}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
