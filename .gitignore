@@ -43,3 +43,9 @@ tsconfig.tsbuildinfo
 .vercel
 backup_pre_operations.sql
 scripts/apply_all_operations.sql
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
