@@ -14,7 +14,12 @@ interface ProjectDetailPanelProps {
   canEdit: boolean
 }
 
-export function ProjectDetailPanel({ project, onClose, canEdit }: ProjectDetailPanelProps) {
+export function ProjectDetailPanel({ project, members, onClose, canEdit }: ProjectDetailPanelProps) {
+  const memberMap = Object.fromEntries(members.map((m) => [m.id, m.full_name]))
+  const pmName = project.project_manager
+    ? (memberMap[project.project_manager] ?? project.project_manager)
+    : null
+
   return (
     <>
       {/* Backdrop */}
@@ -84,10 +89,10 @@ export function ProjectDetailPanel({ project, onClose, canEdit }: ProjectDetailP
           </div>
 
           {/* Project Manager */}
-          {project.project_manager && (
+          {pmName && (
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Project Manager</p>
-              <p className="text-sm text-slate-900">{project.project_manager}</p>
+              <p className="text-sm text-slate-900">{pmName}</p>
             </div>
           )}
 
