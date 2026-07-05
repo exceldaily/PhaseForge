@@ -5,6 +5,7 @@ import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
+  Contact, HardHat, Truck, PhoneCall, FolderOpen, Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -28,24 +29,43 @@ const NAV_ITEMS = [
   { href: '/app/guide',        label: 'Guide',        icon: BookOpen },
 ]
 
+// Operations modules — links appear only when the org has the module enabled
+// AND the user's ops_role allows it (server-computed; route guards re-check).
+const OPS_NAV: Record<string, { href: string; label: string; icon: typeof Contact }> = {
+  customers: { href: '/app/customers', label: 'Customers', icon: Contact },
+  staff:     { href: '/app/staff',     label: 'Staff',     icon: HardHat },
+  vendors:   { href: '/app/vendors',   label: 'Vendors',   icon: Truck },
+  calls:     { href: '/app/calls',     label: 'Calls',     icon: PhoneCall },
+  files:     { href: '/app/files',     label: 'Files',     icon: FolderOpen },
+  invoices:  { href: '/app/invoices',  label: 'Invoices',  icon: Receipt },
+}
+
 interface SidebarProps {
   isSuperAdmin?: boolean
   canUseReports?: boolean
   canUseDispatch?: boolean
+  opsModules?: string[]
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDispatch = false, mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDispatch = false, opsModules = [], mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+
+  const opsItems = opsModules
+    .map((key) => OPS_NAV[key])
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
 
   const navItems = NAV_ITEMS.filter((item) => {
     if (item.href === '/app/reports' && !canUseReports) return false
     if (item.href === '/app/dispatch' && !canUseDispatch) return false
     return true
-  })
+  }).flatMap((item) =>
+    // Operations group slots in right after Dashboard
+    item.href === '/app/dashboard' ? [item, ...opsItems] : [item]
+  )
 
   const handleSignOut = async () => {
     const supabase = createClient()
