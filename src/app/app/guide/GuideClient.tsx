@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart2, Bell, BookOpen, Building2, ClipboardList, FolderKanban,
-  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Radio, Search,
+  BarChart2, Bell, BookOpen, Building2, ClipboardList, Contact, FolderKanban,
+  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, PhoneCall, Play, Radio, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour'
@@ -25,6 +25,42 @@ type GuideSection = {
   items: { heading: string; text: string }[]
 }
 
+const OPERATIONS_SECTIONS: GuideSection[] = [
+  {
+    id: 'operations',
+    icon: Contact,
+    title: 'Operations Modules',
+    summary: 'Customers, staff, vendors, calls, files, and invoices — enable only what your organization uses.',
+    items: [
+      { heading: 'Modules', text: 'Owners and admins turn operations modules on or off at Settings → Modules. Disabled modules disappear from the sidebar and their pages become inaccessible, even with a direct link. New organizations start with Projects, Reports, and Files enabled.' },
+      { heading: 'Customers → Locations → Assets', text: 'The Customers page is the operations hub: customer accounts, their sites (with store/site numbers, addresses, and access notes), and the equipment at each site (make, model, serial, warranty dates). Everything else — calls, projects, files, invoices — links back through this chain.' },
+      { heading: 'Residential customers', text: 'Pick "Residential" as the type when creating a customer and enter their home address — the service location is created automatically in the same step. Addresses everywhere show a map pin that opens Google Maps for directions.' },
+      { heading: 'Equipment service history', text: 'Click any asset on the Assets tab to see its full service history: every reading techs recorded, with trade-specific values and attached photos, newest first.' },
+      { heading: 'Staff & roles', text: 'The Staff page shows every member with an operations role: Owner, Admin, Dispatcher, Project Manager, Billing, Staff/Technician, or Read Only. Roles control what each person can see and do — e.g. Billing users manage invoices but staff records stay hidden, and technicians only see calls assigned to them. Track divisions, skills, and certifications with expiration warnings.' },
+      { heading: 'Vendors', text: 'Subcontractor records with trades, coverage areas, contacts, and insurance/license expiration alerts. Assign vendors to calls and watch compliance dates on the vendor cards.' },
+      { heading: 'Files & invoices', text: 'Files is a company-wide library plus attachments linked to customers, calls, projects, and more. Invoices is an invoice-ready workflow: flag completed calls as "Invoice ready", pull them into a draft, add line items, and print to PDF — no payment processing.' },
+    ],
+  },
+  {
+    id: 'calls',
+    icon: PhoneCall,
+    title: 'Calls / Work Orders',
+    summary: 'Dispatch-grade service call tracking with SLA alerts and new-update highlights.',
+    href: '/app/calls',
+    hrefLabel: 'Open Calls',
+    items: [
+      { heading: 'Three views', text: 'Work the queue as a list (densest), cards, or a status board. The list auto-sorts by what needs attention: new updates first, then SLA risk, then priority and age.' },
+      { heading: 'Queue chips', text: 'One-tap smart queues above the filters: All Active, New Updates, No Tech or Vendor, SLA Overdue, Aging 7d+, and Invoice Ready — each with a live count. Tap a chip to jump to that queue; chips with zero items hide themselves.' },
+      { heading: 'Equipment updates', text: 'When a call is linked to an asset, the call drawer shows an Equipment Update section with readings matched to the trade — HVAC gets pressures/superheat/subcooling, refrigeration gets case temps and defrost checks, electrical gets voltage/amps, plumbing gets pressure and leak checks. Attach photos to each reading; recent history shows right in the drawer.' },
+      { heading: 'Yellow means new', text: 'When someone adds a note to a call, it lights up yellow with a NEW UPDATE badge for everyone who has not seen it. Opening the call marks it read for you.' },
+      { heading: 'SLA & aging', text: 'Calls with an SLA target or due date turn orange within 24 hours and red once overdue. Every row shows how many days the call has been open and when it was last touched.' },
+      { heading: 'Detail drawer', text: 'Click any call to edit status, priority, assignment, and dates inline. Add categorized notes (internal, customer, vendor, parts, scheduling, quote, completion) and insert saved note templates.' },
+      { heading: 'Make it yours', text: 'Terminology (Calls, Work Orders, Service Requests, Jobs), statuses, priorities, and required completion fields are configurable per organization — commercial, residential, and construction templates supported.' },
+      { heading: 'Invoice ready', text: 'Flag a finished call as Invoice Ready and it appears in the Invoices module, ready to pull onto a draft invoice.' },
+    ],
+  },
+]
+
 const SECTIONS: GuideSection[] = [
   {
     id: 'getting-started',
@@ -38,6 +74,7 @@ const SECTIONS: GuideSection[] = [
       { heading: '4. Work the schedule', text: 'Track day-to-day progress on the Dashboard, adjust dates on the Gantt, and move projects through board columns as jobs progress.' },
     ],
   },
+  ...OPERATIONS_SECTIONS,
   {
     id: 'my-work',
     icon: ListChecks,

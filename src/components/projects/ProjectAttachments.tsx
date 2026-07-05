@@ -4,8 +4,8 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, ExternalLink, FileText, Paperclip, Trash2, Upload } from 'lucide-react'
 import { deleteProjectAttachment, uploadProjectAttachment } from '@/app/app/projects/[id]/actions'
+import { ConfirmDialog } from '@/components/operations/ConfirmDialog'
 import { formatDate } from '@/lib/dates'
-import { cn } from '@/lib/utils'
 import { ProjectAttachment } from '@/types/app'
 
 interface ProjectAttachmentsProps {
@@ -23,7 +23,8 @@ export function ProjectAttachments({
 }: ProjectAttachmentsProps) {
   const router = useRouter()
   const [uploading, setUploading] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<ProjectAttachment | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,10 +32,11 @@ export function ProjectAttachments({
     if (!file) return
 
     setUploading(true)
+    setUploadError(null)
     try {
       const result = await uploadProjectAttachment(projectId, file)
       if (!result.success) {
-        alert(`Error: ${result.error}`)
+        setUploadError(result.error ?? 'Upload failed. Please try again.')
       } else {
         router.refresh()
       }
@@ -44,22 +46,6 @@ export function ProjectAttachments({
       }
     } finally {
       setUploading(false)
-    }
-  }
-
-  const handleDelete = async (filePath: string) => {
-    if (!confirm('Delete this file?')) return
-
-    setDeleting(filePath)
-    try {
-      const result = await deleteProjectAttachment(projectId, filePath)
-      if (!result.success) {
-        alert(`Error: ${result.error}`)
-      } else {
-        router.refresh()
-      }
-    } finally {
-      setDeleting(null)
     }
   }
 
@@ -91,6 +77,9 @@ export function ProjectAttachments({
             />
           </label>
           {uploading && <p className="mt-2 text-sm text-slate-500">Uploading...</p>}
+          {uploadError && (
+            <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{uploadError}</p>
+          )}
         </div>
       )}
 
@@ -159,12 +148,8 @@ export function ProjectAttachments({
 
                 {canEdit && (
                   <button
-                    onClick={() => handleDelete(attachment.file_path)}
-                    disabled={deleting === attachment.file_path}
-                    className={cn(
-                      'rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600',
-                      deleting === attachment.file_path && 'cursor-not-allowed opacity-50'
-                    )}
+                    onClick={() => setPendingDelete(attachment)}
+                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                     title="Delete file"
                   >
                     <Trash2 size={16} />
@@ -175,6 +160,20 @@ export function ProjectAttachments({
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete file"
+        message={`Delete "${pendingDelete?.file_name}"? It will be permanently removed from this project and from storage.`}
+        confirmLabel="Delete file"
+        onConfirm={async () => {
+          if (!pendingDelete) return
+          const result = await deleteProjectAttachment(projectId, pendingDelete.file_path)
+          if (!result.success) return { error: result.error ?? 'Delete failed. Please try again.' }
+          router.refresh()
+        }}
+        onClose={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

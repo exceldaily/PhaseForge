@@ -3,49 +3,147 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
-  Settings, LogOut, ChevronLeft, ChevronRight, ShieldAlert,
+  Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
+  Contact, HardHat, Truck, PhoneCall, FolderOpen, Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 
-const NAV_ITEMS = [
-  { href: '/app/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/app/my-work',      label: 'My Work',      icon: ListChecks },
-  { href: '/app/boards',       label: 'Boards',       icon: Layers },
-  { href: '/app/projects',     label: 'Projects',     icon: FolderKanban },
-  { href: '/app/gantt',        label: 'Gantt',        icon: GanttChartSquare },
-  { href: '/app/resources',    label: 'Resources',    icon: UsersRound },
-  { href: '/app/analytics',    label: 'Analytics',    icon: BarChart2 },
-  { href: '/app/dispatch',     label: 'Tickets',      icon: Radio },
-  { href: '/app/reports',      label: 'Reports',      icon: FileText },
-  { href: '/app/billing',      label: 'Billing',      icon: CreditCard },
-  { href: '/app/organization', label: 'Organization', icon: Building2 },
-  { href: '/app/settings',     label: 'Settings',     icon: Settings },
-  { href: '/app/guide',        label: 'Guide',        icon: BookOpen },
+interface NavItem {
+  href: string
+  label: string
+  icon: typeof Contact
+  // 'reports' | 'dispatch' gate on plan flags; ops module keys gate on entitlements
+  gate?: 'reports' | 'dispatch' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices'
+}
+
+interface NavGroup {
+  id: string
+  label: string | null // null = ungrouped items at top level
+  items: NavItem[]
+}
+
+// One intentional structure: Dashboard, then Work / Directory / Insights /
+// Financial / Library / Admin. Gated items simply drop out of their group;
+// empty groups disappear entirely.
+const NAV_GROUPS: NavGroup[] = [
+  {
+    id: 'top',
+    label: null,
+    items: [
+      { href: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/app/my-work',   label: 'My Work',   icon: ListChecks },
+    ],
+  },
+  {
+    id: 'work',
+    label: 'Work',
+    items: [
+      { href: '/app/projects', label: 'Projects', icon: FolderKanban },
+      { href: '/app/calls',    label: 'Calls',    icon: PhoneCall, gate: 'calls' },
+      { href: '/app/boards',   label: 'Boards',   icon: Layers },
+      { href: '/app/gantt',    label: 'Gantt',    icon: GanttChartSquare },
+      { href: '/app/dispatch', label: 'Tickets',  icon: Radio, gate: 'dispatch' },
+    ],
+  },
+  {
+    id: 'directory',
+    label: 'Directory',
+    items: [
+      { href: '/app/customers', label: 'Customers', icon: Contact, gate: 'customers' },
+      { href: '/app/staff',     label: 'Staff',     icon: HardHat, gate: 'staff' },
+      { href: '/app/vendors',   label: 'Vendors',   icon: Truck, gate: 'vendors' },
+      { href: '/app/resources', label: 'Resources', icon: UsersRound },
+    ],
+  },
+  {
+    id: 'insights',
+    label: 'Insights',
+    items: [
+      { href: '/app/analytics', label: 'Analytics', icon: BarChart2 },
+      { href: '/app/reports',   label: 'Reports',   icon: FileText, gate: 'reports' },
+    ],
+  },
+  {
+    id: 'financial',
+    label: 'Financial',
+    items: [
+      { href: '/app/invoices', label: 'Invoices', icon: Receipt, gate: 'invoices' },
+      { href: '/app/billing',  label: 'Billing',  icon: CreditCard },
+    ],
+  },
+  {
+    id: 'library',
+    label: 'Library',
+    items: [
+      { href: '/app/files', label: 'Files', icon: FolderOpen, gate: 'files' },
+      { href: '/app/guide', label: 'Guide', icon: BookOpen },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    items: [
+      { href: '/app/organization', label: 'Organization', icon: Building2 },
+      { href: '/app/settings',     label: 'Settings',     icon: Settings },
+    ],
+  },
 ]
+
+const COLLAPSE_KEY = 'pf-nav-collapsed-groups'
 
 interface SidebarProps {
   isSuperAdmin?: boolean
   canUseReports?: boolean
   canUseDispatch?: boolean
+  opsModules?: string[]
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDispatch = false, mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDispatch = false, opsModules = [], mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+  const [closedGroups, setClosedGroups] = useState<string[]>([])
 
-  const navItems = NAV_ITEMS.filter((item) => {
-    if (item.href === '/app/reports' && !canUseReports) return false
-    if (item.href === '/app/dispatch' && !canUseDispatch) return false
-    return true
-  })
+  // Restore user's group collapse preferences after mount. Must run in an
+  // effect (not a lazy initializer) so the server render and first client
+  // render match — otherwise hydration mismatches on collapsed groups.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(COLLAPSE_KEY)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (stored) setClosedGroups(JSON.parse(stored))
+    } catch { /* ignore */ }
+  }, [])
+
+  const toggleGroup = (id: string) => {
+    setClosedGroups((prev) => {
+      const next = prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
+      try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  const visibleGroups = useMemo(() => {
+    const allowed = (item: NavItem) => {
+      if (!item.gate) return true
+      if (item.gate === 'reports') return canUseReports
+      if (item.gate === 'dispatch') return canUseDispatch
+      return opsModules.includes(item.gate)
+    }
+    return NAV_GROUPS
+      .map((g) => ({ ...g, items: g.items.filter(allowed) }))
+      .filter((g) => g.items.length > 0)
+  }, [canUseReports, canUseDispatch, opsModules])
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== '/app/dashboard' && pathname.startsWith(href))
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -91,26 +189,48 @@ export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDis
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href !== '/app/dashboard' && pathname.startsWith(href))
+      <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-0.5">
+        {visibleGroups.map((group) => {
+          const groupHasActive = group.items.some((i) => isActive(i.href))
+          // A group with the active page stays open regardless of stored preference.
+          const isClosed = !collapsed && group.label !== null
+            && closedGroups.includes(group.id) && !groupHasActive
           return (
-            <Link
-              key={href}
-              href={href}
-              onClick={handleNavClick}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
-                active
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white',
-                collapsed && 'justify-center px-0'
+            <div key={group.id} className={cn(group.label && !collapsed && 'pt-2 first:pt-0')}>
+              {group.label && !collapsed && (
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className="flex w-full items-center justify-between rounded px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-600 transition-colors hover:text-slate-400"
+                >
+                  {group.label}
+                  <ChevronDown size={12} className={cn('transition-transform', isClosed && '-rotate-90')} />
+                </button>
               )}
-              title={collapsed ? label : undefined}
-            >
-              <Icon size={18} className="flex-shrink-0" />
-              {!collapsed && label}
-            </Link>
+              {group.label && collapsed && (
+                <div className="mx-3 my-1.5 border-t border-slate-800" aria-hidden />
+              )}
+              {!isClosed && group.items.map(({ href, label, icon: Icon }) => {
+                const active = isActive(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={handleNavClick}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                      active
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-white',
+                      collapsed && 'justify-center px-0'
+                    )}
+                    title={collapsed ? label : undefined}
+                  >
+                    <Icon size={18} className="flex-shrink-0" />
+                    {!collapsed && label}
+                  </Link>
+                )
+              })}
+            </div>
           )
         })}
 

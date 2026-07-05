@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import { BoardFilter } from '@/components/boards/BoardFilter'
+import { CommandBand } from './CommandBand'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
@@ -273,6 +274,8 @@ export default async function DashboardPage({
           </div>
         </div>
       </div>
+
+      <CommandBand userId={user.id} companyId={profile.company_id} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
