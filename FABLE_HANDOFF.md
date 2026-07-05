@@ -1,5 +1,74 @@
 # FABLE_HANDOFF
 
+## Sprint 5 — Quality Gate & Release Readiness (`fable/quality-gate`) — LEAD BRANCH
+
+Adversarial QA pass: real live testing via an authenticated browser session (not
+guesswork), cross-checked against code before anything was logged as a bug.
+
+**What was tested:** auth (sign-in, invalid credentials, empty submission, protected-route
+redirects), Projects (create, detail drawer, Gantt render, task checklist add/complete/
+delete, punch-item photo validation, invalid-ID handling), Calls (create, status change,
+list refresh, search), Customers (edit persistence, delete confirmation), Files (empty
+state), search/filtering, console error surface. Mobile viewport testing was attempted but
+the environment's window-resize did not actually change the browser viewport — documented
+honestly in QUALITY_GATE_AUDIT.md rather than faked; mobile was instead code-audited
+against the responsive patterns already shipped in the stabilization sprint.
+
+**What was fixed (3 confirmed bugs, root-caused not styled-over):**
+1. **[P1] No branded not-found page anywhere** — every `notFound()` call fell through to
+   Next's raw fallback screen. Added `src/app/app/not-found.tsx` (inside the AppShell,
+   sidebar stays visible), `src/app/not-found.tsx` (global fallback), `src/app/app/error.tsx`
+   (route-segment runtime error boundary).
+2. **[P2] Project Manager field printed a raw UUID** in `ProjectDetailPanel.tsx` — the
+   component already received a `members` prop but never used it. Fixed to match the
+   `memberMap` resolution pattern already used correctly in 4 other files.
+3. **[P3] Console error on every navigation** — root layout used a raw `<script>` tag
+   instead of `next/script strategy="beforeInteractive"`; replaced per Next.js docs.
+
+**What was added:** Playwright e2e infrastructure (`e2e/auth.spec.ts` — 15 always-run tests,
+zero setup, covering protected routes/login/404; `e2e/authenticated-workflows.spec.ts` —
+project/call/customer/file CRUD, gated behind `E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD`, skips
+cleanly without them). `vitest.config.ts` added to keep the two test runners from colliding.
+New scripts: `npm run e2e`, `e2e:ui`, `typecheck`, and `npm run verify` (typecheck → lint →
+unit tests → e2e → build, one command, stops at first failure, makes no destructive changes).
+
+**What remains incomplete:**
+- Authenticated Playwright suite has never actually executed against real credentials (no
+  test account password was available this session) — infrastructure is complete and
+  documented in TESTING_GUIDE.md; supplying credentials is the only remaining step.
+- True mobile/tablet viewport QA (see limitation above) — recommend running `npm run e2e`
+  or a manual pass on a real device/CI runner where Playwright's device emulation works.
+- Gantt drag-and-drop rescheduling was not exercised live.
+- BACKLOG-001 through -003 in BUG_BACKLOG.md.
+
+**Sprint 5 commits:**
+```bash
+git log --oneline fable/backend-hardening..fable/quality-gate
+# <hash> chore: add preview launch config for local dev server
+# <hash> docs: testing guide + release checklist
+# <hash> test: add Playwright e2e infrastructure + critical-path tests
+# <hash> fix: console error on every navigation from raw script tag (P3)
+# <hash> fix: Project Manager field showed raw UUID instead of resolved name (P2)
+# <hash> fix: branded not-found and error pages (P1)
+# <hash> docs: quality gate audit + bug backlog from live testing pass
+```
+
+**Test/build commands:** `npm test` (unit) · `npm run e2e` (e2e, add
+`E2E_TEST_EMAIL`/`E2E_TEST_PASSWORD` for full CRUD coverage) · `npm run verify` (everything)
+· `npm run build`.
+
+**Revert sprint 5 only:** `git checkout fable/backend-hardening` (sprint 5 is purely
+additive/fix commits on top). Revert one milestone: `git revert --no-edit <sha>`.
+
+**Known risks:** none of this sprint's changes touch the database, auth logic, or RLS —
+pure frontend fixes + test tooling. Lowest-risk sprint in this series to merge.
+
+**Recommended next sprint:** supply a disposable test-account's credentials and run
+`npm run verify` end-to-end at least once with the CRUD suite actually executing (not
+skipping); then tackle BACKLOG-001–003.
+
+---
+
 ## Sprint 4 — Backend Hardening (`fable/backend-hardening`) — LEAD BRANCH
 
 **Fixed (code):** customer records are now fully editable (Edit modal: name/status/type/
