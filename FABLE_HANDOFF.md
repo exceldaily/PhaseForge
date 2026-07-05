@@ -1,5 +1,43 @@
 # FABLE_HANDOFF
 
+## Sprint 4 — Backend Hardening (`fable/backend-hardening`) — LEAD BRANCH
+
+**Fixed (code):** customer records are now fully editable (Edit modal: name/status/type/
+phone/email/billing/division) and deletable (admin-only, ConfirmDialog explaining the
+cascade) — root cause was a pure UI gap, the reported "can't update customers" bug.
+
+**Fixed (live DB — migration `20260706_backend_hardening.sql`, ALREADY APPLIED via MCP):**
+1. `protect_profile_privileges` trigger — blocks self-elevation of `ops_role`/`role`/
+   `company_id`/`is_super_admin` (closes the sprint-1 critical risk).
+2. `profiles_update_admin` policy — admins can now actually save member role changes
+   (they were silently no-oping under the self-only legacy policy).
+3. `search_path` pinned on 5 legacy SECURITY DEFINER functions.
+4. anon/PUBLIC EXECUTE revoked on 9 internal functions.
+5. `companies` INSERT now requires a signed-in user.
+
+**Tests:** vitest added (`npm test`) — 8 unit tests on reading templates + maps URLs, all
+passing. Build + lint green.
+
+**Docs:** BACKEND_PRODUCTION_AUDIT.md · SUPABASE_SECURITY_AND_RLS_AUDIT.md (incl. per-change
+rollback SQL + manual test steps) · PERFORMANCE_AND_QUERY_AUDIT.md · FILE_LIFECYCLE_AND_DELETION.md.
+
+**Remaining / manual:** enable leaked-password protection (dashboard toggle); trace + scope
+the `true`-check service-role policies (billing_history/notifications/preferences); RLS
+initplan optimization at scale; integration tests need a staging project.
+
+**Revert sprint 4 code:** `git checkout fable/service-equipment-landing`. Revert DB changes:
+rollback SQL per item in SUPABASE_SECURITY_AND_RLS_AUDIT.md.
+
+---
+
+## Sprint 3 — Service Features + Landing (`fable/service-equipment-landing`)
+
+Equipment readings (trade-aware) + photos, asset service history, queue chips, residential
+quick-create, maps links, customer-hub asset creation, landing/login premium upgrade.
+Migration `20260706_equipment_readings.sql` — applied by owner. See LANDING_LOGIN_HANDOFF.md.
+
+---
+
 ## Sprint 2 — Product Stabilization (`fable/phaseforge-stabilization`)
 
 Based on the operations branch below. Zero migrations; UI/reliability only.
