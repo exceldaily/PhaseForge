@@ -56,7 +56,8 @@ export function CallsClient({
 }) {
   const router = useRouter()
   const [filters, setFilters] = useUrlFilters()
-  const [createOpen, setCreateOpen] = useState(false)
+  // ?new=1 (e.g. from the dashboard quick action) opens the create form directly.
+  const [createOpen, setCreateOpen] = useState(() => filters.new === '1')
   const [pending] = useTransition()
 
   const view = filters.view || settings.default_view
