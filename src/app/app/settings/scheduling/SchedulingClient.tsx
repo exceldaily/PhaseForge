@@ -10,7 +10,7 @@ import { GOOGLE_EVENT_COLORS, nearestGoogleColorId } from '@/lib/scheduling/cale
 import { timeAgo } from '@/components/operations/shared'
 import {
   listCalendars, setTargetCalendar, setRoutingMode, disconnectGoogle,
-  saveSuperintendent, saveScheduleLabel,
+  saveSuperintendent, saveScheduleLabel, resolvePendingChange,
 } from './actions'
 
 interface Connection {
@@ -30,11 +30,21 @@ interface SchLabel {
   gcal_attendee_email: string | null; superintendent_id: string | null; is_active: boolean
 }
 
-export function SchedulingClient({ configured, connection, superintendents, labels }: {
+interface PendingChange {
+  id: string
+  changeType: string
+  gcalValue: Record<string, string>
+  createdAt: string
+  phaseName: string | null
+  projectName: string | null
+}
+
+export function SchedulingClient({ configured, connection, superintendents, labels, pendingChanges = [] }: {
   configured: boolean
   connection: Connection | null
   superintendents: Superintendent[]
   labels: SchLabel[]
+  pendingChanges?: PendingChange[]
 }) {
   const router = useRouter()
   const params = useSearchParams()
@@ -205,6 +215,56 @@ export function SchedulingClient({ configured, connection, superintendents, labe
           </div>
         )}
       </section>
+
+      {/* ── Pending calendar changes (Google-side edits held for review) ── */}
+      {pendingChanges.length > 0 && (
+        <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 dark:border-amber-900 dark:bg-amber-950/20">
+          <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
+            <AlertTriangle size={15} /> Calendar changes awaiting review ({pendingChanges.length})
+          </h2>
+          <p className="mb-3 text-xs text-amber-700/70 dark:text-amber-300/70">
+            Someone edited or deleted these events directly in Google Calendar. PhaseForge stays the source of
+            truth — choose to restore the PhaseForge version or accept the Google change.
+          </p>
+          <div className="space-y-2">
+            {pendingChanges.map((c) => (
+              <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm dark:bg-slate-900">
+                <span className="flex-1 min-w-0 text-slate-700 dark:text-slate-200">
+                  <span className="font-medium">{c.projectName ?? 'Unknown project'}</span>
+                  {c.phaseName && <> — {c.phaseName}</>}
+                  <span className="ml-2 text-xs text-slate-400">
+                    {c.changeType === 'deleted'
+                      ? 'event was deleted in Google'
+                      : c.changeType === 'title'
+                        ? `title changed to “${c.gcalValue.title ?? '?'}”`
+                        : c.changeType}
+                  </span>
+                </span>
+                <button
+                  onClick={() => startTransition(async () => {
+                    const res = await resolvePendingChange(c.id, 'keep')
+                    if (res?.error) setError(res.error); else router.refresh()
+                  })}
+                  disabled={pending}
+                  className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {c.changeType === 'deleted' ? 'Recreate event' : 'Restore PhaseForge version'}
+                </button>
+                <button
+                  onClick={() => startTransition(async () => {
+                    const res = await resolvePendingChange(c.id, 'dismiss')
+                    if (res?.error) setError(res.error); else router.refresh()
+                  })}
+                  disabled={pending}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-500 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700"
+                >
+                  Dismiss
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Superintendents ── */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">

@@ -249,6 +249,11 @@ export function BoardColumnsKanban({
 
   const handleDeleteProject = async (projectId: string) => {
     const supabase = createClient()
+    // Remove any linked Google Calendar events before links cascade away.
+    try {
+      const { unsyncAllProjectPhases } = await import('@/app/app/projects/[id]/scheduleActions')
+      await unsyncAllProjectPhases(projectId)
+    } catch { /* never block delete */ }
     // Remove phases first so none are orphaned if the FK doesn't cascade.
     await supabase.from('phases').delete().eq('project_id', projectId)
     const { error } = await supabase.from('projects').delete().eq('id', projectId)

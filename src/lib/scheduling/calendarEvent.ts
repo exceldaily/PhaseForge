@@ -135,6 +135,16 @@ export function buildEventPayload(s: EventSource) {
   }
 }
 
+// Extract the UNTIL date (yyyy-mm-dd) from an RRULE string, e.g.
+// "RRULE:FREQ=WEEKLY;BYDAY=MO,TU;UNTIL=20260915" or UNTIL=20260915T000000Z.
+export function parseRRuleUntil(rrules: string[] | null | undefined): string | null {
+  for (const r of rrules ?? []) {
+    const m = /UNTIL=(\d{4})(\d{2})(\d{2})/.exec(r)
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`
+  }
+  return null
+}
+
 // Google Calendar's 11 fixed event colors (colorId → representative hex).
 // Event color on the calendar is driven ONLY by colorId — a chip's arbitrary
 // hex must be mapped to the nearest of these.

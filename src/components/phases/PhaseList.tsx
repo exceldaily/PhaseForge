@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { getPhasePercentForStatusChange, shouldRetryLegacyPhaseWrite } from '@/lib/phaseProgress'
 import { touchProjectAudit } from '@/lib/projectAudit'
+import { unsyncPhaseFromCalendar } from '@/app/app/projects/[id]/scheduleActions'
 
 interface PhaseListProps {
   projectId: string
@@ -31,6 +32,9 @@ export function PhaseList({ projectId, companyId, phases: initialPhases, members
 
   const handleDelete = async (phaseId: string) => {
     const supabase = createClient()
+    // Remove the linked Google event first (no-op when not synced) so deleting
+    // a phase never orphans an event on the calendar.
+    try { await unsyncPhaseFromCalendar(phaseId) } catch { /* never block delete */ }
     const { error } = await supabase.from('phases').delete().eq('id', phaseId)
     if (!error) {
       await touchProjectAudit(supabase, projectId, currentUserId)

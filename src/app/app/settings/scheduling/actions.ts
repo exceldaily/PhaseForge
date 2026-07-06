@@ -93,6 +93,45 @@ export async function disconnectGoogle() {
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// ── Pending calendar changes (Google-side edits held for review) ────────────
+
+// 'keep' = re-push the PhaseForge version to Google (restores title / recreates
+// a deleted event). 'dismiss' = accept Google's state and stop flagging it.
+export async function resolvePendingChange(changeId: string, action: 'keep' | 'dismiss') {
+  try {
+    const { supabase, userId, companyId } = await requireAdmin()
+    const { data: change } = await supabase
+      .from('gcal_pending_changes')
+      .select('id, change_type, link_id')
+      .eq('id', changeId).eq('company_id', companyId).eq('status', 'pending').single()
+    if (!change) return { error: 'Change not found or already resolved' }
+
+    if (action === 'keep') {
+      const { data: link } = await supabase
+        .from('gcal_event_links').select('phase_id, status').eq('id', change.link_id).maybeSingle()
+      if (link?.phase_id) {
+        // Recreating after deletion needs the link back in a pushable state.
+        if (link.status === 'event_deleted') {
+          await supabase.from('gcal_event_links')
+            .update({ status: 'linked' }).eq('id', change.link_id)
+        }
+        const { pushPhase } = await import('@/lib/scheduling/syncCore')
+        await pushPhase(supabase, companyId, link.phase_id)
+      }
+    }
+
+    await supabase.from('gcal_pending_changes').update({
+      status: action === 'keep' ? 'accepted' : 'rejected',
+      resolved_by: userId,
+      resolved_at: new Date().toISOString(),
+    }).eq('id', changeId)
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed' }
+  }
+}
+
 // ── Superintendents ──────────────────────────────────────────────────────────
 
 export async function saveSuperintendent(input: {
