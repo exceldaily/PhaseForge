@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { GanttChart } from '@/components/gantt/GanttChart'
+import { ProjectCalendarSyncBar } from '@/components/gantt/ProjectCalendarSyncBar'
 import { BoardFilter } from '@/components/boards/BoardFilter'
 import { BOARD_FILTER_NONE, BoardOption, appendBoardFilter, resolveBoardFilter } from '@/lib/boardFilter'
 import { getStoredBoardFilter } from '@/lib/boardFilter.server'
@@ -92,6 +93,10 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
         <div className="flex items-center justify-end border-b border-slate-200 bg-white px-4 py-2">
           <BoardFilter boards={boards} selectedBoardId={boardFilter} />
         </div>
+      )}
+      {/* Calendar sync bar — single-project view only ("View Gantt" entry path) */}
+      {singleProject && profile.role !== 'viewer' && (
+        <ProjectCalendarSyncBar projectId={singleProject.id} />
       )}
       <GanttChart
         projects={projectsWithSortedPhases}
