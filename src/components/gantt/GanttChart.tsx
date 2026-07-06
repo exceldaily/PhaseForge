@@ -15,6 +15,7 @@ import {
 } from '@/lib/dates'
 import { getPhasePercentComplete } from '@/lib/phaseProgress'
 import { touchProjectAudit } from '@/lib/projectAudit'
+import { autoSyncPhaseIfEnabled } from '@/app/app/projects/[id]/scheduleActions'
 import { useGanttStore, type ColorMode } from '@/stores/ganttStore'
 import { Phase, PhaseStatus, Profile, Project, ZoomLevel } from '@/types/app'
 import { cn } from '@/lib/utils'
@@ -303,6 +304,13 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     }
 
     await touchProjectAudit(supabase, snapshot.projectId, currentUserId, updatedAt)
+
+    // Push date changes to Google Calendar for the dragged phase and any
+    // dependency-cascaded phases. Fire-and-forget; only acts when the phase is
+    // linked or its project has auto-sync on.
+    for (const id of [phase.id, ...cascadeUpdates.map((u) => u.id)]) {
+      autoSyncPhaseIfEnabled(id).catch(() => {})
+    }
   }, [currentUserId, dragging, projects, shiftMode])
 
   const handlePhaseUpdate = useCallback((updatedPhase: Phase) => {

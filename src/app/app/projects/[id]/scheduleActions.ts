@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { pushPhase, removePhaseEvent } from '@/lib/scheduling/syncCore'
+import { swapSuperintendentLabels } from '@/lib/scheduling/calendarEvent'
 
 async function ctx() {
   const supabase = await createClient()
@@ -197,14 +198,62 @@ export async function getPhaseSyncStatus(phaseId: string) {
   }
 }
 
+// Assign a superintendent to the project. Applies their default SCH labels
+// (removing only the PREVIOUS superintendent's defaults, preserving the rest)
+// and re-pushes linked events so calendar colors/attendees update immediately.
+export async function setProjectSuperintendent(projectId: string, superintendentId: string | null) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Only managers can change the superintendent' }
+
+    const { data: project } = await supabase
+      .from('projects').select('superintendent_id, schedule_label_ids')
+      .eq('id', projectId).eq('company_id', companyId).single()
+    if (!project) return { error: 'Project not found' }
+
+    const getDefaults = async (id: string | null) => {
+      if (!id) return [] as string[]
+      const { data } = await supabase.from('superintendents')
+        .select('default_label_ids').eq('id', id).eq('company_id', companyId).single()
+      return (data?.default_label_ids as string[] | null) ?? []
+    }
+    const [prevDefaults, newDefaults] = await Promise.all([
+      getDefaults(project.superintendent_id),
+      getDefaults(superintendentId),
+    ])
+    const nextLabels = swapSuperintendentLabels(
+      (project.schedule_label_ids as string[] | null) ?? [], prevDefaults, newDefaults,
+    )
+
+    const { error } = await supabase.from('projects').update({
+      superintendent_id: superintendentId,
+      schedule_label_ids: nextLabels,
+    }).eq('id', projectId).eq('company_id', companyId)
+    if (error) return { error: error.message }
+
+    const { data: links } = await supabase
+      .from('gcal_event_links').select('phase_id').eq('project_id', projectId).eq('status', 'linked')
+    let repushed = 0
+    for (const l of links ?? []) {
+      if (!l.phase_id) continue
+      try { await pushPhase(supabase, companyId, l.phase_id); repushed++ } catch { /* keep going */ }
+    }
+    revalidatePath(`/app/projects/${projectId}`)
+    return { ok: true, repushed }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed' }
+  }
+}
+
 export async function getProjectSyncStatus(projectId: string) {
   try {
     const { supabase, companyId } = await ctx()
-    const [conn, proj, links, phases] = await Promise.all([
+    const [conn, proj, links, phases, sups] = await Promise.all([
       supabase.from('gcal_connections').select('is_active, target_calendar_name').eq('company_id', companyId).maybeSingle(),
-      supabase.from('projects').select('gcal_autosync, gcal_skip_days').eq('id', projectId).eq('company_id', companyId).maybeSingle(),
+      supabase.from('projects').select('gcal_autosync, gcal_skip_days, superintendent_id').eq('id', projectId).eq('company_id', companyId).maybeSingle(),
       supabase.from('gcal_event_links').select('phase_id').eq('project_id', projectId).eq('status', 'linked'),
       supabase.from('phases').select('id, name, start_date, end_date').eq('project_id', projectId).order('sort_order'),
+      supabase.from('superintendents').select('id, name').eq('company_id', companyId).eq('is_active', true).order('name'),
     ])
     const linkedIds = new Set((links.data ?? []).map((l) => l.phase_id))
     return {
@@ -213,6 +262,8 @@ export async function getProjectSyncStatus(projectId: string) {
       calendarName: conn.data?.target_calendar_name ?? null,
       autoSync: Boolean(proj.data?.gcal_autosync),
       projectSkipDays: (proj.data?.gcal_skip_days as string[] | null) ?? [],
+      superintendentId: (proj.data?.superintendent_id as string | null) ?? null,
+      superintendents: (sups.data ?? []).map((s) => ({ id: s.id, name: s.name })),
       syncedCount: linkedIds.size,
       phases: (phases.data ?? []).map((p) => ({
         id: p.id, name: p.name, start: p.start_date, end: p.end_date, synced: linkedIds.has(p.id),

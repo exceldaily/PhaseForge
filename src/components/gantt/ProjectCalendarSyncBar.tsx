@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { CalendarCheck, RefreshCw, AlertTriangle, Zap, ZapOff, Trash2, X } from 'lucide-react'
 import {
   getProjectSyncStatus, syncAllProjectPhases, unsyncAllProjectPhases,
-  setProjectAutoSync, saveProjectSkipDays,
+  setProjectAutoSync, saveProjectSkipDays, setProjectSuperintendent,
 } from '@/app/app/projects/[id]/scheduleActions'
 import { DayChips } from '@/components/gantt/DayChips'
 
@@ -14,6 +14,8 @@ interface Status {
   calendarName: string | null
   autoSync: boolean
   projectSkipDays: string[]
+  superintendentId: string | null
+  superintendents: { id: string; name: string }[]
   syncedCount: number
   phases: PhaseRow[]
 }
@@ -37,6 +39,8 @@ export function ProjectCalendarSyncBar({ projectId }: { projectId: string }) {
         const s: Status = {
           connected: Boolean(res.connected), calendarName: res.calendarName ?? null,
           autoSync: Boolean(res.autoSync), projectSkipDays: res.projectSkipDays ?? [],
+          superintendentId: res.superintendentId ?? null,
+          superintendents: res.superintendents ?? [],
           syncedCount: res.syncedCount ?? 0, phases: res.phases ?? [],
         }
         setStatus(s)
@@ -143,6 +147,34 @@ export function ProjectCalendarSyncBar({ projectId }: { projectId: string }) {
           {status.autoSync ? <Zap size={12} /> : <ZapOff size={12} />}
           Auto-sync {status.autoSync ? 'on' : 'off'}
         </button>
+
+        {status.superintendents.length > 0 && (
+          <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+            Super:
+            <select
+              value={status.superintendentId ?? ''}
+              disabled={pending}
+              onChange={(e) => {
+                const id = e.target.value || null
+                setMsg(null); setError(null)
+                startTransition(async () => {
+                  const res = await setProjectSuperintendent(projectId, id)
+                  if (res?.error) setError(res.error)
+                  else if (res?.ok) {
+                    setMsg(res.repushed ? `Superintendent set — updated ${res.repushed} calendar event${res.repushed === 1 ? '' : 's'}.` : 'Superintendent set.')
+                    refresh()
+                  }
+                })
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              <option value="">—</option>
+              {status.superintendents.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <span className="flex items-center gap-2">
           <span className="text-[11px] font-medium text-slate-400">Skip days (whole project):</span>
