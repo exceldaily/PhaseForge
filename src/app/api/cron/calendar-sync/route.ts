@@ -36,17 +36,35 @@ export async function GET(req: NextRequest) {
     const companyId = conn.company_id as string
     let pushed = 0, failed = 0
 
-    // 1) Re-push everything already linked (true-up of dates/details).
+    // 1) Re-push only linked phases that CHANGED since their last push —
+    //    keeps runs fast and within serverless time limits even with
+    //    hundreds of linked events (54 unchanged links = 0 Google calls).
     const { data: links } = await supabase
       .from('gcal_event_links')
-      .select('phase_id')
+      .select('phase_id, last_pushed_at')
       .eq('company_id', companyId).eq('status', 'linked').eq('sync_enabled', true)
-      .limit(300)
+      .limit(500)
     const linkedIds = new Set<string>()
+    const lastPushed = new Map<string, string | null>()
     for (const l of links ?? []) {
       if (!l.phase_id) continue
       linkedIds.add(l.phase_id)
-      try { await pushPhase(supabase, companyId, l.phase_id); pushed++ }
+      lastPushed.set(l.phase_id, l.last_pushed_at)
+    }
+    let stale: string[] = []
+    if (linkedIds.size) {
+      const { data: phs } = await supabase
+        .from('phases').select('id, updated_at').in('id', [...linkedIds])
+      stale = (phs ?? [])
+        .filter((p) => {
+          const pushedAt = lastPushed.get(p.id)
+          return !pushedAt || (p.updated_at && new Date(p.updated_at) > new Date(pushedAt))
+        })
+        .map((p) => p.id)
+    }
+    const MAX_PUSHES_PER_ORG = 50
+    for (const id of stale.slice(0, MAX_PUSHES_PER_ORG)) {
+      try { await pushPhase(supabase, companyId, id); pushed++ }
       catch { failed++ }
     }
 
@@ -60,6 +78,7 @@ export async function GET(req: NextRequest) {
         .from('phases').select('id').eq('project_id', proj.id).limit(100)
       for (const p of phases ?? []) {
         if (linkedIds.has(p.id)) continue
+        if (pushed >= 60) break // stay well inside serverless time limits
         try { await pushPhase(supabase, companyId, p.id); pushed++ }
         catch { failed++ }
       }
