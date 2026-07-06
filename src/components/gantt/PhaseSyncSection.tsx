@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { CalendarClock, CheckCircle2, ExternalLink, RefreshCw, Trash2, AlertTriangle } from 'lucide-react'
 import { timeAgo } from '@/components/operations/shared'
 import {
-  syncPhaseToCalendar, unsyncPhaseFromCalendar, getPhaseSyncStatus,
+  syncPhaseToCalendar, unsyncPhaseFromCalendar, getPhaseSyncStatus, saveSkipDays,
 } from '@/app/app/projects/[id]/scheduleActions'
 
 interface SyncStatus {
@@ -12,6 +12,13 @@ interface SyncStatus {
   calendarName: string | null
   link: { eventId: string; calendarId: string; lastPushedAt: string | null; status: string } | null
 }
+
+// Mon-first display order; codes are RFC-5545 weekday abbreviations.
+const DAY_OPTIONS: { code: string; label: string }[] = [
+  { code: 'MO', label: 'M' }, { code: 'TU', label: 'T' }, { code: 'WE', label: 'W' },
+  { code: 'TH', label: 'T' }, { code: 'FR', label: 'F' }, { code: 'SA', label: 'S' },
+  { code: 'SU', label: 'S' },
+]
 
 // Google Calendar deep link for an event on a specific calendar.
 function eventUrl(calendarId: string, eventId: string) {
@@ -21,17 +28,40 @@ function eventUrl(calendarId: string, eventId: string) {
 
 export function PhaseSyncSection({ phaseId }: { phaseId: string }) {
   const [status, setStatus] = useState<SyncStatus | null>(null)
+  const [skipDays, setSkipDays] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const refresh = () => {
     getPhaseSyncStatus(phaseId).then((res) => {
       if ('error' in res && res.error) setError(res.error)
-      else if ('connected' in res) setStatus({ connected: Boolean(res.connected), calendarName: res.calendarName ?? null, link: res.link ?? null })
+      else if ('connected' in res) {
+        setStatus({ connected: Boolean(res.connected), calendarName: res.calendarName ?? null, link: res.link ?? null })
+        setSkipDays(res.skipDays ?? [])
+      }
     })
   }
 
   useEffect(refresh, [phaseId])
+
+  // Toggles apply instantly; the save (and calendar re-push) is debounced so
+  // rapid clicks (e.g. Fri+Sat+Sun in a row) end up in ONE consistent write.
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const toggleDay = (code: string) => {
+    setError(null)
+    setSkipDays((prev) => {
+      const next = prev.includes(code) ? prev.filter((d) => d !== code) : [...prev, code]
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(() => {
+        startTransition(async () => {
+          const res = await saveSkipDays(phaseId, next)
+          if (res?.error) { setError(res.error); refresh() }
+          else refresh()
+        })
+      }, 700)
+      return next
+    })
+  }
 
   if (!status) return null
 
@@ -118,6 +148,36 @@ export function PhaseSyncSection({ phaseId }: { phaseId: string }) {
           {pending ? 'Syncing…' : 'Sync this phase to Google Calendar'}
         </button>
       )}
+
+      <div className="mt-3">
+        <p className="mb-1.5 text-[11px] font-medium text-slate-400">
+          Skip days — phase won&apos;t appear on the calendar on crossed-out days
+        </p>
+        <div className="flex gap-1">
+          {DAY_OPTIONS.map(({ code, label }) => {
+            const skipped = skipDays.includes(code)
+            return (
+              <button
+                key={code}
+                onClick={() => toggleDay(code)}
+                title={skipped ? `${code}: hidden on calendar` : `${code}: shown on calendar`}
+                className={`h-7 w-7 rounded-full text-[11px] font-semibold transition-all ${
+                  skipped
+                    ? 'bg-slate-200 text-slate-400 line-through dark:bg-slate-700'
+                    : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        {skipDays.length > 0 && status.link && (
+          <p className="mt-1 text-[11px] text-slate-400">
+            Shows as a weekly repeating event on the remaining days.
+          </p>
+        )}
+      </div>
 
       {error && (
         <p className="mt-2 flex items-start gap-1 text-xs text-rose-600">

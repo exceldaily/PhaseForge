@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildEventTitle, buildEventDescription, buildEventPayload,
-  exclusiveEnd, swapSuperintendentLabels, isPhaseForgeEvent,
+  exclusiveEnd, swapSuperintendentLabels, isPhaseForgeEvent, buildRecurrence,
 } from '../calendarEvent'
 
 const base = {
@@ -83,6 +83,40 @@ describe('swapSuperintendentLabels', () => {
   })
   it('handles no previous superintendent', () => {
     expect(swapSuperintendentLabels([], [], ['a'])).toEqual(['a'])
+  })
+})
+
+describe('buildRecurrence (skip days)', () => {
+  // 2026-07-10 is a Friday; 2026-08-10 is a Monday.
+  it('returns null when nothing is skipped (plain spanning event)', () => {
+    expect(buildRecurrence('2026-07-10', '2026-08-10', [])).toBeNull()
+  })
+  it('skips Fri-Sun for a month-long phase: weekly Mon-Thu recurrence', () => {
+    const r = buildRecurrence('2026-07-10', '2026-08-10', ['FR', 'SA', 'SU'])
+    // Start was a Friday → first occurrence moves to Monday July 13
+    expect(r?.firstDate).toBe('2026-07-13')
+    expect(r?.rrule).toBe('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH;UNTIL=20260810')
+  })
+  it('keeps the start date when it is not a skipped day', () => {
+    const r = buildRecurrence('2026-07-13', '2026-08-10', ['SA', 'SU'])
+    expect(r?.firstDate).toBe('2026-07-13')
+    expect(r?.rrule).toContain('BYDAY=MO,TU,WE,TH,FR')
+  })
+  it('throws when every weekday is skipped', () => {
+    expect(() => buildRecurrence('2026-07-10', '2026-08-10', ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'])).toThrow()
+  })
+  it('throws when the whole range falls on skipped days', () => {
+    // Jul 10-12 2026 is Fri-Sun exactly
+    expect(() => buildRecurrence('2026-07-10', '2026-07-12', ['FR', 'SA', 'SU'])).toThrow()
+  })
+  it('payload uses one-day recurring start and carries the RRULE', () => {
+    const p = buildEventPayload({ ...base, endDate: '2026-08-10', skipDays: ['FR', 'SA', 'SU'] })
+    expect(p.start).toEqual({ date: '2026-07-13' })
+    expect(p.end).toEqual({ date: '2026-07-14' })
+    expect(p.recurrence).toEqual(['RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH;UNTIL=20260810'])
+  })
+  it('payload recurrence is null (clears on patch) when no skips', () => {
+    expect(buildEventPayload(base).recurrence).toBeNull()
   })
 })
 
