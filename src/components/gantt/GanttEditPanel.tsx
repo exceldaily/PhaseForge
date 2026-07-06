@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { Phase, PhaseStatus, Profile, Project } from '@/types/app'
 import { PhaseComments } from '@/components/phases/PhaseComments'
 import { PhaseSyncSection } from '@/components/gantt/PhaseSyncSection'
+import { autoSyncPhaseIfEnabled } from '@/app/app/projects/[id]/scheduleActions'
 
 interface GanttEditPanelProps {
   phase: Phase
@@ -187,6 +188,9 @@ export function GanttEditPanel({
     if (data) {
       await touchProjectAudit(supabase, project.id, currentUserId)
       onUpdate(data as Phase)
+      // Fire-and-forget: pushes to Google only if this phase is linked or its
+      // project has auto-sync on. Never blocks or fails the save.
+      autoSyncPhaseIfEnabled(phase.id).catch(() => {})
     }
 
     setSaving(false)

@@ -171,3 +171,6 @@ CREATE INDEX IF NOT EXISTS idx_phases_superintendent ON public.phases(superinten
 
 -- Per-phase calendar skip days (e.g. {FR,SA,SU} = phase not shown Fri-Sun)
 ALTER TABLE public.phases ADD COLUMN IF NOT EXISTS gcal_skip_days text[] NOT NULL DEFAULT '{}';
+
+-- When true, all phases in this project auto-push to Google Calendar on create/date change
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS gcal_autosync boolean NOT NULL DEFAULT false;

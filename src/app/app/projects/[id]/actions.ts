@@ -46,6 +46,15 @@ export async function createPhaseQuick(projectId: string, data: { name: string; 
 
     if (error) throw error
 
+    // Auto-push to Google Calendar when the project has auto-sync enabled.
+    // No-op (and never throws) otherwise; must not block phase creation.
+    if (phase?.id) {
+      try {
+        const { autoSyncPhaseIfEnabled } = await import('./scheduleActions')
+        await autoSyncPhaseIfEnabled(phase.id)
+      } catch { /* calendar hiccup never blocks the create */ }
+    }
+
     revalidatePath(`/app/projects/${projectId}`)
     revalidatePath(`/app/gantt`)
     return { success: true, phase }
