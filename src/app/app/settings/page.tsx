@@ -64,6 +64,21 @@ export default async function SettingsPage() {
           </Link>
         </div>
 
+        <div className="rounded-2xl border border-slate-200 bg-white p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
+              <Users size={20} className="text-sky-600" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-slate-900">Scheduling &amp; Calendar</h2>
+              <p className="text-sm text-slate-500">Google Calendar connection, superintendents, SCH labels</p>
+            </div>
+          </div>
+          <Link href="/app/settings/scheduling" className="text-sm font-medium text-indigo-600 hover:underline">
+            Open scheduling settings &rarr;
+          </Link>
+        </div>
+
         {settingsProfile && (
           <ProfileSettingsCard
             profile={settingsProfile}
