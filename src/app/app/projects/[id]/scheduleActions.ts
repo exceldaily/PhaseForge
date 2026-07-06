@@ -44,7 +44,7 @@ async function buildSource(
 ) {
   const { data: phase } = await supabase
     .from('phases')
-    .select('id, project_id, name, start_date, end_date, status, superintendent_id, schedule_label_ids')
+    .select('id, project_id, name, start_date, end_date, status, superintendent_id, schedule_label_ids, gcal_skip_days')
     .eq('id', phaseId).single()
   if (!phase) throw new Error('Phase not found')
 
@@ -121,6 +121,7 @@ async function buildSource(
     pfRevision: 1,
     colorId,
     attendeeEmails: attendees,
+    skipDays: phase.gcal_skip_days ?? [],
   }
   return { source, calendarId, connectionId: conn.data.id }
 }
@@ -223,20 +224,49 @@ export async function unsyncPhaseFromCalendar(phaseId: string) {
   }
 }
 
+// Persist which weekdays a phase should NOT appear on the calendar
+// (RFC-5545 codes, e.g. ['FR','SA','SU']); re-pushes the event if linked.
+export async function saveSkipDays(phaseId: string, skipDays: string[]) {
+  try {
+    const { supabase, isManager } = await ctx()
+    if (!isManager) return { error: 'Only managers can change calendar sync' }
+    const valid = new Set(['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'])
+    const clean = [...new Set(skipDays.map((d) => d.toUpperCase()))].filter((d) => valid.has(d))
+    if (clean.length === 7) return { error: 'You cannot skip every day of the week' }
+
+    const { error } = await supabase.from('phases')
+      .update({ gcal_skip_days: clean }).eq('id', phaseId)
+    if (error) return { error: error.message }
+
+    // Keep the calendar in step immediately when this phase is already synced.
+    const { data: link } = await supabase.from('gcal_event_links')
+      .select('id').eq('phase_id', phaseId).eq('status', 'linked').maybeSingle()
+    if (link) {
+      const res = await syncPhaseToCalendar(phaseId)
+      if (res?.error) return { error: `Saved, but calendar update failed: ${res.error}` }
+    }
+    return { ok: true, resynced: Boolean(link) }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed' }
+  }
+}
+
 // Lightweight status for the edit panel: is this phase linked, and where.
 export async function getPhaseSyncStatus(phaseId: string) {
   try {
     const { supabase, companyId } = await ctx()
-    const [conn, link] = await Promise.all([
+    const [conn, link, ph] = await Promise.all([
       supabase.from('gcal_connections')
         .select('is_active, target_calendar_name').eq('company_id', companyId).maybeSingle(),
       supabase.from('gcal_event_links')
         .select('gcal_event_id, gcal_calendar_id, last_pushed_at, status').eq('phase_id', phaseId).maybeSingle(),
+      supabase.from('phases').select('gcal_skip_days').eq('id', phaseId).maybeSingle(),
     ])
     return {
       ok: true as const,
       connected: Boolean(conn.data?.is_active),
       calendarName: conn.data?.target_calendar_name ?? null,
+      skipDays: (ph.data?.gcal_skip_days as string[] | null) ?? [],
       link: link.data
         ? {
             eventId: link.data.gcal_event_id,

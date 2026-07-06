@@ -168,3 +168,6 @@ ALTER TABLE public.phases ADD COLUMN IF NOT EXISTS sync_enabled boolean NOT NULL
 ALTER TABLE public.phases ADD COLUMN IF NOT EXISTS superintendent_id uuid REFERENCES public.superintendents(id) ON DELETE SET NULL;
 ALTER TABLE public.phases ADD COLUMN IF NOT EXISTS schedule_label_ids uuid[] NOT NULL DEFAULT '{}';
 CREATE INDEX IF NOT EXISTS idx_phases_superintendent ON public.phases(superintendent_id);
+
+-- Per-phase calendar skip days (e.g. {FR,SA,SU} = phase not shown Fri-Sun)
+ALTER TABLE public.phases ADD COLUMN IF NOT EXISTS gcal_skip_days text[] NOT NULL DEFAULT '{}';

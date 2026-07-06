@@ -27,6 +27,7 @@ export interface EventSource {
   pfRevision: number
   colorId?: string | null
   attendeeEmails?: string[]
+  skipDays?: string[]   // RFC-5545 codes, e.g. ['FR','SA','SU']
 }
 
 // "[324-10482] Aldi 324 Madeira Beach – Mobilization"
@@ -68,15 +69,56 @@ export function exclusiveEnd(endDate: string): string {
   return d.toISOString().slice(0, 10)
 }
 
+// RFC-5545 weekday codes indexed by Date.getUTCDay() (0 = Sunday).
+export const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const
+export type WeekdayCode = (typeof WEEKDAY_CODES)[number]
+
+// When days are skipped (e.g. FR,SA,SU), the phase becomes a WEEKLY recurring
+// one-day event on the remaining days, bounded by the phase end date. Returns
+// the adjusted first occurrence + RRULE, or null when nothing is skipped
+// (plain spanning event). Throws when the skip set leaves no calendar days.
+export function buildRecurrence(startDate: string, endDate: string, skipDays: string[]) {
+  const skips = new Set(skipDays.map((d) => d.toUpperCase()))
+  if (skips.size === 0) return null
+
+  const included = WEEKDAY_CODES.filter((c) => !skips.has(c))
+  if (included.length === 0) {
+    throw new Error('Every weekday is skipped — nothing would appear on the calendar')
+  }
+
+  // First occurrence must land on an included weekday within the range.
+  const cursor = new Date(`${startDate}T00:00:00Z`)
+  const end = new Date(`${endDate}T00:00:00Z`)
+  while (cursor <= end && skips.has(WEEKDAY_CODES[cursor.getUTCDay()])) {
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+  if (cursor > end) {
+    throw new Error('All days in this phase date range are skipped')
+  }
+
+  const first = cursor.toISOString().slice(0, 10)
+  const until = endDate.replaceAll('-', '')
+  return {
+    firstDate: first,
+    rrule: `RRULE:FREQ=WEEKLY;BYDAY=${included.join(',')};UNTIL=${until}`,
+  }
+}
+
 // Full Google Calendar API event body. Linked-event identity lives in
 // extendedProperties.private — never in the title.
 export function buildEventPayload(s: EventSource) {
+  const recurrence = buildRecurrence(s.startDate, s.endDate, s.skipDays ?? [])
   return {
     summary: buildEventTitle(s),
     location: s.formattedAddress ?? undefined,
     description: buildEventDescription(s),
-    start: { date: s.startDate },
-    end: { date: exclusiveEnd(s.endDate) },
+    // Recurring mode: one-day event repeating weekly on the included days.
+    // Plain mode: single event spanning the whole phase.
+    start: { date: recurrence ? recurrence.firstDate : s.startDate },
+    end: { date: recurrence ? exclusiveEnd(recurrence.firstDate) : exclusiveEnd(s.endDate) },
+    // null (not undefined) when absent so patching a previously-recurring
+    // event back to a plain span actually CLEARS the recurrence on Google.
+    recurrence: recurrence ? [recurrence.rrule] : null,
     colorId: s.colorId ?? undefined,
     attendees: s.attendeeEmails?.length
       ? s.attendeeEmails.map((email) => ({ email }))
