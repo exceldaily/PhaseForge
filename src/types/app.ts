@@ -84,6 +84,10 @@ export interface Project {
   name: string
   customer_name: string | null
   job_location: string | null
+  job_number?: string | null
+  store_site_id?: string | null
+  formatted_address?: string | null
+  maps_url?: string | null
   start_date: string
   end_date: string
   project_manager: string | null

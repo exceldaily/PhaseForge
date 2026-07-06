@@ -56,7 +56,11 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
   const [form, setForm] = useState({
     name: project?.name || '',
     customer_name: project?.customer_name || '',
+    job_number: project?.job_number || '',
+    store_site_id: project?.store_site_id || '',
     job_location: project?.job_location || '',
+    formatted_address: project?.formatted_address || '',
+    maps_url: project?.maps_url || '',
     start_date: project?.start_date || new Date().toISOString().split('T')[0],
     end_date: project?.end_date || '',
     project_manager: project?.project_manager || currentUserId,
@@ -222,9 +226,35 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
           {shouldShowField('client_name') && (
           <Input id="customer_name" label="Client / Customer" placeholder="ABC Corp" value={form.customer_name} onChange={set('customer_name')} />
           )}
+          <Input id="job_number" label="Job # / Work Order" placeholder="324-10482" value={form.job_number} onChange={set('job_number')} />
+          <Input id="store_site_id" label="Store / Site ID" placeholder="324" value={form.store_site_id} onChange={set('store_site_id')} />
           {shouldShowField('job_location') && (
           <Input id="job_location" label="Job location" placeholder="123 Main St, City, State" value={form.job_location} onChange={set('job_location')} />
           )}
+          <div className="md:col-span-2">
+            <Input
+              id="formatted_address"
+              label="Job address (Google Maps)"
+              placeholder="4000 Duhme Rd, Madeira Beach, FL 33708"
+              value={form.formatted_address}
+              onChange={(e) => {
+                const address = e.target.value
+                setForm(f => ({
+                  ...f,
+                  formatted_address: address,
+                  // Keep a safe search link in step with the typed address.
+                  maps_url: address.trim()
+                    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address.trim())}`
+                    : '',
+                }))
+              }}
+            />
+            {form.maps_url && (
+              <a href={form.maps_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-indigo-600 hover:underline">
+                Open in Google Maps ↗
+              </a>
+            )}
+          </div>
           <Input id="start_date" type="date" label="Start date *" value={form.start_date} onChange={set('start_date')} required />
           <Input id="end_date" type="date" label="End date *" value={form.end_date} onChange={set('end_date')} required />
         </div>
