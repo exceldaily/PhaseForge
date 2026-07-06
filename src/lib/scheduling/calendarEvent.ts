@@ -55,7 +55,6 @@ export function buildEventDescription(s: EventSource): string {
   add('Map', s.mapsUrl)
   lines.push('')
   lines.push(`PhaseForge project: ${s.appBaseUrl}/app/projects/${s.projectId}`)
-  lines.push(`PhaseForge phase: ${s.appBaseUrl}/app/projects/${s.projectId}?phase=${s.phaseId}`)
   for (const link of s.quickLinks ?? []) {
     if (link.url?.trim()) lines.push(`${link.label || 'Link'}: ${link.url}`)
   }
