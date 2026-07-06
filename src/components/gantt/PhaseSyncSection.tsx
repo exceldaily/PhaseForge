@@ -6,19 +6,13 @@ import { timeAgo } from '@/components/operations/shared'
 import {
   syncPhaseToCalendar, unsyncPhaseFromCalendar, getPhaseSyncStatus, saveSkipDays,
 } from '@/app/app/projects/[id]/scheduleActions'
+import { DayChips } from '@/components/gantt/DayChips'
 
 interface SyncStatus {
   connected: boolean
   calendarName: string | null
   link: { eventId: string; calendarId: string; lastPushedAt: string | null; status: string } | null
 }
-
-// Mon-first display order; codes are RFC-5545 weekday abbreviations.
-const DAY_OPTIONS: { code: string; label: string }[] = [
-  { code: 'MO', label: 'M' }, { code: 'TU', label: 'T' }, { code: 'WE', label: 'W' },
-  { code: 'TH', label: 'T' }, { code: 'FR', label: 'F' }, { code: 'SA', label: 'S' },
-  { code: 'SU', label: 'S' },
-]
 
 // Google Calendar deep link for an event on a specific calendar.
 function eventUrl(calendarId: string, eventId: string) {
@@ -47,20 +41,17 @@ export function PhaseSyncSection({ phaseId }: { phaseId: string }) {
   // Toggles apply instantly; the save (and calendar re-push) is debounced so
   // rapid clicks (e.g. Fri+Sat+Sun in a row) end up in ONE consistent write.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const toggleDay = (code: string) => {
+  const onSkipChange = (next: string[]) => {
     setError(null)
-    setSkipDays((prev) => {
-      const next = prev.includes(code) ? prev.filter((d) => d !== code) : [...prev, code]
-      if (saveTimer.current) clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(() => {
-        startTransition(async () => {
-          const res = await saveSkipDays(phaseId, next)
-          if (res?.error) { setError(res.error); refresh() }
-          else refresh()
-        })
-      }, 700)
-      return next
-    })
+    setSkipDays(next)
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      startTransition(async () => {
+        const res = await saveSkipDays(phaseId, next)
+        if (res?.error) { setError(res.error); refresh() }
+        else refresh()
+      })
+    }, 700)
   }
 
   if (!status) return null
@@ -151,27 +142,9 @@ export function PhaseSyncSection({ phaseId }: { phaseId: string }) {
 
       <div className="mt-3">
         <p className="mb-1.5 text-[11px] font-medium text-slate-400">
-          Skip days — phase won&apos;t appear on the calendar on crossed-out days
+          Skip days — blue = on calendar, red = skipped (overrides the project default)
         </p>
-        <div className="flex gap-1">
-          {DAY_OPTIONS.map(({ code, label }) => {
-            const skipped = skipDays.includes(code)
-            return (
-              <button
-                key={code}
-                onClick={() => toggleDay(code)}
-                title={skipped ? `${code}: hidden on calendar` : `${code}: shown on calendar`}
-                className={`h-7 w-7 rounded-full text-[11px] font-semibold transition-all ${
-                  skipped
-                    ? 'bg-slate-200 text-slate-400 line-through dark:bg-slate-700'
-                    : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
-                }`}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
+        <DayChips value={skipDays} onChange={onSkipChange} />
         {skipDays.length > 0 && status.link && (
           <p className="mt-1 text-[11px] text-slate-400">
             Shows as a weekly repeating event on the remaining days.
