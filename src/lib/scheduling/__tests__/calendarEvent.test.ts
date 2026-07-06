@@ -36,7 +36,11 @@ describe('buildEventDescription', () => {
     expect(desc).toContain('Superintendent: John Smith')
     expect(desc).toContain('SCH: SCH - John Smith')
     expect(desc).toContain('PlanGrid: https://plangrid.example/x')
-    expect(desc).toContain('/app/projects/p1')
+    expect(desc).toContain('PhaseForge project: https://www.phase-forge.com/app/projects/p1')
+  })
+  it('does not include a separate PhaseForge phase link', () => {
+    expect(desc).not.toContain('?phase=')
+    expect(desc).not.toContain('PhaseForge phase:')
   })
   it('skips empty fields entirely', () => {
     const d = buildEventDescription({ ...base, client: null, storeSiteId: '' })
