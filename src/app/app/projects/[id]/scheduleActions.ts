@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { pushPhase, removePhaseEvent } from '@/lib/scheduling/syncCore'
+import { pushPhase, removePhaseEvent, pullLinkedEvents } from '@/lib/scheduling/syncCore'
 import { swapSuperintendentLabels } from '@/lib/scheduling/calendarEvent'
 
 async function ctx() {
@@ -242,6 +242,29 @@ export async function setProjectSuperintendent(projectId: string, superintendent
     return { ok: true, repushed }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed' }
+  }
+}
+
+// "Sync now" for one project: pull Google-side date changes into PhaseForge,
+// then re-push all linked phases so both sides match. Immediate, on demand.
+export async function syncNowProject(projectId: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Only managers can sync' }
+
+    const pulled = await pullLinkedEvents(supabase, companyId, 200, projectId)
+
+    const { data: links } = await supabase
+      .from('gcal_event_links').select('phase_id').eq('project_id', projectId).eq('status', 'linked')
+    let pushed = 0
+    for (const l of links ?? []) {
+      if (!l.phase_id) continue
+      try { await pushPhase(supabase, companyId, l.phase_id); pushed++ } catch { /* keep going */ }
+    }
+    revalidatePath(`/app/projects/${projectId}`)
+    return { ok: true, pushed, ...pulled }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Sync failed' }
   }
 }
 

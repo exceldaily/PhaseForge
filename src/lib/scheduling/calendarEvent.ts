@@ -136,6 +136,43 @@ export function buildEventPayload(s: EventSource) {
   }
 }
 
+// Google Calendar's 11 fixed event colors (colorId → representative hex).
+// Event color on the calendar is driven ONLY by colorId — a chip's arbitrary
+// hex must be mapped to the nearest of these.
+export const GOOGLE_EVENT_COLORS: Record<string, string> = {
+  '1': '#7986CB', // Lavender
+  '2': '#33B679', // Sage
+  '3': '#8E24AA', // Grape
+  '4': '#E67C73', // Flamingo
+  '5': '#F6BF26', // Banana
+  '6': '#F4511E', // Tangerine
+  '7': '#039BE5', // Peacock
+  '8': '#616161', // Graphite
+  '9': '#3F51B5', // Blueberry
+  '10': '#0B8043', // Basil
+  '11': '#D50000', // Tomato
+}
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = hex.trim().replace(/^#/, '')
+  if (!/^[0-9a-fA-F]{6}$/.test(m)) return null
+  return [parseInt(m.slice(0, 2), 16), parseInt(m.slice(2, 4), 16), parseInt(m.slice(4, 6), 16)]
+}
+
+// Nearest Google colorId (1–11) to an arbitrary chip hex, by RGB distance.
+export function nearestGoogleColorId(hex: string | null | undefined): string | null {
+  if (!hex) return null
+  const rgb = hexToRgb(hex)
+  if (!rgb) return null
+  let best = '1', bestDist = Infinity
+  for (const [id, ghex] of Object.entries(GOOGLE_EVENT_COLORS)) {
+    const g = hexToRgb(ghex)!
+    const d = (rgb[0] - g[0]) ** 2 + (rgb[1] - g[1]) ** 2 + (rgb[2] - g[2]) ** 2
+    if (d < bestDist) { bestDist = d; best = id }
+  }
+  return best
+}
+
 // When the Superintendent changes: remove only the PREVIOUS superintendent's
 // default SCH labels, add the new one's, and preserve every unrelated label.
 export function swapSuperintendentLabels(

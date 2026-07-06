@@ -164,13 +164,14 @@ export async function pushPhase(supabase: DB, companyId: string, phaseId: string
 // - Deleted events flip the link to 'event_deleted' + queue a review item.
 // - Recurring (skip-days) events are skipped for date-pull: their single-day
 //   start doesn't represent the phase range.
-export async function pullLinkedEvents(supabase: DB, companyId: string, limit = 100) {
+export async function pullLinkedEvents(supabase: DB, companyId: string, limit = 100, projectId?: string) {
   const token = await getAccessToken(supabase, companyId)
-  const { data: links } = await supabase
+  let q = supabase
     .from('gcal_event_links')
     .select('id, phase_id, gcal_calendar_id, gcal_event_id, gcal_updated_at, last_pushed_at')
     .eq('company_id', companyId).eq('status', 'linked').eq('sync_enabled', true)
-    .limit(limit)
+  if (projectId) q = q.eq('project_id', projectId)
+  const { data: links } = await q.limit(limit)
 
   let datesApplied = 0, queued = 0, deleted = 0
   for (const link of links ?? []) {
