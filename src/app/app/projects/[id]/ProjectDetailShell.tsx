@@ -8,6 +8,7 @@ import {
   MapPin, Calendar, User, Flag, ClipboardList,
 } from 'lucide-react'
 import { GanttChart } from '@/components/gantt/GanttChart'
+import { ProjectCalendarSyncBar } from '@/components/gantt/ProjectCalendarSyncBar'
 import { PhaseList } from '@/components/phases/PhaseList'
 import { Badge } from '@/components/ui/Badge'
 import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
@@ -181,15 +182,18 @@ export function ProjectDetailShell({
 
       {/* GANTT — fills remaining height */}
       {isGantt && (
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <GanttChart
-            projects={[project]}
-            companyId={companyId}
-            members={members}
-            currentUserId={currentUserId}
-            canEdit={canEdit}
-            canPrint={canPrint}
-          />
+        <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+          {canEdit && <ProjectCalendarSyncBar projectId={project.id} />}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <GanttChart
+              projects={[project]}
+              companyId={companyId}
+              members={members}
+              currentUserId={currentUserId}
+              canEdit={canEdit}
+              canPrint={canPrint}
+            />
+          </div>
         </div>
       )}
 

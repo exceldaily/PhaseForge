@@ -224,6 +224,98 @@ export async function unsyncPhaseFromCalendar(phaseId: string) {
   }
 }
 
+// Sync EVERY phase in a project in one go, and turn on auto-sync so future
+// phase creates/edits in this project push themselves. Continues past
+// individual phase failures and reports how many succeeded.
+export async function syncAllProjectPhases(projectId: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Only managers can sync to calendar' }
+
+    const { data: project } = await supabase
+      .from('projects').select('id').eq('id', projectId).eq('company_id', companyId).single()
+    if (!project) return { error: 'Project not found' }
+
+    const { data: phases } = await supabase
+      .from('phases').select('id').eq('project_id', projectId).order('sort_order')
+    if (!phases?.length) return { error: 'This project has no phases to sync' }
+
+    let synced = 0
+    const failures: string[] = []
+    for (const p of phases) {
+      const res = await syncPhaseToCalendar(p.id)
+      if (res?.ok) synced++
+      else if (res?.error) failures.push(res.error)
+    }
+
+    await supabase.from('projects').update({ gcal_autosync: true }).eq('id', projectId)
+    revalidatePath(`/app/projects/${projectId}`)
+    return { ok: true, synced, total: phases.length, failures: failures.slice(0, 3) }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Bulk sync failed' }
+  }
+}
+
+// Called after a phase is created or its dates change. Pushes to the calendar
+// only when the phase is already linked OR its project has auto-sync on — so
+// phases in never-synced projects are never silently added to the calendar.
+export async function autoSyncPhaseIfEnabled(phaseId: string) {
+  try {
+    const { supabase, companyId } = await ctx()
+    const { data: phase } = await supabase
+      .from('phases').select('project_id').eq('id', phaseId).single()
+    if (!phase) return { ok: false }
+
+    const [proj, link] = await Promise.all([
+      supabase.from('projects').select('gcal_autosync').eq('id', phase.project_id).eq('company_id', companyId).maybeSingle(),
+      supabase.from('gcal_event_links').select('id').eq('phase_id', phaseId).eq('status', 'linked').maybeSingle(),
+    ])
+    if (!proj.data?.gcal_autosync && !link.data) return { ok: true, skipped: true }
+
+    const res = await syncPhaseToCalendar(phaseId)
+    return res?.ok ? { ok: true, synced: true } : { ok: false, error: res?.error }
+  } catch {
+    // Never let a calendar hiccup block the underlying phase save.
+    return { ok: false }
+  }
+}
+
+// Turn auto-sync off for a project (keeps existing events; just stops new pushes).
+export async function setProjectAutoSync(projectId: string, enabled: boolean) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Only managers can change calendar sync' }
+    const { error } = await supabase.from('projects')
+      .update({ gcal_autosync: enabled }).eq('id', projectId).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(`/app/projects/${projectId}`)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Project-level calendar status for the bulk button/banner.
+export async function getProjectSyncStatus(projectId: string) {
+  try {
+    const { supabase, companyId } = await ctx()
+    const [conn, proj, links, phases] = await Promise.all([
+      supabase.from('gcal_connections').select('is_active, target_calendar_name').eq('company_id', companyId).maybeSingle(),
+      supabase.from('projects').select('gcal_autosync').eq('id', projectId).eq('company_id', companyId).maybeSingle(),
+      supabase.from('gcal_event_links').select('id', { count: 'exact', head: true }).eq('project_id', projectId).eq('status', 'linked'),
+      supabase.from('phases').select('id', { count: 'exact', head: true }).eq('project_id', projectId),
+    ])
+    return {
+      ok: true as const,
+      connected: Boolean(conn.data?.is_active),
+      calendarName: conn.data?.target_calendar_name ?? null,
+      autoSync: Boolean(proj.data?.gcal_autosync),
+      syncedCount: links.count ?? 0,
+      phaseCount: phases.count ?? 0,
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed' }
+  }
+}
+
 // Persist which weekdays a phase should NOT appear on the calendar
 // (RFC-5545 codes, e.g. ['FR','SA','SU']); re-pushes the event if linked.
 export async function saveSkipDays(phaseId: string, skipDays: string[]) {
