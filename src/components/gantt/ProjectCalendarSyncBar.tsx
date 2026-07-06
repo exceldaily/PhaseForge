@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { CalendarCheck, RefreshCw, AlertTriangle, Zap, ZapOff, Trash2, X } from 'lucide-react'
 import {
   getProjectSyncStatus, syncAllProjectPhases, unsyncAllProjectPhases,
-  setProjectAutoSync, saveProjectSkipDays, setProjectSuperintendent,
+  setProjectAutoSync, saveProjectSkipDays, setProjectSuperintendent, syncNowProject,
 } from '@/app/app/projects/[id]/scheduleActions'
 import { DayChips } from '@/components/gantt/DayChips'
+import { RotateCw } from 'lucide-react'
 
 interface PhaseRow { id: string; name: string; start: string; end: string; synced: boolean }
 interface Status {
@@ -180,6 +181,32 @@ export function ProjectCalendarSyncBar({ projectId }: { projectId: string }) {
           <span className="text-[11px] font-medium text-slate-400">Skip days (whole project):</span>
           <DayChips value={skipDays} onChange={onSkipChange} size="sm" />
         </span>
+
+        {status.syncedCount > 0 && (
+          <button
+            onClick={() => {
+              setError(null); setMsg(null)
+              startTransition(async () => {
+                const res = await syncNowProject(projectId)
+                if ('error' in res && res.error) setError(res.error)
+                else if ('ok' in res) {
+                  const bits = [
+                    res.pushed ? `${res.pushed} pushed` : null,
+                    res.datesApplied ? `${res.datesApplied} date change${res.datesApplied === 1 ? '' : 's'} from Google` : null,
+                    res.queued ? `${res.queued} change${res.queued === 1 ? '' : 's'} awaiting review` : null,
+                  ].filter(Boolean)
+                  setMsg(bits.length ? `Synced — ${bits.join(', ')}.` : 'Already up to date.')
+                  refresh()
+                }
+              })
+            }}
+            disabled={pending}
+            title="Pull the latest from Google and push any pending changes"
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-50 dark:border-slate-700"
+          >
+            <RotateCw size={12} className={pending ? 'animate-spin' : ''} /> Sync now
+          </button>
+        )}
 
         {status.syncedCount > 0 && (
           <button

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildEventTitle, buildEventDescription, buildEventPayload,
   exclusiveEnd, swapSuperintendentLabels, isPhaseForgeEvent, buildRecurrence,
+  nearestGoogleColorId,
 } from '../calendarEvent'
 
 const base = {
@@ -117,6 +118,23 @@ describe('buildRecurrence (skip days)', () => {
   })
   it('payload recurrence is null (clears on patch) when no skips', () => {
     expect(buildEventPayload(base).recurrence).toBeNull()
+  })
+})
+
+describe('nearestGoogleColorId', () => {
+  it('maps distinct chip colors to the expected Google colors', () => {
+    expect(nearestGoogleColorId('#f9fb79')).toBe('5')  // yellow → Banana
+    expect(nearestGoogleColorId('#5ace81')).toBe('2')  // green → Sage
+    expect(nearestGoogleColorId('#ec5555')).toBe('4')  // red → Flamingo
+    expect(nearestGoogleColorId('#b4b5f9')).toBe('1')  // lavender → Lavender
+  })
+  it('exact Google hex maps to itself', () => {
+    expect(nearestGoogleColorId('#D50000')).toBe('11')
+    expect(nearestGoogleColorId('#039BE5')).toBe('7')
+  })
+  it('returns null for empty/invalid input', () => {
+    expect(nearestGoogleColorId(null)).toBeNull()
+    expect(nearestGoogleColorId('not-a-color')).toBeNull()
   })
 })
 

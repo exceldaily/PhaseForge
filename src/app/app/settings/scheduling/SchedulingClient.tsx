@@ -6,6 +6,7 @@ import { Calendar, CheckCircle2, AlertTriangle, Plus, Pencil, HardHat, Tag } fro
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
+import { GOOGLE_EVENT_COLORS, nearestGoogleColorId } from '@/lib/scheduling/calendarEvent'
 import { timeAgo } from '@/components/operations/shared'
 import {
   listCalendars, setTargetCalendar, setRoutingMode, disconnectGoogle,
@@ -373,6 +374,11 @@ function SupForm({ sup, labels, onDone }: { sup: Superintendent | null; labels: 
 function LabelForm({ label, superintendents, onDone }: { label: SchLabel | null; superintendents: Superintendent[]; onDone: () => void }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  // The color the user picks IS a Google Calendar color, so the chip and the
+  // event always match — no separate "color code" field to think about.
+  const [colorId, setColorId] = useState<string>(
+    label?.gcal_color_id || nearestGoogleColorId(label?.color) || '7'
+  )
   return (
     <form
       className="space-y-3"
@@ -383,8 +389,8 @@ function LabelForm({ label, superintendents, onDone }: { label: SchLabel | null;
           const res = await saveScheduleLabel({
             id: label?.id,
             name: String(fd.get('name') ?? ''),
-            color: String(fd.get('color') ?? '#6366f1'),
-            gcal_color_id: String(fd.get('gcal_color_id') ?? ''),
+            color: GOOGLE_EVENT_COLORS[colorId] ?? '#039BE5',
+            gcal_color_id: colorId,
             gcal_attendee_email: String(fd.get('gcal_attendee_email') ?? ''),
             gcal_calendar_id: String(fd.get('gcal_calendar_id') ?? ''),
             superintendent_id: String(fd.get('superintendent_id') ?? '') || null,
@@ -395,12 +401,21 @@ function LabelForm({ label, superintendents, onDone }: { label: SchLabel | null;
       }}
     >
       <Input name="name" label="Label name" defaultValue={label?.name} required autoFocus placeholder='e.g. "SCH - John Smith"' />
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-          Chip color
-          <input type="color" name="color" defaultValue={label?.color ?? '#6366f1'} className="h-9 w-full rounded-lg border border-slate-300" />
-        </label>
-        <Input name="gcal_color_id" label="Google event color (1–11)" defaultValue={label?.gcal_color_id ?? ''} placeholder="optional" />
+      <div>
+        <p className="mb-1.5 text-sm font-medium text-slate-700">Calendar color</p>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(GOOGLE_EVENT_COLORS).map(([id, hex]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setColorId(id)}
+              title={`Google color ${id}`}
+              className="h-8 w-8 rounded-full border-2 transition-all"
+              style={{ backgroundColor: hex, borderColor: colorId === id ? '#0f172a' : 'transparent' }}
+            />
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-slate-400">This is the exact color the event shows on Google Calendar.</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Input name="gcal_attendee_email" label="Add attendee email" defaultValue={label?.gcal_attendee_email ?? ''} placeholder="optional" />
