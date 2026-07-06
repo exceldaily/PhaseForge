@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { pushPhase } from '@/lib/scheduling/syncCore'
+import { pushPhase, pullLinkedEvents } from '@/lib/scheduling/syncCore'
 
 export const maxDuration = 300
 
@@ -30,11 +30,16 @@ export async function GET(req: NextRequest) {
     .eq('is_active', true)
     .not('target_calendar_id', 'is', null)
 
-  const summary: Record<string, { pushed: number; failed: number }> = {}
+  const summary: Record<string, { pushed: number; failed: number; pulled?: unknown }> = {}
 
   for (const conn of connections ?? []) {
     const companyId = conn.company_id as string
     let pushed = 0, failed = 0
+
+    // PULL first: apply Google-side date changes (and queue non-date edits
+    // for review) before pushing, so a drag in Google Calendar wins the day.
+    let pulled: unknown = null
+    try { pulled = await pullLinkedEvents(supabase, companyId) } catch { pulled = 'error' }
 
     // 1) Re-push only linked phases that CHANGED since their last push —
     //    keeps runs fast and within serverless time limits even with
@@ -83,7 +88,7 @@ export async function GET(req: NextRequest) {
         catch { failed++ }
       }
     }
-    summary[companyId] = { pushed, failed }
+    summary[companyId] = { pushed, failed, pulled }
   }
 
   return NextResponse.json({ ok: true, at: new Date().toISOString(), summary })
