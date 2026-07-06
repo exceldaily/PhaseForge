@@ -58,12 +58,22 @@ export async function GET(req: NextRequest) {
     }
     let stale: string[] = []
     if (linkedIds.size) {
+      // Stale when the phase OR its project changed since the last push —
+      // project renames / job number / address edits affect event titles too.
       const { data: phs } = await supabase
-        .from('phases').select('id, updated_at').in('id', [...linkedIds])
+        .from('phases')
+        .select('id, updated_at, project:projects(updated_at)')
+        .in('id', [...linkedIds])
       stale = (phs ?? [])
         .filter((p) => {
           const pushedAt = lastPushed.get(p.id)
-          return !pushedAt || (p.updated_at && new Date(p.updated_at) > new Date(pushedAt))
+          if (!pushedAt) return true
+          const proj = p.project as unknown as { updated_at?: string } | null
+          const changedAt = Math.max(
+            p.updated_at ? new Date(p.updated_at).getTime() : 0,
+            proj?.updated_at ? new Date(proj.updated_at).getTime() : 0,
+          )
+          return changedAt > new Date(pushedAt).getTime()
         })
         .map((p) => p.id)
     }

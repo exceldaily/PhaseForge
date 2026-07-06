@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { unsyncAllProjectPhases } from '@/app/app/projects/[id]/scheduleActions'
 
 export function DeleteProjectButton({ projectId, projectName }: { projectId: string; projectName: string }) {
   const router = useRouter()
@@ -13,6 +14,9 @@ export function DeleteProjectButton({ projectId, projectName }: { projectId: str
   const handleDelete = async () => {
     setLoading(true)
     const supabase = createClient()
+    // Remove Google Calendar events BEFORE the delete cascade wipes the links
+    // that know their ids — otherwise the events are orphaned forever.
+    try { await unsyncAllProjectPhases(projectId) } catch { /* never block delete */ }
     await supabase.from('projects').delete().eq('id', projectId)
     router.push('/app/projects')
     router.refresh()

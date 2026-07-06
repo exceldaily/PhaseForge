@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildEventTitle, buildEventDescription, buildEventPayload,
   exclusiveEnd, swapSuperintendentLabels, isPhaseForgeEvent, buildRecurrence,
-  nearestGoogleColorId,
+  nearestGoogleColorId, parseRRuleUntil,
 } from '../calendarEvent'
 
 const base = {
@@ -122,6 +122,17 @@ describe('buildRecurrence (skip days)', () => {
   })
   it('payload recurrence is null (clears on patch) when no skips', () => {
     expect(buildEventPayload(base).recurrence).toBeNull()
+  })
+})
+
+describe('parseRRuleUntil', () => {
+  it('parses date-only and datetime UNTIL', () => {
+    expect(parseRRuleUntil(['RRULE:FREQ=WEEKLY;BYDAY=MO,TU;UNTIL=20260915'])).toBe('2026-09-15')
+    expect(parseRRuleUntil(['RRULE:FREQ=WEEKLY;UNTIL=20261231T000000Z;BYDAY=FR'])).toBe('2026-12-31')
+  })
+  it('returns null when absent', () => {
+    expect(parseRRuleUntil(['RRULE:FREQ=WEEKLY;COUNT=5'])).toBeNull()
+    expect(parseRRuleUntil(null)).toBeNull()
   })
 })
 

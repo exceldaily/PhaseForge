@@ -4,9 +4,15 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { gcal, refreshAccessToken, encryptToken, decryptToken } from '@/lib/scheduling/google'
-import { buildEventPayload, isPhaseForgeEvent, EventSource, QuickLink } from '@/lib/scheduling/calendarEvent'
+import { buildEventPayload, isPhaseForgeEvent, parseRRuleUntil, EventSource, QuickLink } from '@/lib/scheduling/calendarEvent'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+// Canonical link base for event descriptions. The env var on Vercel still
+// points at an old *.vercel.app alias, so prefer the real domain whenever the
+// env value isn't a phase-forge.com URL (localhost is only used in dev).
+const rawUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+const APP_URL = rawUrl.includes('phase-forge.com') || rawUrl.includes('localhost')
+  ? rawUrl
+  : 'https://www.phase-forge.com'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DB = SupabaseClient<any, any, any>
@@ -107,10 +113,18 @@ export async function pushPhase(supabase: DB, companyId: string, phaseId: string
   const token = await getAccessToken(supabase, companyId)
   const { source, calendarId, connectionId } = await buildSource(supabase, companyId, phaseId)
 
-  const { data: link } = await supabase
+  // Self-healing link lookup: tolerate duplicate/stale rows (e.g. a
+  // previously-deleted event) — use the newest, remove the rest.
+  const { data: allLinks } = await supabase
     .from('gcal_event_links')
     .select('id, gcal_event_id, gcal_calendar_id, pf_revision')
-    .eq('phase_id', phaseId).eq('connection_id', connectionId).maybeSingle()
+    .eq('phase_id', phaseId).eq('connection_id', connectionId)
+    .order('created_at', { ascending: false })
+  const link = allLinks?.[0] ?? null
+  if (allLinks && allLinks.length > 1) {
+    await supabase.from('gcal_event_links').delete()
+      .in('id', allLinks.slice(1).map((l) => l.id))
+  }
 
   const revision = link ? link.pf_revision + 1 : 1
   const payload = buildEventPayload({ ...source, pfRevision: revision })
@@ -118,15 +132,16 @@ export async function pushPhase(supabase: DB, companyId: string, phaseId: string
   let eventId: string, etag: string | null = null, updated: string | null = null
   if (link?.gcal_event_id) {
     const existing = await gcal.getEvent(token, link.gcal_calendar_id, link.gcal_event_id).catch(() => null)
-    if (existing && !isPhaseForgeEvent(existing)) {
+    if (existing && existing.status !== 'cancelled' && !isPhaseForgeEvent(existing)) {
       throw new Error('Linked event is not owned by PhaseForge — refusing to overwrite')
     }
-    if (existing && link.gcal_calendar_id !== calendarId) {
+    const alive = existing && existing.status !== 'cancelled'
+    if (alive && link.gcal_calendar_id !== calendarId) {
       await gcal.moveEvent(token, link.gcal_calendar_id, link.gcal_event_id, calendarId)
     }
-    const res = existing
+    const res = alive
       ? await gcal.patchEvent(token, calendarId, link.gcal_event_id, payload)
-      : await gcal.insertEvent(token, calendarId, payload)
+      : await gcal.insertEvent(token, calendarId, payload) // recreate deleted event
     eventId = res.id; etag = res.etag ?? null; updated = res.updated ?? null
   } else {
     const res = await gcal.insertEvent(token, calendarId, payload)
@@ -134,7 +149,7 @@ export async function pushPhase(supabase: DB, companyId: string, phaseId: string
   }
 
   const now = new Date().toISOString()
-  await supabase.from('gcal_event_links').upsert({
+  const row = {
     company_id: companyId,
     connection_id: connectionId,
     project_id: source.projectId,
@@ -148,7 +163,11 @@ export async function pushPhase(supabase: DB, companyId: string, phaseId: string
     last_pushed_at: now,
     status: 'linked',
     last_error: null,
-  }, { onConflict: 'connection_id,gcal_event_id' })
+  }
+  // UPDATE the existing row (keeps one row per phase even when the event id
+  // changed after a recreate); insert only when the phase was never linked.
+  if (link) await supabase.from('gcal_event_links').update(row).eq('id', link.id)
+  else await supabase.from('gcal_event_links').insert(row)
   await Promise.all([
     supabase.from('phases').update({ sync_enabled: true }).eq('id', phaseId),
     supabase.from('gcal_connections').update({ last_sync_at: now, last_success_at: now, last_error: null }).eq('id', connectionId),
@@ -195,15 +214,27 @@ export async function pullLinkedEvents(supabase: DB, companyId: string, limit = 
       .from('phases').select('id, name, start_date, end_date').eq('id', link.phase_id).single()
     if (!phase) continue
 
-    // Dates: all-day events only; skip recurring (skip-days) events.
+    // Dates (all-day events). Plain events: start/end-1. Recurring (skip-day)
+    // events: series start = first occurrence, series end = RRULE UNTIL —
+    // so dragging/extending the SERIES in Google updates the phase. (Edits to
+    // a single occurrence create a Google "exception" that has no phase-range
+    // meaning; those are intentionally not applied.)
     const evStart: string | undefined = event.start?.date
     const evEndExcl: string | undefined = event.end?.date
-    if (evStart && evEndExcl && !event.recurrence) {
-      const d = new Date(`${evEndExcl}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1)
-      const evEnd = d.toISOString().slice(0, 10)
-      if (evStart !== phase.start_date || evEnd !== phase.end_date) {
+    if (evStart && evEndExcl) {
+      let newStart = evStart
+      let newEnd: string
+      if (event.recurrence) {
+        const until = parseRRuleUntil(event.recurrence as string[])
+        if (!until) continue
+        newEnd = until
+      } else {
+        const d = new Date(`${evEndExcl}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1)
+        newEnd = d.toISOString().slice(0, 10)
+      }
+      if (newEnd >= newStart && (newStart !== phase.start_date || newEnd !== phase.end_date)) {
         await supabase.from('phases').update({
-          start_date: evStart, end_date: evEnd, updated_at: new Date().toISOString(),
+          start_date: newStart, end_date: newEnd, updated_at: new Date().toISOString(),
         }).eq('id', phase.id)
         try { await pushPhase(supabase, companyId, phase.id) } catch { /* normalize later */ }
         datesApplied++
