@@ -156,6 +156,79 @@ export async function pushPhase(supabase: DB, companyId: string, phaseId: string
   return { eventId, calendarId, projectId: source.projectId }
 }
 
+// PULL: bring Google-side changes back into PhaseForge for one org.
+// - Date changes on a linked event update the phase's start/end, then we
+//   re-push to normalize the description (dates line, revision).
+// - Title/location edits made in Google are NEVER applied silently — they go
+//   into gcal_pending_changes for review (PhaseForge stays source of truth).
+// - Deleted events flip the link to 'event_deleted' + queue a review item.
+// - Recurring (skip-days) events are skipped for date-pull: their single-day
+//   start doesn't represent the phase range.
+export async function pullLinkedEvents(supabase: DB, companyId: string, limit = 100) {
+  const token = await getAccessToken(supabase, companyId)
+  const { data: links } = await supabase
+    .from('gcal_event_links')
+    .select('id, phase_id, gcal_calendar_id, gcal_event_id, gcal_updated_at, last_pushed_at')
+    .eq('company_id', companyId).eq('status', 'linked').eq('sync_enabled', true)
+    .limit(limit)
+
+  let datesApplied = 0, queued = 0, deleted = 0
+  for (const link of links ?? []) {
+    if (!link.phase_id) continue
+    const event = await gcal.getEvent(token, link.gcal_calendar_id, link.gcal_event_id).catch(() => null)
+
+    if (!event || event.status === 'cancelled') {
+      await supabase.from('gcal_event_links').update({ status: 'event_deleted' }).eq('id', link.id)
+      await supabase.from('gcal_pending_changes').insert({
+        company_id: companyId, link_id: link.id, change_type: 'deleted',
+        gcal_value: {}, pf_value: {},
+      })
+      deleted++
+      continue
+    }
+    if (!isPhaseForgeEvent(event)) continue
+    // Only react to events Google says changed since we last touched them.
+    if (link.gcal_updated_at && event.updated && new Date(event.updated) <= new Date(link.gcal_updated_at)) continue
+
+    const { data: phase } = await supabase
+      .from('phases').select('id, name, start_date, end_date').eq('id', link.phase_id).single()
+    if (!phase) continue
+
+    // Dates: all-day events only; skip recurring (skip-days) events.
+    const evStart: string | undefined = event.start?.date
+    const evEndExcl: string | undefined = event.end?.date
+    if (evStart && evEndExcl && !event.recurrence) {
+      const d = new Date(`${evEndExcl}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1)
+      const evEnd = d.toISOString().slice(0, 10)
+      if (evStart !== phase.start_date || evEnd !== phase.end_date) {
+        await supabase.from('phases').update({
+          start_date: evStart, end_date: evEnd, updated_at: new Date().toISOString(),
+        }).eq('id', phase.id)
+        try { await pushPhase(supabase, companyId, phase.id) } catch { /* normalize later */ }
+        datesApplied++
+      }
+    }
+
+    // Non-date edits → review queue (dedupe on an existing pending row).
+    const titleChanged = typeof event.summary === 'string' && !event.summary.includes(phase.name)
+    if (titleChanged) {
+      const { data: existing } = await supabase.from('gcal_pending_changes')
+        .select('id').eq('link_id', link.id).eq('change_type', 'title').eq('status', 'pending').maybeSingle()
+      if (!existing) {
+        await supabase.from('gcal_pending_changes').insert({
+          company_id: companyId, link_id: link.id, change_type: 'title',
+          gcal_value: { title: event.summary }, pf_value: { phase_name: phase.name },
+        })
+        queued++
+      }
+    }
+    await supabase.from('gcal_event_links').update({
+      gcal_updated_at: event.updated ?? null, last_pulled_at: new Date().toISOString(),
+    }).eq('id', link.id)
+  }
+  return { datesApplied, queued, deleted }
+}
+
 // Delete a phase's linked Google event (only if we own it) and remove the link.
 export async function removePhaseEvent(supabase: DB, companyId: string, phaseId: string) {
   const { data: link } = await supabase
