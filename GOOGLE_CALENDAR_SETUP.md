@@ -1,5 +1,28 @@
 # Google Calendar Integration — Setup & Status
 
+## How a NEW COMPANY turns this on (the easy path)
+
+All the Google Cloud work below was **one-time developer registration for PhaseForge
+itself** — no customer ever repeats it. A company admin self-serves in ~3 minutes:
+
+1. Settings → **Scheduling & Calendar** — a guided 4-step checklist walks them through it
+2. **Connect Google** → sign in with the company Google account → approve
+3. **Pick calendar** → choose their shared schedule calendar (their personal/primary
+   calendar is flagged "not recommended"; nothing is written until a calendar is chosen)
+4. Add superintendents + SCH labels (each step has an inline "Add one" button)
+
+Then every phase gets a "Sync this phase to Google Calendar" button in the Gantt editor.
+Connections are per-organization (RLS-isolated), so each customer's calendar, tokens, and
+mappings are completely separate.
+
+**Prerequisites for the button to work in production (one-time, PhaseForge-side):**
+- The 3 `GOOGLE_*` env vars set in Vercel (see below)
+- OAuth app published to production in Google Cloud Console (Audience → Publish app);
+  until Google verification is completed, users see a "Google hasn't verified this app"
+  interstitial — they click Continue and everything works. To remove that screen, submit
+  for verification (Verification Center) — needs the privacy-policy/terms URLs on
+  phase-forge.com and a demo video; typically ~1–2 weeks.
+
 ## What is BUILT and LIVE (foundation sprint, branch `fable/scheduling-foundation`)
 
 - **Database (applied to production Supabase):** `superintendents`, `schedule_labels` (SCH,

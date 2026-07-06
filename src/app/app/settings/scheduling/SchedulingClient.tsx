@@ -68,6 +68,46 @@ export function SchedulingClient({ configured, connection, superintendents, labe
         </div>
       )}
 
+      {/* ── Guided setup — shown until every step is done ── */}
+      {configured && !(connected && connection?.target_calendar_id && superintendents.length > 0 && labels.length > 0) && (
+        <section className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
+          <h2 className="mb-1 text-sm font-semibold text-indigo-900 dark:text-indigo-200">Set up calendar scheduling</h2>
+          <p className="mb-4 text-xs text-indigo-700/70 dark:text-indigo-300/70">
+            Four quick steps — each one takes under a minute. Your calendar is never written to until you finish step 2, and only the calendar you pick is ever touched.
+          </p>
+          <ol className="space-y-2">
+            <SetupStep
+              n={1}
+              done={connected}
+              label="Connect your company's Google account"
+              hint="Any Google account with access to your schedule calendar"
+              action={!connected ? <a href="/api/google/oauth/start"><Button size="sm">Connect Google</Button></a> : null}
+            />
+            <SetupStep
+              n={2}
+              done={Boolean(connected && connection?.target_calendar_id)}
+              label="Choose which calendar PhaseForge writes to"
+              hint="Use a dedicated schedule calendar — not someone's personal one"
+              action={connected && !connection?.target_calendar_id ? <Button size="sm" variant="outline" onClick={loadCalendars}>Pick calendar</Button> : null}
+            />
+            <SetupStep
+              n={3}
+              done={superintendents.length > 0}
+              label="Add your superintendents"
+              hint="Field leads you assign to projects and phases"
+              action={superintendents.length === 0 ? <Button size="sm" variant="outline" onClick={() => setEditSup('new')}>Add one</Button> : null}
+            />
+            <SetupStep
+              n={4}
+              done={labels.length > 0}
+              label="Create your SCH schedule labels"
+              hint='e.g. "SCH - John Smith" — maps to event colors, calendars, and invites'
+              action={labels.length === 0 ? <Button size="sm" variant="outline" onClick={() => setEditLabel('new')}>Add one</Button> : null}
+            />
+          </ol>
+        </section>
+      )}
+
       {/* ── Google Calendar connection ── */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -245,6 +285,27 @@ export function SchedulingClient({ configured, connection, superintendents, labe
         </Modal>
       )}
     </div>
+  )
+}
+
+function SetupStep({ n, done, label, hint, action }: {
+  n: number; done: boolean; label: string; hint: string; action: React.ReactNode
+}) {
+  return (
+    <li className="flex items-center gap-3 rounded-lg bg-white px-3 py-2.5 dark:bg-slate-900">
+      {done ? (
+        <CheckCircle2 size={20} className="flex-shrink-0 text-emerald-500" />
+      ) : (
+        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 border-indigo-300 text-[11px] font-bold text-indigo-500">
+          {n}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium ${done ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100'}`}>{label}</p>
+        {!done && <p className="text-xs text-slate-400">{hint}</p>}
+      </div>
+      {action}
+    </li>
   )
 }
 
