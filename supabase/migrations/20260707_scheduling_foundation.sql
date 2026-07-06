@@ -174,3 +174,6 @@ ALTER TABLE public.phases ADD COLUMN IF NOT EXISTS gcal_skip_days text[] NOT NUL
 
 -- When true, all phases in this project auto-push to Google Calendar on create/date change
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS gcal_autosync boolean NOT NULL DEFAULT false;
+
+-- Project-wide default skip days; a phase's own gcal_skip_days overrides when non-empty
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS gcal_skip_days text[] NOT NULL DEFAULT '{}';
