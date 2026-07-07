@@ -335,10 +335,17 @@ export function GanttPrintModal({
           }
 
           .gantt-print-sheet {
-            width: 100% !important;
-            max-width: none !important;
+            /* Fixed PHYSICAL width (letter landscape minus 0.5in margins) so
+               the printed layout is identical from any device. Viewport-based
+               100% made phone printouts inherit the narrow mobile layout. */
+            width: 10in !important;
+            max-width: 10in !important;
             min-height: 0 !important;
             box-shadow: none !important;
+          }
+
+          .gantt-print-root {
+            width: 10in !important;
           }
 
           .gantt-print-header {
