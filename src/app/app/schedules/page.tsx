@@ -25,9 +25,9 @@ export default async function SchedulesPage({ searchParams }: {
     ['owner', 'admin'].includes(profile.role ?? '')
 
   const { data: sups } = await supabase
-    .from('superintendents').select('id, name')
+    .from('superintendents').select('id, name, roster')
     .eq('company_id', profile.company_id).eq('is_active', true).order('name')
-  const teams = sups ?? []
+  const teams = (sups ?? []).map((s) => ({ id: s.id, name: s.name, roster: (s.roster as string[] | null) ?? [] }))
 
   const weekStart = /^\d{4}-\d{2}-\d{2}$/.test(params.week ?? '') ? params.week! : sundayOf(new Date())
   const teamId = teams.find((t) => t.id === params.team)?.id ?? teams[0]?.id ?? null

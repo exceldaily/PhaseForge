@@ -32,3 +32,6 @@ CREATE POLICY "schedule_assignments_select" ON public.schedule_assignments FOR S
 CREATE POLICY "schedule_assignments_insert" ON public.schedule_assignments FOR INSERT WITH CHECK (company_id = public.get_my_company_id() AND public.ops_is_manager());
 CREATE POLICY "schedule_assignments_update" ON public.schedule_assignments FOR UPDATE USING (company_id = public.get_my_company_id() AND public.ops_is_manager());
 CREATE POLICY "schedule_assignments_delete" ON public.schedule_assignments FOR DELETE USING (company_id = public.get_my_company_id() AND public.ops_is_manager());
+
+-- Team roster: the crew names available for quick-tap scheduling
+ALTER TABLE public.superintendents ADD COLUMN IF NOT EXISTS roster text[] NOT NULL DEFAULT '{}';
