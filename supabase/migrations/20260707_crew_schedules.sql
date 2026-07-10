@@ -56,3 +56,8 @@ CREATE POLICY "schedule_directory_select" ON public.schedule_directory FOR SELEC
 CREATE POLICY "schedule_directory_insert" ON public.schedule_directory FOR INSERT WITH CHECK (company_id = public.get_my_company_id() AND public.ops_is_manager());
 CREATE POLICY "schedule_directory_update" ON public.schedule_directory FOR UPDATE USING (company_id = public.get_my_company_id() AND public.ops_is_manager());
 CREATE POLICY "schedule_directory_delete" ON public.schedule_directory FOR DELETE USING (company_id = public.get_my_company_id() AND public.ops_is_manager());
+
+-- Departments for directory projects (job numbers are per-department, so the
+-- project list is scoped to the selected department). Applied live 2026-07-10;
+-- pre-existing rows backfilled to 'Refrigeration'.
+ALTER TABLE public.schedule_directory ADD COLUMN IF NOT EXISTS division text;

@@ -13,7 +13,7 @@ interface Job {
   sort_order: number; days: Record<number, string[]>
 }
 interface Team { id: string; name: string; roster: string[]; division: string | null }
-interface DirEntry { id: string; title: string; job_number: string | null }
+interface DirEntry { id: string; title: string; job_number: string | null; division: string | null }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -29,9 +29,13 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
   return template.replace('{job}', encodeURIComponent(jobNumber.trim()))
 }
 
-export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [] }: {
+export function SchedulesClient({
+  teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
+  division = '', divisions = [], hasAnyTeams = true,
+}: {
   teams: Team[]; teamId: string | null; weekStart: string; jobs: Job[]; canEdit: boolean
   jobUrlTemplate?: string | null; directory?: DirEntry[]
+  division?: string; divisions?: string[]; hasAnyTeams?: boolean
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -43,9 +47,17 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
   const [newTeamDivision, setNewTeamDivision] = useState('')
   const [dirTitle, setDirTitle] = useState('')
   const [dirJob, setDirJob] = useState('')
+  const [dirDivision, setDirDivision] = useState(division)
   const weekEnd = shiftDate(weekStart, 6)
   const team = teams.find((t) => t.id === teamId) ?? null
   const roster = team?.roster ?? []
+
+  // Follow the department selector: new projects default to what's on screen.
+  useEffect(() => { setDirDivision(division) }, [division])
+
+  const divLabel = (d: string) => d || 'General'
+  // Projects belong to a department (job numbers are per-department).
+  const dirEntries = directory.filter((p) => (p.division ?? '') === division)
 
   // Live mirror of each job block's local edits so Copy for email always
   // matches the screen (saves no longer invalidate the route cache, so the
@@ -56,10 +68,8 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
   }
   const liveJobs = (): Job[] => jobs.map((j) => ({ ...j, ...liveRef.current[j.id] }))
 
-  // Teams grouped by division for the tab strip.
-  const divisions = [...new Set(teams.map((t) => t.division ?? ''))].sort((a, b) => a.localeCompare(b))
-
-  const nav = (t: string | null, w: string) => router.push(`/app/schedules?team=${t ?? ''}&week=${w}`)
+  const nav = (t: string | null, w: string, d: string = division) =>
+    router.push(`/app/schedules?division=${encodeURIComponent(d)}&team=${t ?? ''}&week=${w}`)
   const run = (fn: () => Promise<{ error?: string } | undefined | { ok?: boolean; error?: undefined }>, okMsg?: string) => {
     setError(null); setMsg(null)
     startTransition(async () => {
@@ -94,8 +104,13 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
       const jobCell = j.job_number
         ? `Job#${url ? `<a href="${url}" style="color:#1a73e8;">${esc(j.job_number)}</a>` : esc(j.job_number)}`
         : ''
-      const rows = Array.from({ length: 7 }, (_, d) => {
-        const grey = d % 2 === 0
+      // Skip empty Sun/Fri/Sat rows — teams usually run Mon–Thu or Sun–Thu, so
+      // blank edge days are noise in the email. Empty Mon–Thu rows stay visible
+      // (a blank mid-week day is information).
+      const visibleDays = Array.from({ length: 7 }, (_, d) => d).filter((d) =>
+        (j.days[d] ?? []).length > 0 || !(d === 0 || d === 5 || d === 6))
+      const rows = visibleDays.map((d, i) => {
+        const grey = i % 2 === 0
         const techs = (j.days[d] ?? []).map(esc)
         const techCells = techs.length
           ? techs.map((t) => `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${t}</td>`).join('')
@@ -119,6 +134,7 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
       lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}${j.shift_label ? `  — ${j.shift_label}` : ''}`)
       for (let d = 0; d < 7; d++) {
         const techs = j.days[d] ?? []
+        if (!techs.length && (d === 0 || d === 5 || d === 6)) continue
         lines.push(`  ${DAY_NAMES[d]} ${mmdd(shiftDate(weekStart, d))}: ${techs.length ? techs.join(', ') : '—'}`)
       }
       lines.push('')
@@ -137,7 +153,7 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
     }
   }
 
-  if (teams.length === 0) {
+  if (!hasAnyTeams && directory.length === 0) {
     return (
       <div className="mx-auto max-w-3xl p-8 text-center">
         <CalendarDays size={40} className="mx-auto text-slate-300" />
@@ -160,28 +176,32 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
             <span className="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">{mmdd(weekStart)} – {mmdd(weekEnd)}</span>
             <button onClick={() => nav(teamId, shiftDate(weekStart, 7))} className="p-1.5 text-slate-500 hover:text-indigo-600"><ChevronRight size={16} /></button>
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {divisions.map((div) => (
-              <span key={div || '_none'} className="flex flex-wrap items-center gap-1">
-                {div && <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{div}:</span>}
-                {teams.filter((t) => (t.division ?? '') === div).map((t) => (
-                  <span key={t.id} className="group relative">
-                    <button onClick={() => nav(t.id, weekStart)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${t.id === teamId ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
-                      {t.name}
-                    </button>
-                    {canEdit && t.id === teamId && (
-                      <button
-                        title="Delete this team"
-                        onClick={() => {
-                          if (!confirm(`Delete team "${t.name}"? Their saved weekly schedules are deleted too. This cannot be undone.`)) return
-                          run(() => deleteTeam(t.id))
-                        }}
-                        className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white group-hover:flex"
-                      >✕</button>
-                    )}
-                  </span>
-                ))}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {divisions.length > 0 && (
+              <select
+                value={division}
+                onChange={(e) => nav(null, weekStart, e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {divisions.map((d) => <option key={d} value={d}>{divLabel(d)}</option>)}
+              </select>
+            )}
+            {teams.map((t) => (
+              <span key={t.id} className="group relative">
+                <button onClick={() => nav(t.id, weekStart)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${t.id === teamId ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
+                  {t.name}
+                </button>
+                {canEdit && t.id === teamId && (
+                  <button
+                    title="Delete this team"
+                    onClick={() => {
+                      if (!confirm(`Delete team "${t.name}"? Their saved weekly schedules are deleted too. This cannot be undone.`)) return
+                      run(() => deleteTeam(t.id))
+                    }}
+                    className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white group-hover:flex"
+                  >✕</button>
+                )}
               </span>
             ))}
             {canEdit && (
@@ -196,13 +216,20 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
                   </datalist>
                   <button onClick={() => {
                     const n = newTeamName.trim(); if (!n) return
+                    const dv = newTeamDivision.trim()
                     setShowAddTeam(false); setNewTeamName(''); setNewTeamDivision('')
-                    run(() => addTeam(n, newTeamDivision))
+                    setError(null); setMsg(null)
+                    startTransition(async () => {
+                      const res = await addTeam(n, dv)
+                      if ('error' in res && res.error) setError(res.error)
+                      // Jump to the new team (it may live in a different department).
+                      else nav(('id' in res ? res.id : null) ?? null, weekStart, dv)
+                    })
                   }} className="rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white">Add</button>
                   <button onClick={() => setShowAddTeam(false)} className="px-1 text-xs text-slate-400">✕</button>
                 </span>
               ) : (
-                <button onClick={() => setShowAddTeam(true)}
+                <button onClick={() => { setNewTeamDivision(division); setShowAddTeam(true) }}
                   className="rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600">
                   + Team
                 </button>
@@ -262,28 +289,37 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
       <div className="flex min-h-0 flex-1">
         {/* ── Project directory (persistent job list / history) ── */}
         <aside className="hidden w-64 flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-3 lg:block print:hidden dark:border-slate-800 dark:bg-slate-900">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Projects</p>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            {divLabel(division)} Projects
+          </p>
           {canEdit && (
             <div className="mb-3 space-y-1.5">
               <input value={dirTitle} onChange={(e) => setDirTitle(e.target.value)} placeholder="Project name"
                 className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
               <div className="flex gap-1.5">
                 <input value={dirJob} onChange={(e) => setDirJob(e.target.value)} placeholder="Job#"
-                  onKeyDown={(e) => e.key === 'Enter' && dirTitle.trim() && (setDirTitle(''), setDirJob(''), run(() => addDirectoryProject(dirTitle, dirJob)))}
+                  onKeyDown={(e) => e.key === 'Enter' && dirTitle.trim() && (setDirTitle(''), setDirJob(''), run(() => addDirectoryProject(dirTitle, dirJob, dirDivision)))}
                   className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
                 <button
-                  onClick={() => { if (!dirTitle.trim()) return; const t = dirTitle, j = dirJob; setDirTitle(''); setDirJob(''); run(() => addDirectoryProject(t, j)) }}
+                  onClick={() => { if (!dirTitle.trim()) return; const t = dirTitle, j = dirJob; setDirTitle(''); setDirJob(''); run(() => addDirectoryProject(t, j, dirDivision)) }}
                   className="rounded-md bg-indigo-600 px-2.5 text-xs font-medium text-white hover:bg-indigo-700">
                   <Plus size={13} />
                 </button>
               </div>
+              {divisions.length > 1 && (
+                <select value={dirDivision} onChange={(e) => setDirDivision(e.target.value)}
+                  title="Department the new project belongs to"
+                  className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-500 outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800">
+                  {divisions.map((d) => <option key={d} value={d}>→ {divLabel(d)}</option>)}
+                </select>
+              )}
             </div>
           )}
-          {directory.length === 0 ? (
-            <p className="text-xs text-slate-400">Build your job list here — name + Job#. Click one to drop it onto the current week.</p>
+          {dirEntries.length === 0 ? (
+            <p className="text-xs text-slate-400">No {divLabel(division)} projects yet — add name + Job#. Click one to drop it onto the current week.</p>
           ) : (
             <div className="space-y-0.5">
-              {directory.map((p) => (
+              {dirEntries.map((p) => (
                 <div key={p.id} className="group flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-slate-50 dark:hover:bg-slate-800">
                   <button
                     disabled={!canEdit || !teamId}
@@ -324,7 +360,9 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
 
           {jobs.length === 0 ? (
             <p className="py-16 text-center text-sm text-slate-400 print:hidden">
-              No jobs on {team?.name}&apos;s week — &ldquo;Add job&rdquo; or &ldquo;Copy last week&rdquo;.
+              {team
+                ? <>No jobs on {team.name}&apos;s week — &ldquo;Add job&rdquo; or &ldquo;Copy last week&rdquo;.</>
+                : <>No teams in {divLabel(division)} yet — use &ldquo;+ Team&rdquo; to add one.</>}
             </p>
           ) : jobs.map((job) => (
             <JobBlock key={`${job.id}-${weekStart}`} job={job} weekStart={weekStart} roster={roster} canEdit={canEdit}
@@ -377,10 +415,14 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
 
   const toggleWeek = (name: string) => {
     const turnOn = !onAllDays(name)
-    setDays((cur) => Object.fromEntries(Array.from({ length: 7 }, (_, d) => {
-      const list = cur[d] ?? []
-      return [d, turnOn ? [...new Set([...list, name])] : list.filter((t) => t !== name)]
-    })))
+    setDays((cur) => {
+      const next = Object.fromEntries(Array.from({ length: 7 }, (_, d) => {
+        const list = cur[d] ?? []
+        return [d, turnOn ? [...new Set([...list, name])] : list.filter((t) => t !== name)]
+      }))
+      report(job.id, { days: next })
+      return next
+    })
     void setWeekTech(job.id, name, turnOn)
   }
 
@@ -389,7 +431,9 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
       const list = cur[d] ?? []
       const next = list.includes(name) ? list.filter((t) => t !== name) : [...list, name]
       void setDayTechs(job.id, d, next)
-      return { ...cur, [d]: next }
+      const all = { ...cur, [d]: next }
+      report(job.id, { days: all })
+      return all
     })
   }
 
@@ -399,7 +443,9 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
       if (list.includes(name)) return cur
       const next = [...list, name]
       void setDayTechs(job.id, d, next)
-      return { ...cur, [d]: next }
+      const all = { ...cur, [d]: next }
+      report(job.id, { days: all })
+      return all
     })
   }
 
