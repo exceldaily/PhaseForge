@@ -1,0 +1,127 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/server'
+
+const PATH = '/app/schedules'
+
+async function ctx() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not signed in')
+  const { data: p } = await supabase
+    .from('profiles').select('company_id, ops_role, role').eq('id', user.id).single()
+  const isManager = ['owner', 'admin', 'manager', 'dispatcher'].includes(p?.ops_role ?? '') ||
+    ['owner', 'admin'].includes(p?.role ?? '')
+  if (!p?.company_id) throw new Error('No organization')
+  return { supabase, companyId: p.company_id, isManager }
+}
+
+export async function addScheduleJob(input: {
+  superintendentId: string; weekStart: string; title: string
+  jobNumber?: string; shiftLabel?: string; sortOrder: number
+}) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    if (!input.title.trim()) return { error: 'Job name is required' }
+    const { data, error } = await supabase.from('schedule_jobs').insert({
+      company_id: companyId,
+      superintendent_id: input.superintendentId,
+      week_start: input.weekStart,
+      title: input.title.trim(),
+      job_number: input.jobNumber?.trim() || null,
+      shift_label: input.shiftLabel?.trim() || null,
+      sort_order: input.sortOrder,
+    }).select('id').single()
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true, id: data.id }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function updateScheduleJob(id: string, patch: {
+  title?: string; jobNumber?: string | null; shiftLabel?: string | null
+}) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const { error } = await supabase.from('schedule_jobs').update({
+      ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
+      ...(patch.jobNumber !== undefined ? { job_number: patch.jobNumber?.trim() || null } : {}),
+      ...(patch.shiftLabel !== undefined ? { shift_label: patch.shiftLabel?.trim() || null } : {}),
+    }).eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function deleteScheduleJob(id: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const { error } = await supabase.from('schedule_jobs').delete()
+      .eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Set the techs for one weekday of one job (upsert on the unique pair).
+export async function setDayTechs(scheduleJobId: string, day: number, techs: string[]) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const clean = techs.map((t) => t.trim()).filter(Boolean)
+    const { error } = await supabase.from('schedule_assignments').upsert({
+      company_id: companyId,
+      schedule_job_id: scheduleJobId,
+      day,
+      techs: clean,
+    }, { onConflict: 'schedule_job_id,day' })
+    if (error) return { error: error.message }
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// The "master auto-advance" workflow: copy an entire team week (jobs + techs)
+// into the target week. Skips if the target week already has jobs for the team.
+export async function copyWeek(superintendentId: string, fromWeekStart: string, toWeekStart: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+
+    const { count } = await supabase.from('schedule_jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId).eq('superintendent_id', superintendentId).eq('week_start', toWeekStart)
+    if ((count ?? 0) > 0) return { error: 'That week already has jobs for this team — delete them first or edit in place.' }
+
+    const { data: jobs } = await supabase.from('schedule_jobs')
+      .select('id, title, job_number, shift_label, project_id, sort_order')
+      .eq('company_id', companyId).eq('superintendent_id', superintendentId).eq('week_start', fromWeekStart)
+      .order('sort_order')
+    if (!jobs?.length) return { error: 'No jobs found on the source week to copy.' }
+
+    let copied = 0
+    for (const j of jobs) {
+      const { data: newJob, error } = await supabase.from('schedule_jobs').insert({
+        company_id: companyId, superintendent_id: superintendentId, week_start: toWeekStart,
+        title: j.title, job_number: j.job_number, shift_label: j.shift_label,
+        project_id: j.project_id, sort_order: j.sort_order,
+      }).select('id').single()
+      if (error || !newJob) continue
+      const { data: assigns } = await supabase.from('schedule_assignments')
+        .select('day, techs').eq('schedule_job_id', j.id)
+      for (const a of assigns ?? []) {
+        await supabase.from('schedule_assignments').insert({
+          company_id: companyId, schedule_job_id: newJob.id, day: a.day, techs: a.techs,
+        })
+      }
+      copied++
+    }
+    revalidatePath(PATH)
+    return { ok: true, copied }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}

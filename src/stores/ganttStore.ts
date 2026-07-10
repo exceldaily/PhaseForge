@@ -44,8 +44,17 @@ export const useGanttStore = create<GanttState>((set, get) => ({
 
   setZoom: (zoom) => {
     const { viewStart, viewEnd } = get()
-    const center = addDays(viewStart, Math.round(differenceInDays(viewEnd, viewStart) / 2))
-    const { start, end } = getViewRange(zoom, center)
+    // Anchor on TODAY whenever it's inside the current window — that's what
+    // the user is actually looking at. Using the old window's arithmetic
+    // midpoint threw Day view months into an empty future when coming from a
+    // wide Week/Month range (window jumped, chart looked blank until "Today").
+    // Only when the user deliberately navigated away from today do we keep
+    // their locus via the midpoint.
+    const today = new Date()
+    const anchor = today >= viewStart && today <= viewEnd
+      ? today
+      : addDays(viewStart, Math.round(differenceInDays(viewEnd, viewStart) / 2))
+    const { start, end } = getViewRange(zoom, anchor)
 
     set({
       zoom,
