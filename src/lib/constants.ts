@@ -133,12 +133,15 @@ export const PLAN_LABELS: Record<string, string> = {
  * Per-plan feature flags (beyond the numeric limits above).
  * Printing and Reports are Pro/Business/Enterprise (and Individual) only.
  */
-export const PLAN_FEATURES: Record<string, { printAndReports: boolean; darkMode: boolean; tickets: boolean }> = {
-  free:       { printAndReports: false, darkMode: false, tickets: false },
-  individual: { printAndReports: true,  darkMode: true,  tickets: true  },
-  pro:        { printAndReports: true,  darkMode: true,  tickets: true  },
-  business:   { printAndReports: true,  darkMode: true,  tickets: true  },
-  enterprise: { printAndReports: true,  darkMode: true,  tickets: true  },
+export const PLAN_FEATURES: Record<string, {
+  printAndReports: boolean; darkMode: boolean; tickets: boolean
+  schedules: boolean; calendarSync: boolean
+}> = {
+  free:       { printAndReports: false, darkMode: false, tickets: false, schedules: false, calendarSync: false },
+  individual: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
+  pro:        { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
+  business:   { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
+  enterprise: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
 }
 
 /** Whether a plan can print Gantt charts and use the Reports page. */
@@ -154,6 +157,16 @@ export function canUseDarkMode(plan: string | null | undefined): boolean {
 /** Whether a plan can use the Tickets (dispatch) module. */
 export function canUseTickets(plan: string | null | undefined): boolean {
   return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.tickets ?? false
+}
+
+/** Whether a plan can use the weekly crew Schedules module. */
+export function canUseSchedules(plan: string | null | undefined): boolean {
+  return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.schedules ?? false
+}
+
+/** Whether a plan can connect and sync Google Calendar. */
+export function canUseCalendarSync(plan: string | null | undefined): boolean {
+  return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.calendarSync ?? false
 }
 
 /** Board column constraints */

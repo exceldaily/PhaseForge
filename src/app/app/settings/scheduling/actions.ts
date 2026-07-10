@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { canUseCalendarSync } from '@/lib/constants'
 import { gcal, refreshAccessToken, encryptToken, decryptToken } from '@/lib/scheduling/google'
 
 const PATH = '/app/settings/scheduling'
@@ -11,12 +12,17 @@ async function requireAdmin() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not signed in')
   const { data: p } = await supabase
-    .from('profiles').select('company_id, ops_role, role').eq('id', user.id).single()
+    .from('profiles').select('company_id, ops_role, role, companies(plan)').eq('id', user.id).single()
   const isAdmin = ['owner', 'admin'].includes(p?.ops_role ?? '') ||
     ['owner', 'admin'].includes(p?.role ?? '')
   if (!p?.company_id || !isAdmin) throw new Error('Admins only')
-  return { supabase, userId: user.id, companyId: p.company_id }
+  // Plan gates only sync-forward actions; disconnect / dismissing pending
+  // changes stay available so a downgraded org isn't locked in.
+  const plan = (p.companies as { plan?: string } | null)?.plan
+  return { supabase, userId: user.id, companyId: p.company_id, canSync: canUseCalendarSync(plan) }
 }
+
+const PLAN_ERROR = 'Calendar sync requires a paid plan (Individual, Pro, or Business)'
 
 // Returns a valid access token, refreshing (and re-encrypting) when expired.
 async function getAccessToken(supabase: Awaited<ReturnType<typeof createClient>>, companyId: string) {
@@ -40,7 +46,8 @@ async function getAccessToken(supabase: Awaited<ReturnType<typeof createClient>>
 
 export async function listCalendars() {
   try {
-    const { supabase, companyId } = await requireAdmin()
+    const { supabase, companyId, canSync } = await requireAdmin()
+    if (!canSync) return { error: PLAN_ERROR }
     const token = await getAccessToken(supabase, companyId)
     const result = await gcal.listCalendars(token) as { items?: { id: string; summary: string; primary?: boolean }[] }
     return {
@@ -56,7 +63,8 @@ export async function listCalendars() {
 
 export async function setTargetCalendar(calendarId: string, calendarName: string) {
   try {
-    const { supabase, companyId } = await requireAdmin()
+    const { supabase, companyId, canSync } = await requireAdmin()
+    if (!canSync) return { error: PLAN_ERROR }
     const { error } = await supabase.from('gcal_connections')
       .update({ target_calendar_id: calendarId, target_calendar_name: calendarName, updated_at: new Date().toISOString() })
       .eq('company_id', companyId)
@@ -68,7 +76,8 @@ export async function setTargetCalendar(calendarId: string, calendarName: string
 
 export async function setRoutingMode(mode: 'shared' | 'superintendent') {
   try {
-    const { supabase, companyId } = await requireAdmin()
+    const { supabase, companyId, canSync } = await requireAdmin()
+    if (!canSync) return { error: PLAN_ERROR }
     const { error } = await supabase.from('gcal_connections')
       .update({ routing_mode: mode, updated_at: new Date().toISOString() })
       .eq('company_id', companyId)
@@ -99,7 +108,9 @@ export async function disconnectGoogle() {
 // a deleted event). 'dismiss' = accept Google's state and stop flagging it.
 export async function resolvePendingChange(changeId: string, action: 'keep' | 'dismiss') {
   try {
-    const { supabase, userId, companyId } = await requireAdmin()
+    const { supabase, userId, companyId, canSync } = await requireAdmin()
+    // 'keep' re-pushes to Google (sync-forward); 'dismiss' is always allowed.
+    if (action === 'keep' && !canSync) return { error: PLAN_ERROR }
     const { data: change } = await supabase
       .from('gcal_pending_changes')
       .select('id, change_type, link_id')

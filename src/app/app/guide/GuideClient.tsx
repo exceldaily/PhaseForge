@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart2, Bell, BookOpen, Building2, ClipboardList, Contact, FolderKanban,
+  BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList, Contact, FolderKanban,
   GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, PhoneCall, Play, Radio, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
@@ -162,6 +162,37 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Color modes & printing', text: 'Color bars by phase color (standard), by status (spot blockers instantly), or none (clean grayscale). Printing is a Pro/Business feature: on those plans the Print menu outputs chart or list style, for the current view or all projects.' },
       { heading: 'Board filter', text: 'The Board dropdown above the chart narrows the timeline to one board\'s projects.' },
       { heading: 'On mobile', text: 'On a phone the Gantt opens as a touch-friendly timeline: a frozen phase-name column with scrollable bars — swipe to pan. Zoom Day → Quarter, step the window with the ‹ › arrows, jump to Today, set an exact From/To range with the calendar button, or Collapse/Expand all projects. Toggle to List for a compact rundown, and tap any bar to open a full-screen detail sheet.' },
+    ],
+  },
+  {
+    id: 'schedules',
+    icon: CalendarDays,
+    title: 'Schedules (Weekly Crew)',
+    summary: 'Build and send weekly crew schedules — replaces the spreadsheet tabs. Paid plans.',
+    href: '/app/schedules',
+    hrefLabel: 'Open Schedules',
+    items: [
+      { heading: 'Departments & teams', text: 'Pick a department (e.g. Refrigeration, Plumbing) from the dropdown, then a team tab under it. "+ Team" adds a superintendent team — give it a new department name to create the department on the spot. Hover the active tab for the delete option (removes that team\'s saved weeks too).' },
+      { heading: 'Crew roster', text: 'Each team has its own crew list under the top bar. Type a name to add someone; hover a name to remove them. The roster drives the tap-to-assign chips on every job.' },
+      { heading: 'Jobs & the project list', text: '"Add job" creates a blank job block for the week. Faster: keep your recurring projects (name + Job#) in the Projects panel on the left — one click drops a project onto the current team\'s week, and its Job# links to your job site. The panel is per-department and keeps your history; add or delete entries anytime.' },
+      { heading: 'Assigning the week', text: 'Tap a name chip on a day to put that person on it, tap again to remove. Press and drag a chip down across days to fill several at once, spreadsheet-style. The "This week" row toggles someone onto all 7 days at once. Everything saves automatically.' },
+      { heading: 'Sending it out', text: '"Copy for email" copies the schedule as a formatted table — paste into Gmail or Outlook and you get bordered rows, grey banding, the yellow shift cell, and a clickable Job#. Days with nobody assigned on Sunday, Friday, or Saturday are left out automatically. "Print / PDF" makes a clean paper copy, and "Copy last week" clones the previous week to edit.' },
+      { heading: 'Who can edit', text: 'Owners, admins, managers, and dispatchers can edit schedules; everyone else sees a read-only view. Schedules is available on Individual, Pro, and Business plans.' },
+    ],
+  },
+  {
+    id: 'calendar-sync',
+    icon: CalendarCheck2,
+    title: 'Google Calendar Sync',
+    summary: 'Two-way sync between project phases and Google Calendar. Paid plans.',
+    href: '/app/settings/scheduling',
+    hrefLabel: 'Open Scheduling Settings',
+    items: [
+      { heading: 'Connect', text: 'An owner or admin connects the org\'s Google account under Settings → Scheduling, then picks the target calendar. One connection serves the whole organization — tokens stay encrypted on the server.' },
+      { heading: 'Pushing phases', text: 'Sync a phase from its edit panel, or select multiple phases (or the whole project) with the sync bar on the project\'s Gantt view. Projects with auto-sync on push new phases automatically. Events carry the project name, Job#, and address.' },
+      { heading: 'Superintendents & colors', text: 'Assign a superintendent to a project and its events take that super\'s color on the calendar. Schedule labels (SCH tags) use Google\'s own 11-color palette so what you pick is exactly what shows.' },
+      { heading: 'Two-way updates', text: 'Move or resize a PhaseForge event in Google Calendar and the phase\'s dates follow (including recurring series). Non-date edits made in Google are queued for review in Settings → Scheduling instead of silently applied. A daily background sync trues everything up; "Sync now" runs it on demand.' },
+      { heading: 'Safety', text: 'PhaseForge only ever touches events it created — your personal and unrelated calendar events are never modified or deleted. Deleting a phase or project removes its calendar events first. Calendar sync is available on Individual, Pro, and Business plans.' },
     ],
   },
   {

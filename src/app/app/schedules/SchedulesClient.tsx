@@ -48,12 +48,18 @@ export function SchedulesClient({
   const [dirTitle, setDirTitle] = useState('')
   const [dirJob, setDirJob] = useState('')
   const [dirDivision, setDirDivision] = useState(division)
+  const [prevDivision, setPrevDivision] = useState(division)
   const weekEnd = shiftDate(weekStart, 6)
   const team = teams.find((t) => t.id === teamId) ?? null
   const roster = team?.roster ?? []
 
   // Follow the department selector: new projects default to what's on screen.
-  useEffect(() => { setDirDivision(division) }, [division])
+  // (Render-time state adjustment — React's sanctioned alternative to a
+  // setState-in-effect, which lints as a cascading-render risk.)
+  if (prevDivision !== division) {
+    setPrevDivision(division)
+    setDirDivision(division)
+  }
 
   const divLabel = (d: string) => d || 'General'
   // Projects belong to a department (job numbers are per-department).

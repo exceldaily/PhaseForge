@@ -12,11 +12,12 @@ interface AppShellProps {
   canUseReports?: boolean
   canUseDarkMode?: boolean
   canUseDispatch?: boolean
+  canUseSchedules?: boolean
   opsModules?: string[]
   children: React.ReactNode
 }
 
-export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, canUseDispatch = false, opsModules = [], children }: AppShellProps) {
+export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, canUseDispatch = false, canUseSchedules = false, opsModules = [], children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Sync the theme whenever the app shell mounts (covers client-side nav into
@@ -40,6 +41,7 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
         isSuperAdmin={isSuperAdmin}
         canUseReports={canUseReports}
         canUseDispatch={canUseDispatch}
+        canUseSchedules={canUseSchedules}
         opsModules={opsModules}
         mobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}

@@ -17,8 +17,8 @@ interface NavItem {
   href: string
   label: string
   icon: typeof Contact
-  // 'reports' | 'dispatch' gate on plan flags; ops module keys gate on entitlements
-  gate?: 'reports' | 'dispatch' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices'
+  // 'reports' | 'dispatch' | 'schedules' gate on plan flags; ops module keys gate on entitlements
+  gate?: 'reports' | 'dispatch' | 'schedules' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices'
 }
 
 interface NavGroup {
@@ -47,7 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/app/calls',    label: 'Calls',    icon: PhoneCall, gate: 'calls' },
       { href: '/app/boards',   label: 'Boards',   icon: Layers },
       { href: '/app/gantt',    label: 'Gantt',    icon: GanttChartSquare },
-      { href: '/app/schedules', label: 'Schedules', icon: CalendarDays },
+      { href: '/app/schedules', label: 'Schedules', icon: CalendarDays, gate: 'schedules' },
       { href: '/app/dispatch', label: 'Tickets',  icon: Radio, gate: 'dispatch' },
     ],
   },
@@ -101,12 +101,13 @@ interface SidebarProps {
   isSuperAdmin?: boolean
   canUseReports?: boolean
   canUseDispatch?: boolean
+  canUseSchedules?: boolean
   opsModules?: string[]
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDispatch = false, opsModules = [], mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDispatch = false, canUseSchedules = false, opsModules = [], mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -136,12 +137,13 @@ export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDis
       if (!item.gate) return true
       if (item.gate === 'reports') return canUseReports
       if (item.gate === 'dispatch') return canUseDispatch
+      if (item.gate === 'schedules') return canUseSchedules
       return opsModules.includes(item.gate)
     }
     return NAV_GROUPS
       .map((g) => ({ ...g, items: g.items.filter(allowed) }))
       .filter((g) => g.items.length > 0)
-  }, [canUseReports, canUseDispatch, opsModules])
+  }, [canUseReports, canUseDispatch, canUseSchedules, opsModules])
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/app/dashboard' && pathname.startsWith(href))

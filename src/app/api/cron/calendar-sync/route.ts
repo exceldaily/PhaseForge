@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { canUseCalendarSync } from '@/lib/constants'
 import { pushPhase, pullLinkedEvents } from '@/lib/scheduling/syncCore'
 
 export const maxDuration = 300
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const { data: connections } = await supabase
     .from('gcal_connections')
-    .select('company_id')
+    .select('company_id, company:companies(plan)')
     .eq('is_active', true)
     .not('target_calendar_id', 'is', null)
 
@@ -34,6 +35,9 @@ export async function GET(req: NextRequest) {
 
   for (const conn of connections ?? []) {
     const companyId = conn.company_id as string
+    // Orgs that downgraded keep their connection row but stop syncing.
+    const plan = (conn.company as unknown as { plan?: string } | null)?.plan
+    if (!canUseCalendarSync(plan)) { summary[companyId] = { pushed: 0, failed: 0, pulled: 'plan_blocked' }; continue }
     let pushed = 0, failed = 0
 
     // PULL first: apply Google-side date changes (and queue non-date edits
