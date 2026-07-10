@@ -24,10 +24,13 @@ export default async function SchedulesPage({ searchParams }: {
   const canEdit = ['owner', 'admin', 'manager', 'dispatcher'].includes(profile.ops_role ?? '') ||
     ['owner', 'admin'].includes(profile.role ?? '')
 
-  const { data: sups } = await supabase
-    .from('superintendents').select('id, name, roster')
-    .eq('company_id', profile.company_id).eq('is_active', true).order('name')
+  const [{ data: sups }, { data: company }] = await Promise.all([
+    supabase.from('superintendents').select('id, name, roster')
+      .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
+    supabase.from('companies').select('schedule_job_url_template').eq('id', profile.company_id).single(),
+  ])
   const teams = (sups ?? []).map((s) => ({ id: s.id, name: s.name, roster: (s.roster as string[] | null) ?? [] }))
+  const jobUrlTemplate = (company?.schedule_job_url_template as string | null) ?? null
 
   const weekStart = /^\d{4}-\d{2}-\d{2}$/.test(params.week ?? '') ? params.week! : sundayOf(new Date())
   const teamId = teams.find((t) => t.id === params.team)?.id ?? teams[0]?.id ?? null
@@ -62,6 +65,7 @@ export default async function SchedulesPage({ searchParams }: {
       weekStart={weekStart}
       jobs={jobs}
       canEdit={canEdit}
+      jobUrlTemplate={jobUrlTemplate}
     />
   )
 }

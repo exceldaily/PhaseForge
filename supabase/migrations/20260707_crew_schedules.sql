@@ -35,3 +35,6 @@ CREATE POLICY "schedule_assignments_delete" ON public.schedule_assignments FOR D
 
 -- Team roster: the crew names available for quick-tap scheduling
 ALTER TABLE public.superintendents ADD COLUMN IF NOT EXISTS roster text[] NOT NULL DEFAULT '{}';
+
+-- Per-company job link pattern for schedules ({job} replaced by job number)
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS schedule_job_url_template text;
