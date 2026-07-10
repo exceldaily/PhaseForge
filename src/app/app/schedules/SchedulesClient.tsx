@@ -104,8 +104,13 @@ export function SchedulesClient({
       const jobCell = j.job_number
         ? `Job#${url ? `<a href="${url}" style="color:#1a73e8;">${esc(j.job_number)}</a>` : esc(j.job_number)}`
         : ''
-      const rows = Array.from({ length: 7 }, (_, d) => {
-        const grey = d % 2 === 0
+      // Skip empty Sun/Fri/Sat rows — teams usually run Mon–Thu or Sun–Thu, so
+      // blank edge days are noise in the email. Empty Mon–Thu rows stay visible
+      // (a blank mid-week day is information).
+      const visibleDays = Array.from({ length: 7 }, (_, d) => d).filter((d) =>
+        (j.days[d] ?? []).length > 0 || !(d === 0 || d === 5 || d === 6))
+      const rows = visibleDays.map((d, i) => {
+        const grey = i % 2 === 0
         const techs = (j.days[d] ?? []).map(esc)
         const techCells = techs.length
           ? techs.map((t) => `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${t}</td>`).join('')
@@ -129,6 +134,7 @@ export function SchedulesClient({
       lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}${j.shift_label ? `  — ${j.shift_label}` : ''}`)
       for (let d = 0; d < 7; d++) {
         const techs = j.days[d] ?? []
+        if (!techs.length && (d === 0 || d === 5 || d === 6)) continue
         lines.push(`  ${DAY_NAMES[d]} ${mmdd(shiftDate(weekStart, d))}: ${techs.length ? techs.join(', ') : '—'}`)
       }
       lines.push('')
@@ -409,10 +415,14 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
 
   const toggleWeek = (name: string) => {
     const turnOn = !onAllDays(name)
-    setDays((cur) => Object.fromEntries(Array.from({ length: 7 }, (_, d) => {
-      const list = cur[d] ?? []
-      return [d, turnOn ? [...new Set([...list, name])] : list.filter((t) => t !== name)]
-    })))
+    setDays((cur) => {
+      const next = Object.fromEntries(Array.from({ length: 7 }, (_, d) => {
+        const list = cur[d] ?? []
+        return [d, turnOn ? [...new Set([...list, name])] : list.filter((t) => t !== name)]
+      }))
+      report(job.id, { days: next })
+      return next
+    })
     void setWeekTech(job.id, name, turnOn)
   }
 
@@ -421,7 +431,9 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
       const list = cur[d] ?? []
       const next = list.includes(name) ? list.filter((t) => t !== name) : [...list, name]
       void setDayTechs(job.id, d, next)
-      return { ...cur, [d]: next }
+      const all = { ...cur, [d]: next }
+      report(job.id, { days: all })
+      return all
     })
   }
 
@@ -431,7 +443,9 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
       if (list.includes(name)) return cur
       const next = [...list, name]
       void setDayTechs(job.id, d, next)
-      return { ...cur, [d]: next }
+      const all = { ...cur, [d]: next }
+      report(job.id, { days: all })
+      return all
     })
   }
 
