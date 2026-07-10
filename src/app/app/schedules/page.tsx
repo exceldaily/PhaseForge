@@ -12,7 +12,7 @@ function sundayOf(d: Date): string {
 }
 
 export default async function SchedulesPage({ searchParams }: {
-  searchParams: Promise<{ team?: string; week?: string }>
+  searchParams: Promise<{ team?: string; week?: string; division?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -28,15 +28,28 @@ export default async function SchedulesPage({ searchParams }: {
     supabase.from('superintendents').select('id, name, roster, division')
       .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
     supabase.from('companies').select('schedule_job_url_template').eq('id', profile.company_id).single(),
-    supabase.from('schedule_directory').select('id, title, job_number')
+    supabase.from('schedule_directory').select('id, title, job_number, division')
       .eq('company_id', profile.company_id).order('title'),
   ])
-  const teams = (sups ?? []).map((s) => ({
+  const allTeams = (sups ?? []).map((s) => ({
     id: s.id, name: s.name,
     roster: (s.roster as string[] | null) ?? [],
     division: (s.division as string | null) ?? null,
   }))
   const jobUrlTemplate = (company?.schedule_job_url_template as string | null) ?? null
+
+  // Departments come from both teams and directory projects (a department can
+  // hold projects before its first team exists). '' = no department.
+  const divisions = [...new Set([
+    ...allTeams.map((t) => t.division ?? ''),
+    ...(directory ?? []).map((d) => (d.division as string | null) ?? ''),
+  ])].sort((a, b) => a.localeCompare(b))
+
+  const teamFromParam = allTeams.find((t) => t.id === params.team)
+  const division = params.division !== undefined && divisions.includes(params.division)
+    ? params.division
+    : teamFromParam ? (teamFromParam.division ?? '') : (divisions[0] ?? '')
+  const teams = allTeams.filter((t) => (t.division ?? '') === division)
 
   const weekStart = /^\d{4}-\d{2}-\d{2}$/.test(params.week ?? '') ? params.week! : sundayOf(new Date())
   const teamId = teams.find((t) => t.id === params.team)?.id ?? teams[0]?.id ?? null
@@ -73,6 +86,9 @@ export default async function SchedulesPage({ searchParams }: {
       canEdit={canEdit}
       jobUrlTemplate={jobUrlTemplate}
       directory={directory ?? []}
+      division={division}
+      divisions={divisions}
+      hasAnyTeams={allTeams.length > 0}
     />
   )
 }

@@ -90,13 +90,14 @@ export async function setDayTechs(scheduleJobId: string, day: number, techs: str
 
 // ── Project directory (persistent job list beside the schedules) ────────────
 
-export async function addDirectoryProject(title: string, jobNumber?: string) {
+export async function addDirectoryProject(title: string, jobNumber?: string, division?: string) {
   try {
     const { supabase, companyId, isManager } = await ctx()
     if (!isManager) return { error: 'Managers only' }
     if (!title.trim()) return { error: 'Project name is required' }
     const { error } = await supabase.from('schedule_directory').insert({
       company_id: companyId, title: title.trim(), job_number: jobNumber?.trim() || null,
+      division: division?.trim() || null,
     })
     if (error) return { error: error.message }
     revalidatePath(PATH)
