@@ -110,17 +110,25 @@ export function SchedulesClient({
       const jobCell = j.job_number
         ? `Job#${url ? `<a href="${url}" style="color:#1a73e8;">${esc(j.job_number)}</a>` : esc(j.job_number)}`
         : ''
-      // Skip empty Sun/Fri/Sat rows — teams usually run Mon–Thu or Sun–Thu, so
-      // blank edge days are noise in the email. Empty Mon–Thu rows stay visible
-      // (a blank mid-week day is information).
-      const visibleDays = Array.from({ length: 7 }, (_, d) => d).filter((d) =>
-        (j.days[d] ?? []).length > 0 || !(d === 0 || d === 5 || d === 6))
+      // Only days with someone assigned make the email — a one-day job prints
+      // as a single row, not a week of blanks.
+      const visibleDays = Array.from({ length: 7 }, (_, d) => d)
+        .filter((d) => (j.days[d] ?? []).length > 0)
+      // FIXED column per person for the whole job: roster order first, then
+      // any extra (legacy/typed) names in appearance order. A tech who's off
+      // one day leaves an empty cell in HIS column instead of shifting
+      // everyone else's names left.
+      const weekNames = new Set(visibleDays.flatMap((d) => j.days[d] ?? []))
+      const columns = [
+        ...roster.filter((n) => weekNames.has(n)),
+        ...[...weekNames].filter((n) => !roster.includes(n)),
+      ]
       const rows = visibleDays.map((d, i) => {
         const grey = i % 2 === 0
-        const techs = (j.days[d] ?? []).map(esc)
-        const techCells = techs.length
-          ? techs.map((t) => `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${t}</td>`).join('')
-          : `<td style="${cellBase}${grey ? 'background:#d9d9d9;' : ''}" colspan="5">&nbsp;</td>`
+        const onDay = new Set(j.days[d] ?? [])
+        const techCells = columns.map((n) =>
+          `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
+        ).join('')
         return `<tr><td style="${cellBase}font-weight:bold;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
       return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;min-width:520px;">
@@ -140,8 +148,8 @@ export function SchedulesClient({
       lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}${j.shift_label ? `  — ${j.shift_label}` : ''}`)
       for (let d = 0; d < 7; d++) {
         const techs = j.days[d] ?? []
-        if (!techs.length && (d === 0 || d === 5 || d === 6)) continue
-        lines.push(`  ${DAY_NAMES[d]} ${mmdd(shiftDate(weekStart, d))}: ${techs.length ? techs.join(', ') : '—'}`)
+        if (!techs.length) continue // only days with someone assigned
+        lines.push(`  ${DAY_NAMES[d]} ${mmdd(shiftDate(weekStart, d))}: ${techs.join(', ')}`)
       }
       lines.push('')
     }
