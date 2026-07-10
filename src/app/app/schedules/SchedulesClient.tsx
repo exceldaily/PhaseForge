@@ -103,7 +103,7 @@ export function SchedulesClient({
   const copyForEmail = async () => {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    const cellBase = 'border:1px solid #000;padding:4px 10px;font-family:Arial,sans-serif;font-size:13px;'
+    const cellBase = 'border:1px solid #000;padding:2px 8px;font-family:Arial,sans-serif;font-size:13px;'
     const current = liveJobs()
     const blocks = current.map((j) => {
       const url = jobUrl(jobUrlTemplate, j.job_number)
@@ -129,11 +129,11 @@ export function SchedulesClient({
         const techCells = columns.map((n) =>
           `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
         ).join('')
-        return `<tr><td style="${cellBase}font-weight:bold;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
+        return `<tr><td style="${cellBase}font-weight:bold;text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
       return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;min-width:520px;">
         <tr>
-          <td style="${cellBase}font-weight:bold;font-size:15px;">${esc(j.title)}</td>
+          <td style="${cellBase}font-weight:bold;font-size:15px;text-align:center;">${esc(j.title)}</td>
           <td style="${cellBase}text-align:center;">${jobCell}</td>
           <td style="${cellBase}font-weight:bold;text-align:center;">${mmdd(weekStart)}-${mmdd(weekEnd)}</td>
           <td style="${cellBase}background:#ffff00;font-weight:bold;text-align:center;">${esc(j.shift_label ?? '')}</td>
