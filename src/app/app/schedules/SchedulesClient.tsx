@@ -213,7 +213,7 @@ export function SchedulesClient({
                       if (!confirm(`Delete team "${t.name}"? Their saved weekly schedules are deleted too. This cannot be undone.`)) return
                       run(() => deleteTeam(t.id))
                     }}
-                    className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white group-hover:flex"
+                    className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white group-hover:flex pointer-coarse:flex"
                   >✕</button>
                 )}
               </span>
@@ -279,7 +279,8 @@ export function SchedulesClient({
             {roster.map((name) => (
               <span key={name} className="group inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 {name}
-                <button onClick={() => removeMember(name)} className="text-slate-400 opacity-0 transition group-hover:opacity-100 hover:text-rose-500"><X size={11} /></button>
+                {/* pointer-coarse: tablets/phones have no hover — keep the ✕ visible */}
+                <button onClick={() => removeMember(name)} className="text-slate-400 opacity-0 transition group-hover:opacity-100 pointer-coarse:opacity-100 hover:text-rose-500"><X size={11} /></button>
               </span>
             ))}
             <span className="inline-flex items-center gap-1">
@@ -355,7 +356,7 @@ export function SchedulesClient({
                   {canEdit && (
                     <button
                       onClick={() => { if (confirm(`Remove "${p.title}" from the project list?`)) run(() => deleteDirectoryProject(p.id)) }}
-                      className="hidden text-slate-300 hover:text-rose-500 group-hover:block"><X size={11} /></button>
+                      className="hidden text-slate-300 hover:text-rose-500 group-hover:block pointer-coarse:block"><X size={11} /></button>
                   )}
                 </div>
               ))}
