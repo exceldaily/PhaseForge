@@ -52,7 +52,9 @@ export async function updateScheduleJob(id: string, patch: {
       ...(patch.shiftLabel !== undefined ? { shift_label: patch.shiftLabel?.trim() || null } : {}),
     }).eq('id', id).eq('company_id', companyId)
     if (error) return { error: error.message }
-    revalidatePath(PATH)
+    // No revalidatePath: fires on every debounced keystroke save — the client
+    // holds the live state, and invalidating the route cache here was the
+    // main source of sluggishness.
     return { ok: true }
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
@@ -82,6 +84,65 @@ export async function setDayTechs(scheduleJobId: string, day: number, techs: str
       techs: clean,
     }, { onConflict: 'schedule_job_id,day' })
     if (error) return { error: error.message }
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// ── Project directory (persistent job list beside the schedules) ────────────
+
+export async function addDirectoryProject(title: string, jobNumber?: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    if (!title.trim()) return { error: 'Project name is required' }
+    const { error } = await supabase.from('schedule_directory').insert({
+      company_id: companyId, title: title.trim(), job_number: jobNumber?.trim() || null,
+    })
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function deleteDirectoryProject(id: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const { error } = await supabase.from('schedule_directory').delete()
+      .eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Create a schedule team (superintendent), optionally under a division.
+export async function addTeam(name: string, division?: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    if (!name.trim()) return { error: 'Team name is required' }
+    const { data, error } = await supabase.from('superintendents').insert({
+      company_id: companyId,
+      name: name.trim(),
+      division: division?.trim() || null,
+    }).select('id').single()
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true, id: data.id }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Delete a team. Cascades its schedule weeks; projects keep working (their
+// superintendent link just clears). Admin-only via RLS.
+export async function deleteTeam(id: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const { error } = await supabase.from('superintendents').delete()
+      .eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
     return { ok: true }
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
@@ -117,7 +178,7 @@ export async function setWeekTech(scheduleJobId: string, tech: string, on: boole
         company_id: companyId, schedule_job_id: scheduleJobId, day, techs: next,
       }, { onConflict: 'schedule_job_id,day' })
     }
-    revalidatePath(PATH)
+    // No revalidatePath: chip taps are optimistic client-side (perf).
     return { ok: true }
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
