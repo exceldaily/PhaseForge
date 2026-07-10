@@ -1,5 +1,8 @@
 import { redirect } from 'next/navigation'
+import { CalendarDays } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { canUseSchedules } from '@/lib/constants'
+import { UpgradeGate } from '@/components/billing/UpgradeGate'
 import { SchedulesClient } from './SchedulesClient'
 
 export const dynamic = 'force-dynamic'
@@ -27,10 +30,19 @@ export default async function SchedulesPage({ searchParams }: {
   const [{ data: sups }, { data: company }, { data: directory }] = await Promise.all([
     supabase.from('superintendents').select('id, name, roster, division')
       .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
-    supabase.from('companies').select('schedule_job_url_template').eq('id', profile.company_id).single(),
+    supabase.from('companies').select('schedule_job_url_template, plan').eq('id', profile.company_id).single(),
     supabase.from('schedule_directory').select('id, title, job_number, division')
       .eq('company_id', profile.company_id).order('title'),
   ])
+
+  if (!canUseSchedules(company?.plan)) {
+    return (
+      <UpgradeGate icon={CalendarDays} title="Schedules is a paid feature">
+        Weekly crew schedules with drag-to-fill, one-click email copies, and per-department
+        project lists are available on the Individual, Pro, and Business plans.
+      </UpgradeGate>
+    )
+  }
   const allTeams = (sups ?? []).map((s) => ({
     id: s.id, name: s.name,
     roster: (s.roster as string[] | null) ?? [],

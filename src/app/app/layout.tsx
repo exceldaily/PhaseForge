@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
-import { canUsePrintAndReports, canUseDarkMode, canUseTickets } from '@/lib/constants'
+import { canUsePrintAndReports, canUseDarkMode, canUseTickets, canUseSchedules } from '@/lib/constants'
 import { OPERATIONS_MODULES, moduleAllowsRole } from '@/lib/operations/modules'
 import type { ModuleKey, OpsRole } from '@/lib/operations/types'
 import { Profile } from '@/types/app'
@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let canUseReports = false
   let canUseTheme = false
   let canUseDispatch = false
+  let canUseCrewSchedules = false
   let opsModuleKeys: ModuleKey[] = []
   if (profile?.company_id) {
     const [{ data: company }, { data: orgModules }] = await Promise.all([
@@ -37,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canUseReports = canUsePrintAndReports(company?.plan)
     canUseTheme = canUseDarkMode(company?.plan)
     canUseDispatch = canUseTickets(company?.plan) || (company?.dispatch_enabled ?? false)
+    canUseCrewSchedules = canUseSchedules(company?.plan)
 
     const opsRole = (profile.ops_role ?? 'read_only') as OpsRole
     const enabled = new Set((orgModules ?? []).filter((m) => m.enabled).map((m) => m.module_key))
@@ -52,6 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       canUseReports={canUseReports}
       canUseDarkMode={canUseTheme}
       canUseDispatch={canUseDispatch}
+      canUseSchedules={canUseCrewSchedules}
       opsModules={opsModuleKeys}
     >
       <ErrorBoundary>

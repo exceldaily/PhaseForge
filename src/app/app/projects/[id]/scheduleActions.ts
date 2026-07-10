@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { canUseCalendarSync } from '@/lib/constants'
 import { pushPhase, removePhaseEvent, pullLinkedEvents } from '@/lib/scheduling/syncCore'
 import { swapSuperintendentLabels } from '@/lib/scheduling/calendarEvent'
 
@@ -10,17 +11,24 @@ async function ctx() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not signed in')
   const { data: p } = await supabase
-    .from('profiles').select('company_id, ops_role, role').eq('id', user.id).single()
+    .from('profiles').select('company_id, ops_role, role, companies(plan)').eq('id', user.id).single()
   const isManager = ['owner', 'admin', 'manager', 'dispatcher'].includes(p?.ops_role ?? '') ||
     ['owner', 'admin'].includes(p?.role ?? '')
   if (!p?.company_id) throw new Error('No organization')
-  return { supabase, userId: user.id, companyId: p.company_id, isManager }
+  // Plan gates only the PUSH direction (see canPush below). Cleanup (unsync /
+  // remove events), status reads, and PhaseForge-side edits stay available so
+  // a downgraded org can still pull its events out of Google.
+  const plan = (p.companies as { plan?: string } | null)?.plan
+  return { supabase, userId: user.id, companyId: p.company_id, isManager, canPush: canUseCalendarSync(plan) }
 }
+
+const PLAN_ERROR = 'Calendar sync requires a paid plan (Individual, Pro, or Business)'
 
 export async function syncPhaseToCalendar(phaseId: string) {
   try {
-    const { supabase, companyId, isManager } = await ctx()
+    const { supabase, companyId, isManager, canPush } = await ctx()
     if (!isManager) return { error: 'Only managers can sync to calendar' }
+    if (!canPush) return { error: PLAN_ERROR }
     const res = await pushPhase(supabase, companyId, phaseId)
     revalidatePath(`/app/projects/${res.projectId}`)
     return { ok: true, eventId: res.eventId, calendarId: res.calendarId }
@@ -43,8 +51,9 @@ export async function unsyncPhaseFromCalendar(phaseId: string) {
 // Sync selected phases (or all when phaseIds omitted); enables auto-sync.
 export async function syncAllProjectPhases(projectId: string, phaseIds?: string[]) {
   try {
-    const { supabase, companyId, isManager } = await ctx()
+    const { supabase, companyId, isManager, canPush } = await ctx()
     if (!isManager) return { error: 'Only managers can sync to calendar' }
+    if (!canPush) return { error: PLAN_ERROR }
     const { data: project } = await supabase
       .from('projects').select('id').eq('id', projectId).eq('company_id', companyId).single()
     if (!project) return { error: 'Project not found' }
@@ -91,7 +100,8 @@ export async function unsyncAllProjectPhases(projectId: string) {
 // Auto-push on create/date change; only when linked or project auto-sync is on.
 export async function autoSyncPhaseIfEnabled(phaseId: string) {
   try {
-    const { supabase, companyId } = await ctx()
+    const { supabase, companyId, canPush } = await ctx()
+    if (!canPush) return { ok: true, skipped: true } // silent: never block the phase save
     const { data: phase } = await supabase
       .from('phases').select('project_id').eq('id', phaseId).single()
     if (!phase) return { ok: false }
@@ -109,8 +119,9 @@ export async function autoSyncPhaseIfEnabled(phaseId: string) {
 
 export async function setProjectAutoSync(projectId: string, enabled: boolean) {
   try {
-    const { supabase, companyId, isManager } = await ctx()
+    const { supabase, companyId, isManager, canPush } = await ctx()
     if (!isManager) return { error: 'Only managers can change calendar sync' }
+    if (enabled && !canPush) return { error: PLAN_ERROR } // turning OFF stays allowed
     const { error } = await supabase.from('projects')
       .update({ gcal_autosync: enabled }).eq('id', projectId).eq('company_id', companyId)
     if (error) return { error: error.message }
@@ -123,8 +134,9 @@ export async function setProjectAutoSync(projectId: string, enabled: boolean) {
 // reflects the new default immediately.
 export async function saveProjectSkipDays(projectId: string, skipDays: string[]) {
   try {
-    const { supabase, companyId, isManager } = await ctx()
+    const { supabase, companyId, isManager, canPush } = await ctx()
     if (!isManager) return { error: 'Only managers can change calendar sync' }
+    if (!canPush) return { error: PLAN_ERROR }
     const valid = new Set(['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'])
     const clean = [...new Set(skipDays.map((d) => d.toUpperCase()))].filter((d) => valid.has(d))
     if (clean.length === 7) return { error: 'You cannot skip every day of the week' }
@@ -149,8 +161,9 @@ export async function saveProjectSkipDays(projectId: string, skipDays: string[])
 
 export async function saveSkipDays(phaseId: string, skipDays: string[]) {
   try {
-    const { supabase, companyId, isManager } = await ctx()
+    const { supabase, companyId, isManager, canPush } = await ctx()
     if (!isManager) return { error: 'Only managers can change calendar sync' }
+    if (!canPush) return { error: PLAN_ERROR }
     const valid = new Set(['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'])
     const clean = [...new Set(skipDays.map((d) => d.toUpperCase()))].filter((d) => valid.has(d))
     if (clean.length === 7) return { error: 'You cannot skip every day of the week' }
@@ -203,7 +216,7 @@ export async function getPhaseSyncStatus(phaseId: string) {
 // and re-pushes linked events so calendar colors/attendees update immediately.
 export async function setProjectSuperintendent(projectId: string, superintendentId: string | null) {
   try {
-    const { supabase, companyId, isManager } = await ctx()
+    const { supabase, companyId, isManager, canPush } = await ctx()
     if (!isManager) return { error: 'Only managers can change the superintendent' }
 
     const { data: project } = await supabase
@@ -231,12 +244,16 @@ export async function setProjectSuperintendent(projectId: string, superintendent
     }).eq('id', projectId).eq('company_id', companyId)
     if (error) return { error: error.message }
 
-    const { data: links } = await supabase
-      .from('gcal_event_links').select('phase_id').eq('project_id', projectId).eq('status', 'linked')
+    // Superintendent is PhaseForge data — the save is always allowed. Only the
+    // calendar re-push is plan-gated.
     let repushed = 0
-    for (const l of links ?? []) {
-      if (!l.phase_id) continue
-      try { await pushPhase(supabase, companyId, l.phase_id); repushed++ } catch { /* keep going */ }
+    if (canPush) {
+      const { data: links } = await supabase
+        .from('gcal_event_links').select('phase_id').eq('project_id', projectId).eq('status', 'linked')
+      for (const l of links ?? []) {
+        if (!l.phase_id) continue
+        try { await pushPhase(supabase, companyId, l.phase_id); repushed++ } catch { /* keep going */ }
+      }
     }
     revalidatePath(`/app/projects/${projectId}`)
     return { ok: true, repushed }
@@ -249,8 +266,9 @@ export async function setProjectSuperintendent(projectId: string, superintendent
 // then re-push all linked phases so both sides match. Immediate, on demand.
 export async function syncNowProject(projectId: string) {
   try {
-    const { supabase, companyId, isManager } = await ctx()
+    const { supabase, companyId, isManager, canPush } = await ctx()
     if (!isManager) return { error: 'Only managers can sync' }
+    if (!canPush) return { error: PLAN_ERROR }
 
     const pulled = await pullLinkedEvents(supabase, companyId, 200, projectId)
 

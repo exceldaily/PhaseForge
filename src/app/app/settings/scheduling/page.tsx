@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation'
+import { CalendarCheck2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { canUseCalendarSync } from '@/lib/constants'
 import { googleConfigured } from '@/lib/scheduling/google'
+import { UpgradeGate } from '@/components/billing/UpgradeGate'
 import { SchedulingClient } from './SchedulingClient'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +17,23 @@ export default async function SchedulingSettingsPage() {
   const isAdmin = ['owner', 'admin'].includes(profile?.ops_role ?? '') ||
     ['owner', 'admin'].includes(profile?.role ?? '')
   if (!profile?.company_id || !isAdmin) redirect('/app/settings')
+
+  const [{ data: company }, connProbe] = await Promise.all([
+    supabase.from('companies').select('plan').eq('id', profile.company_id).single(),
+    supabase.from('gcal_connections').select('id')
+      .eq('company_id', profile.company_id).maybeSingle(),
+  ])
+  // Free orgs see the upsell — unless they already have a connection (from a
+  // paid period): those still get the page so they can disconnect and clear
+  // pending changes. Sync-forward actions stay plan-blocked server-side.
+  if (!canUseCalendarSync(company?.plan) && !connProbe.data) {
+    return (
+      <UpgradeGate icon={CalendarCheck2} title="Calendar sync is a paid feature">
+        Two-way Google Calendar sync — phases pushed as events, superintendent color routing,
+        and daily auto-sync — is available on the Individual, Pro, and Business plans.
+      </UpgradeGate>
+    )
+  }
 
   const [connRes, supsRes, labelsRes, pendingRes] = await Promise.all([
     // STATUS COLUMNS ONLY — encrypted token columns are never selected here.
