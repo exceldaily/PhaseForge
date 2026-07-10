@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus } from 'lucide-react'
 import {
@@ -23,8 +23,14 @@ function shiftDate(weekStart: string, days: number): string {
 }
 function mmdd(iso: string) { return `${iso.slice(5, 7)}/${iso.slice(8, 10)}` }
 
-export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit }: {
+function jobUrl(template: string | null, jobNumber: string | null): string | null {
+  if (!template || !jobNumber?.trim()) return null
+  return template.replace('{job}', encodeURIComponent(jobNumber.trim()))
+}
+
+export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null }: {
   teams: Team[]; teamId: string | null; weekStart: string; jobs: Job[]; canEdit: boolean
+  jobUrlTemplate?: string | null
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -57,7 +63,38 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit }: {
     run(() => updateRoster(teamId, roster.filter((r) => r !== name)))
   }
 
-  const copyAsText = async () => {
+  // Rich copy: pasting into Gmail/Outlook reproduces the bordered-table format
+  // (grey banding, yellow shift chip, Job# hyperlinked). Plain-text fallback
+  // included for SMS/plain editors.
+  const copyForEmail = async () => {
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const cellBase = 'border:1px solid #000;padding:4px 10px;font-family:Arial,sans-serif;font-size:13px;'
+    const blocks = jobs.map((j) => {
+      const url = jobUrl(jobUrlTemplate, j.job_number)
+      const jobCell = j.job_number
+        ? `Job#${url ? `<a href="${url}" style="color:#1a73e8;">${esc(j.job_number)}</a>` : esc(j.job_number)}`
+        : ''
+      const rows = Array.from({ length: 7 }, (_, d) => {
+        const grey = d % 2 === 0
+        const techs = (j.days[d] ?? []).map(esc)
+        const techCells = techs.length
+          ? techs.map((t) => `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${t}</td>`).join('')
+          : `<td style="${cellBase}${grey ? 'background:#d9d9d9;' : ''}" colspan="5">&nbsp;</td>`
+        return `<tr><td style="${cellBase}font-weight:bold;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
+      }).join('')
+      return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;min-width:520px;">
+        <tr>
+          <td style="${cellBase}font-weight:bold;font-size:15px;">${esc(j.title)}</td>
+          <td style="${cellBase}text-align:center;">${jobCell}</td>
+          <td style="${cellBase}font-weight:bold;text-align:center;">${mmdd(weekStart)}-${mmdd(weekEnd)}</td>
+          <td style="${cellBase}background:#ffff00;font-weight:bold;text-align:center;">${esc(j.shift_label ?? '')}</td>
+        </tr>
+        ${rows}
+      </table>`
+    }).join('')
+    const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)} — ${esc(team?.name ?? '')} Team</p>${blocks}</div>`
+
     const lines: string[] = [`${team?.name ?? 'Team'} — WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)}`, '']
     for (const j of jobs) {
       lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}${j.shift_label ? `  — ${j.shift_label}` : ''}`)
@@ -67,8 +104,18 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit }: {
       }
       lines.push('')
     }
-    await navigator.clipboard.writeText(lines.join('\n'))
-    setMsg('Schedule copied — paste into a text or email.')
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([lines.join('\n')], { type: 'text/plain' }),
+        }),
+      ])
+      setMsg('Copied — paste into Gmail/Outlook for the full table format (plain text in SMS).')
+    } catch {
+      await navigator.clipboard.writeText(lines.join('\n'))
+      setMsg('Copied as plain text (rich copy not supported in this browser).')
+    }
   }
 
   if (teams.length === 0) {
@@ -115,8 +162,8 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit }: {
                 </button>
               </>
             )}
-            <button onClick={copyAsText} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
-              <ClipboardCopy size={13} /> Copy as text
+            <button onClick={copyForEmail} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+              <ClipboardCopy size={13} /> Copy for email
             </button>
             <button onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <Printer size={13} /> Print / PDF
@@ -165,7 +212,7 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit }: {
             </p>
           ) : jobs.map((job) => (
             <JobBlock key={`${job.id}-${weekStart}`} job={job} weekStart={weekStart} roster={roster} canEdit={canEdit}
-              onChanged={() => router.refresh()} />
+              urlTemplate={jobUrlTemplate} onChanged={() => router.refresh()} />
           ))}
         </div>
       </div>
@@ -187,8 +234,9 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit }: {
   )
 }
 
-function JobBlock({ job, weekStart, roster, canEdit, onChanged }: {
-  job: Job; weekStart: string; roster: string[]; canEdit: boolean; onChanged: () => void
+function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, onChanged }: {
+  job: Job; weekStart: string; roster: string[]; canEdit: boolean
+  urlTemplate: string | null; onChanged: () => void
 }) {
   const [title, setTitle] = useState(job.title)
   const [jobNumber, setJobNumber] = useState(job.job_number ?? '')
@@ -226,6 +274,38 @@ function JobBlock({ job, weekStart, roster, canEdit, onChanged }: {
     })
   }
 
+  const addToDay = (d: number, name: string) => {
+    setDays((cur) => {
+      const list = cur[d] ?? []
+      if (list.includes(name)) return cur
+      const next = [...list, name]
+      void setDayTechs(job.id, d, next)
+      return { ...cur, [d]: next }
+    })
+  }
+
+  // Spreadsheet-style drag-fill: press a name chip and drag across day rows to
+  // assign that tech to every row you pass. A press without moving = normal
+  // toggle (handled on pointer-up so drags never accidentally toggle off).
+  const drag = useRef<{ name: string; fromDay: number; moved: boolean } | null>(null)
+  useEffect(() => {
+    const up = () => {
+      const d = drag.current
+      drag.current = null
+      if (d && !d.moved) toggleDay(d.fromDay, d.name)
+    }
+    window.addEventListener('pointerup', up)
+    return () => window.removeEventListener('pointerup', up)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const startDrag = (d: number, name: string) => { drag.current = { name, fromDay: d, moved: false } }
+  const dragEnterRow = (d: number) => {
+    const cur = drag.current
+    if (!cur || d === cur.fromDay && !cur.moved) return
+    if (!cur.moved) { cur.moved = true; addToDay(cur.fromDay, cur.name) }
+    addToDay(d, cur.name)
+  }
+
   const remove = () => {
     if (!confirm(`Delete "${title}" from this week?`)) return
     void deleteScheduleJob(job.id).then(onChanged)
@@ -243,6 +323,11 @@ function JobBlock({ job, weekStart, roster, canEdit, onChanged }: {
           <input value={jobNumber} readOnly={!canEdit} placeholder="—"
             onChange={(e) => { setJobNumber(e.target.value); saveHeader({ jobNumber: e.target.value }) }}
             className="w-20 bg-transparent font-semibold text-indigo-600 outline-none" />
+          {urlTemplate && jobNumber.trim() && (
+            <a href={urlTemplate.replace('{job}', encodeURIComponent(jobNumber.trim()))}
+              target="_blank" rel="noopener noreferrer" title="Open job in Kalos"
+              className="text-indigo-500 hover:text-indigo-700 print:hidden">↗</a>
+          )}
         </span>
         <input value={shift} readOnly={!canEdit} placeholder="DAYS 8AM"
           onChange={(e) => { setShift(e.target.value); saveHeader({ shiftLabel: e.target.value }) }}
@@ -268,7 +353,7 @@ function JobBlock({ job, weekStart, roster, canEdit, onChanged }: {
           {Array.from({ length: 7 }, (_, d) => {
             const assigned = days[d] ?? []
             return (
-              <tr key={d} className={`border-b border-slate-200 last:border-0 dark:border-slate-700 ${d % 2 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/40 print:bg-slate-100'}`}>
+              <tr key={d} onPointerEnter={() => dragEnterRow(d)} className={`border-b border-slate-200 last:border-0 dark:border-slate-700 ${d % 2 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/40 print:bg-slate-100'}`}>
                 <td className="w-32 border-r border-slate-200 px-3 py-1.5 text-[13px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">
                   {DAY_NAMES[d]} {mmdd(shiftDate(weekStart, d))}
                 </td>
@@ -276,11 +361,13 @@ function JobBlock({ job, weekStart, roster, canEdit, onChanged }: {
                   {canEdit ? (
                     <div className="flex flex-wrap gap-1">
                       {roster.map((name) => (
-                        <Chip key={name} name={name} small on={assigned.includes(name)} onClick={() => toggleDay(d, name)} />
+                        <Chip key={name} name={name} small on={assigned.includes(name)}
+                          onPointerDown={() => startDrag(d, name)} />
                       ))}
                       {/* Names not on the roster (legacy/typed) still shown, removable */}
                       {assigned.filter((n) => !roster.includes(n)).map((name) => (
-                        <Chip key={name} name={name} small on onClick={() => toggleDay(d, name)} />
+                        <Chip key={name} name={name} small on
+                          onPointerDown={() => startDrag(d, name)} />
                       ))}
                     </div>
                   ) : (
@@ -298,11 +385,15 @@ function JobBlock({ job, weekStart, roster, canEdit, onChanged }: {
   )
 }
 
-function Chip({ name, on, onClick, small }: { name: string; on: boolean; onClick: () => void; small?: boolean }) {
+function Chip({ name, on, onClick, onPointerDown, small }: {
+  name: string; on: boolean; onClick?: () => void; onPointerDown?: () => void; small?: boolean
+}) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-full font-medium transition-colors print:hidden ${small ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} ${on
+      onPointerDown={onPointerDown}
+      style={onPointerDown ? { touchAction: 'none' } : undefined}
+      className={`select-none rounded-full font-medium transition-colors print:hidden ${small ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} ${on
         ? 'bg-indigo-600 text-white'
         : 'bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:text-slate-600 hover:ring-slate-300 dark:bg-slate-800 dark:ring-slate-700'}`}
     >
