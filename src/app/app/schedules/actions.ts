@@ -86,6 +86,42 @@ export async function setDayTechs(scheduleJobId: string, day: number, techs: str
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// Update a team's crew roster (the names available for quick-tap scheduling).
+export async function updateRoster(superintendentId: string, roster: string[]) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const clean = [...new Set(roster.map((r) => r.trim()).filter(Boolean))]
+    const { error } = await supabase.from('superintendents')
+      .update({ roster: clean }).eq('id', superintendentId).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Toggle one tech on/off for EVERY day of a job's week in one call.
+export async function setWeekTech(scheduleJobId: string, tech: string, on: boolean) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const name = tech.trim()
+    if (!name) return { error: 'No name' }
+    const { data: rows } = await supabase.from('schedule_assignments')
+      .select('day, techs').eq('schedule_job_id', scheduleJobId)
+    const byDay = new Map((rows ?? []).map((r) => [r.day, r.techs as string[]]))
+    for (let day = 0; day < 7; day++) {
+      const cur = byDay.get(day) ?? []
+      const next = on ? [...new Set([...cur, name])] : cur.filter((t) => t !== name)
+      await supabase.from('schedule_assignments').upsert({
+        company_id: companyId, schedule_job_id: scheduleJobId, day, techs: next,
+      }, { onConflict: 'schedule_job_id,day' })
+    }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // The "master auto-advance" workflow: copy an entire team week (jobs + techs)
 // into the target week. Skips if the target week already has jobs for the team.
 export async function copyWeek(superintendentId: string, fromWeekStart: string, toWeekStart: string) {
