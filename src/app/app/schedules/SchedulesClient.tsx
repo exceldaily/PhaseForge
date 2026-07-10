@@ -314,7 +314,9 @@ export function SchedulesClient({ teams, teamId, weekStart, jobs, canEdit, jobUr
         </aside>
 
         <div className="schedule-print-root flex-1 overflow-y-auto bg-slate-100 p-4 dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
-        <div className="mx-auto max-w-3xl space-y-4">
+        {/* Wide cap: big rosters (12+ names) need room so day rows keep chips on
+            one line. Print is unaffected — the print root is forced to 7.5in. */}
+        <div className="mx-auto max-w-[1400px] space-y-4">
           <div className="hidden text-center print:block">
             <h1 className="text-lg font-bold">WEEKLY SCHEDULE {mmdd(weekStart)}–{mmdd(weekEnd)}</h1>
             <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{team?.name} Team</p>
