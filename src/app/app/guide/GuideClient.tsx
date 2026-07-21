@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList, Contact, FolderKanban,
-  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, PhoneCall, Play, Radio, Search,
+  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Radio, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour'
@@ -39,24 +39,6 @@ const OPERATIONS_SECTIONS: GuideSection[] = [
       { heading: 'Staff & roles', text: 'The Staff page shows every member with an operations role: Owner, Admin, Dispatcher, Project Manager, Billing, Staff/Technician, or Read Only. Roles control what each person can see and do — e.g. Billing users manage invoices but staff records stay hidden, and technicians only see calls assigned to them. Track divisions, skills, and certifications with expiration warnings.' },
       { heading: 'Vendors', text: 'Subcontractor records with trades, coverage areas, contacts, and insurance/license expiration alerts. Assign vendors to calls and watch compliance dates on the vendor cards.' },
       { heading: 'Files & invoices', text: 'Files is a company-wide library plus attachments linked to customers, calls, projects, and more. Invoices is an invoice-ready workflow: flag completed calls as "Invoice ready", pull them into a draft, add line items, and print to PDF — no payment processing.' },
-    ],
-  },
-  {
-    id: 'calls',
-    icon: PhoneCall,
-    title: 'Calls / Work Orders',
-    summary: 'Dispatch-grade service call tracking with SLA alerts and new-update highlights.',
-    href: '/app/calls',
-    hrefLabel: 'Open Calls',
-    items: [
-      { heading: 'Three views', text: 'Work the queue as a list (densest), cards, or a status board. The list auto-sorts by what needs attention: new updates first, then SLA risk, then priority and age.' },
-      { heading: 'Queue chips', text: 'One-tap smart queues above the filters: All Active, New Updates, No Tech or Vendor, SLA Overdue, Aging 7d+, and Invoice Ready — each with a live count. Tap a chip to jump to that queue; chips with zero items hide themselves.' },
-      { heading: 'Equipment updates', text: 'When a call is linked to an asset, the call drawer shows an Equipment Update section with readings matched to the trade — HVAC gets pressures/superheat/subcooling, refrigeration gets case temps and defrost checks, electrical gets voltage/amps, plumbing gets pressure and leak checks. Attach photos to each reading; recent history shows right in the drawer.' },
-      { heading: 'Yellow means new', text: 'When someone adds a note to a call, it lights up yellow with a NEW UPDATE badge for everyone who has not seen it. Opening the call marks it read for you.' },
-      { heading: 'SLA & aging', text: 'Calls with an SLA target or due date turn orange within 24 hours and red once overdue. Every row shows how many days the call has been open and when it was last touched.' },
-      { heading: 'Detail drawer', text: 'Click any call to edit status, priority, assignment, and dates inline. Add categorized notes (internal, customer, vendor, parts, scheduling, quote, completion) and insert saved note templates.' },
-      { heading: 'Make it yours', text: 'Terminology (Calls, Work Orders, Service Requests, Jobs), statuses, priorities, and required completion fields are configurable per organization — commercial, residential, and construction templates supported.' },
-      { heading: 'Invoice ready', text: 'Flag a finished call as Invoice Ready and it appears in the Invoices module, ready to pull onto a draft invoice.' },
     ],
   },
 ]
@@ -321,17 +303,17 @@ const SECTIONS: GuideSection[] = [
     id: 'dispatch',
     icon: Radio,
     title: 'Dispatch',
-    summary: 'Service call tracking, ticketing, and work order management (enabled per organization).',
+    summary: 'The service-call command center: prioritized queue, kanban, stores, techs, and full call history. Paid plans.',
     href: '/app/dispatch',
     hrefLabel: 'Open Dispatch',
     items: [
-      { heading: 'Overview', text: 'Dispatch is a flexible board system for tracking service calls, punch items, maintenance requests, and other division-specific tickets. It is enabled per organization and hidden from organizations that don\'t have it turned on.' },
-      { heading: 'Boards', text: 'Each organization can have multiple Dispatch boards — one per division or workflow (e.g. Refrigeration Service, Construction Punch, EMS/Controls). Each board has its own columns, card fields, and vendor list.' },
-      { heading: 'Columns', text: 'Columns represent the workflow stages for that board. Example stages for a refrigeration board: New Call → Reviewing → Forwarded to Vendor → Scheduled → Waiting on Parts → In Progress → Completed → Closed.' },
-      { heading: 'Cards', text: 'Each card is a service call, ticket, or work order. Kalos service call fields include Store, Urgency, Date Started, SC #, Kalos Job #, ETA/Scheduled, Rack/Circuit/Case, Description, Part Ordered, Who, and Notes. The Kalos Job # field is highlighted in red when blank — assign it as soon as the job number is created.' },
-      { heading: 'Activity log', text: 'Every card has a full activity timeline: card created, status changes, field edits, notes added, emails received, vendor replies, and more. Each entry records who did it and when, giving a complete history of the service call.' },
-      { heading: 'Vendors', text: 'Assign a vendor to any card, with optional vendor email. Vendor information is stored per organization and can be assigned to cards when forwarding service calls.' },
-      { heading: 'Email integration (coming)', text: 'Dispatch is designed to receive service calls from Gmail automatically: parse the store, urgency, SC#, and description from an incoming email, create a card, and track all replies in the same thread. Gmail Thread ID is stored on every card to prevent duplicates.' },
+      { heading: 'The queue', text: 'Every open service call, auto-ranked by what needs attention first: urgent calls, new auto-imported calls awaiting review, missing ETAs, unassigned calls, parts received and ready to schedule, aging calls. Search and filter by customer, store, status, urgency, tech, part/proposal status, or date range. Closed calls hide by default — flip "Show closed" to see them.' },
+      { heading: 'Kanban view', text: 'The same calls as workflow lanes: Needs Dispatch → Waiting on Vendor → Waiting on Parts → Ready to Schedule → Scheduled / In Progress → Closed. A call\'s lane is derived automatically from its status, parts, and proposal state.' },
+      { heading: 'Creating a call', text: 'New Call captures the store, an External section (the customer\'s Service Call # plus a tracking link) and an Internal section (your own Job # plus its link), urgency or the customer\'s priority level (P1, P2…), dates, assigned tech, rack/circuit/case, NTE dollar cap, part and proposal status, manager note, and description.' },
+      { heading: 'Your own fields', text: 'Add extra fillable blanks to the call card (PO #, Landlord contact, Asset tag — whatever your workflow needs) right from the New Call form or under Manage → Card Fields. Fields you add appear on every call going forward; removing one keeps values already saved.' },
+      { heading: 'Working a call', text: 'Open any call to edit everything inline: status, priority, dates, multi-tech assignment, links, NTE. Add categorized notes (customer, vendor, parts, scheduling…) and see the full activity timeline — every status change, assignment, ETA change, and note, with who and when. A suggested Next Action is computed from the call\'s state; you can override it.' },
+      { heading: 'Stores, techs & customers', text: 'Under Manage: your store/site list (numbers, names, map links), your tech and vendor roster, and customer accounts (ALDI, Walmart…) each with its own priority scale that maps P-codes to internal urgency.' },
+      { heading: 'Who can do what', text: 'Owners, admins, managers, and dispatchers manage everything; changing a Service Call # is admin-only since it re-keys the call\'s identity. Dispatch is available on Individual, Pro, and Business plans.' },
     ],
   },
 ]

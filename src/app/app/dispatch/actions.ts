@@ -1,607 +1,445 @@
 'use server'
 
+// Dispatch server actions — ported from DispatchForge, re-scoped to
+// PhaseForge companies/profiles. Unlike the source, status/assignment/date
+// changes are activity-logged server-side so the timeline is complete.
+
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { DEFAULT_DISPATCH_CARD_FIELDS, normalizeDispatchCardFields } from '@/lib/dispatchFields'
-import { sendTicketForward } from '@/lib/brevo'
 import { canUseTickets } from '@/lib/constants'
+import type {
+  CallStatus, NextAction, NoteCategory, PartStatus, ProposalStatus, Urgency,
+} from '@/lib/dispatch/types'
 
-// ── Auth helpers ──────────────────────────────────────────────────────────────
+const PATH = '/app/dispatch'
 
-async function requireDispatchAccess() {
+async function ctx() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  const { data: profile } = await supabase
+  if (!user) throw new Error('Not signed in')
+  const { data: p } = await supabase
     .from('profiles')
-    .select('role, company_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.company_id) throw new Error('No company')
-
-  const { data: company } = await supabase
-    .from('companies')
-    .select('plan, dispatch_enabled')
-    .eq('id', profile.company_id)
-    .single()
-
-  if (!canUseTickets(company?.plan) && !company?.dispatch_enabled) throw new Error('Tickets not available on your current plan')
-
-  return { supabase, userId: user.id, companyId: profile.company_id, role: profile.role }
+    .select('company_id, ops_role, role, companies(plan, dispatch_enabled)')
+    .eq('id', user.id).single()
+  if (!p?.company_id) throw new Error('No organization')
+  const co = p.companies as { plan?: string; dispatch_enabled?: boolean } | null
+  if (!canUseTickets(co?.plan) && !co?.dispatch_enabled) throw new Error('Dispatch requires a paid plan')
+  // Management: full control incl. deletes, manager notes, store identity.
+  const isManagement = ['owner', 'admin', 'manager', 'dispatcher'].includes(p.ops_role ?? '') ||
+    ['owner', 'admin'].includes(p.role ?? '')
+  const isAdmin = ['owner', 'admin'].includes(p.ops_role ?? '') || ['owner', 'admin'].includes(p.role ?? '')
+  return { supabase, userId: user.id, companyId: p.company_id, isManagement, isAdmin }
 }
-
-async function requireDispatchManager() {
-  const ctx = await requireDispatchAccess()
-  if (!['owner', 'admin', 'manager'].includes(ctx.role)) throw new Error('Not authorized')
-  return ctx
-}
-
-// ── Activity log helper ───────────────────────────────────────────────────────
 
 async function logActivity(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  opts: {
-    cardId: string
-    companyId: string
-    userId: string
-    actorName?: string
-    activityType: string
-    message: string
-    fieldName?: string
-    oldValue?: string
-    newValue?: string
-  }
+  callId: string, userId: string, activityType: string,
+  previous: string | null, next: string | null,
 ) {
-  await supabase.from('dispatch_activity_logs').insert({
-    card_id: opts.cardId,
-    company_id: opts.companyId,
-    actor_type: 'user',
-    actor_id: opts.userId,
-    actor_name: opts.actorName ?? null,
-    activity_type: opts.activityType,
-    message: opts.message,
-    field_name: opts.fieldName ?? null,
-    old_value: opts.oldValue ?? null,
-    new_value: opts.newValue ?? null,
+  await supabase.from('dispatch_call_activity').insert({
+    call_id: callId, user_id: userId, activity_type: activityType,
+    previous_value: previous, new_value: next,
   })
 }
 
-// ── Board CRUD ────────────────────────────────────────────────────────────────
+export interface CreateCallInput {
+  store_id: string
+  service_call_number: string
+  tracking_url?: string | null
+  internal_job_number?: string | null
+  internal_job_url?: string | null
+  urgency: Urgency
+  priority_level_id?: string | null
+  status: CallStatus
+  date_started: string
+  eta_scheduled?: string | null
+  scheduled_date?: string | null
+  rack_circuit_case?: string | null
+  description: string
+  manager_note?: string | null
+  assigned_vendor_id?: string | null
+  part_status: PartStatus
+  proposal_status: ProposalStatus
+  nte?: number | null
+  custom_fields?: Record<string, string>
+}
 
-export async function createDispatchBoard(formData: FormData) {
+export async function createServiceCall(input: CreateCallInput) {
   try {
-    const { supabase, userId, companyId } = await requireDispatchManager()
+    const { supabase, userId, companyId } = await ctx()
 
-    const name = String(formData.get('name') ?? '').trim()
-    const description = String(formData.get('description') ?? '').trim() || null
-    const columnsJson = String(formData.get('columns') ?? '[]')
-    const cardFieldsJson = String(formData.get('card_fields') ?? '[]')
-
-    if (!name) return { error: 'Board name is required' }
-
-    let columnDefs: Array<{ name: string; color: string; is_done: boolean }> = []
-    try {
-      columnDefs = JSON.parse(columnsJson)
-    } catch {
-      return { error: 'Invalid column data' }
+    const payload: Record<string, unknown> = { ...input, company_id: companyId }
+    // A chosen priority level always drives the internal urgency bucket.
+    if (input.priority_level_id) {
+      const { data: level } = await supabase
+        .from('dispatch_priority_levels').select('severity')
+        .eq('id', input.priority_level_id).single()
+      if (level) payload.urgency = level.severity
     }
-
-    if (columnDefs.length < 1) return { error: 'At least one column is required' }
-
-    let cardFields = DEFAULT_DISPATCH_CARD_FIELDS
-    try {
-      cardFields = normalizeDispatchCardFields(JSON.parse(cardFieldsJson))
-    } catch {
-      return { error: 'Invalid card field data' }
-    }
-
-    let { data: board, error: boardErr } = await supabase
-      .from('dispatch_boards')
-      .insert({ company_id: companyId, name, description, card_fields: cardFields, created_by: userId })
-      .select()
-      .single()
-
-    if (boardErr && boardErr.message.toLowerCase().includes('card_fields')) {
-      const retry = await supabase
-        .from('dispatch_boards')
-        .insert({ company_id: companyId, name, description, created_by: userId })
-        .select()
-        .single()
-      board = retry.data
-      boardErr = retry.error
-    }
-
-    if (boardErr || !board) return { error: boardErr?.message ?? 'Failed to create board' }
-
-    // Insert columns
-    const colRows = columnDefs.map((c, i) => ({
-      board_id: board.id,
-      company_id: companyId,
-      name: c.name,
-      color: c.color || '#94a3b8',
-      sort_order: i,
-      is_done: c.is_done ?? false,
-    }))
-
-    const { error: colErr } = await supabase.from('dispatch_columns').insert(colRows)
-    if (colErr) return { error: colErr.message }
-
-    revalidatePath('/app/dispatch')
-    return { boardId: board.id }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function updateDispatchBoard(boardId: string, updates: { name?: string; description?: string; is_active?: boolean }) {
-  try {
-    const { supabase, companyId } = await requireDispatchManager()
-
-    const { error } = await supabase
-      .from('dispatch_boards')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', boardId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    revalidatePath('/app/dispatch')
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function deleteDispatchBoard(boardId: string) {
-  try {
-    const { supabase, companyId, role } = await requireDispatchAccess()
-    if (!['owner', 'admin'].includes(role)) return { error: 'Only admins can delete boards' }
-
-    const { error } = await supabase
-      .from('dispatch_boards')
-      .delete()
-      .eq('id', boardId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    revalidatePath('/app/dispatch')
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-// ── Column CRUD ───────────────────────────────────────────────────────────────
-
-export async function createDispatchColumn(boardId: string, name: string, color = '#94a3b8', isDone = false) {
-  try {
-    const { supabase, companyId } = await requireDispatchManager()
-
-    const { data: existing } = await supabase
-      .from('dispatch_columns')
-      .select('sort_order')
-      .eq('board_id', boardId)
-      .order('sort_order', { ascending: false })
-      .limit(1)
-
-    const nextOrder = ((existing?.[0]?.sort_order ?? -1) + 1)
-
-    const { error } = await supabase.from('dispatch_columns').insert({
-      board_id: boardId,
-      company_id: companyId,
-      name: name.trim(),
-      color,
-      sort_order: nextOrder,
-      is_done: isDone,
-    })
-
-    if (error) return { error: error.message }
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function updateDispatchColumn(columnId: string, boardId: string, updates: { name?: string; color?: string; is_done?: boolean; sort_order?: number }) {
-  try {
-    const { supabase, companyId } = await requireDispatchManager()
-
-    const { error } = await supabase
-      .from('dispatch_columns')
-      .update(updates)
-      .eq('id', columnId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function deleteDispatchColumn(columnId: string, boardId: string) {
-  try {
-    const { supabase, companyId } = await requireDispatchManager()
-
-    // Move any cards in this column to null (unassigned)
-    await supabase
-      .from('dispatch_cards')
-      .update({ column_id: null })
-      .eq('column_id', columnId)
-      .eq('company_id', companyId)
-
-    const { error } = await supabase
-      .from('dispatch_columns')
-      .delete()
-      .eq('id', columnId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-// ── Card CRUD ─────────────────────────────────────────────────────────────────
-
-export async function createDispatchCard(formData: FormData) {
-  try {
-    const { supabase, userId, companyId } = await requireDispatchAccess()
-
-    const boardId   = String(formData.get('boardId') ?? '').trim()
-    const columnId  = String(formData.get('columnId') ?? '').trim() || null
-    const store     = String(formData.get('store') ?? '').trim() || null
-    const urgency   = String(formData.get('urgency') ?? 'medium')
-    const scNumber  = String(formData.get('sc_number') ?? '').trim() || null
-    const kalosJob  = String(formData.get('kalos_job_number') ?? '').trim() || null
-    const desc      = String(formData.get('description') ?? '').trim() || null
-    const dateStart = String(formData.get('date_started') ?? '').trim() || null
-    const eta       = String(formData.get('eta_scheduled') ?? '').trim()
-    const rackCase  = String(formData.get('rack_circuit_case') ?? '').trim() || null
-    const notes     = String(formData.get('notes') ?? '').trim() || null
-    const assigned  = String(formData.get('assigned_to') ?? '').trim() || null
-    const vendorId  = String(formData.get('vendor_id') ?? '').trim() || null
-    const vendorEmail = String(formData.get('vendor_email') ?? '').trim() || null
-    const who       = String(formData.get('who_ordered') ?? '').trim() || null
-    const partOrdered = String(formData.get('part_ordered') ?? '') === 'true'
-    const needsReview = String(formData.get('needs_review') ?? '') === 'true'
-    const alertAt   = String(formData.get('alert_at') ?? '').trim() || null
-    const alertNote = String(formData.get('alert_note') ?? '').trim() || null
-
-    if (!boardId) return { error: 'Board ID required' }
-
-    const { data: card, error } = await supabase
-      .from('dispatch_cards')
-      .insert({
-        company_id: companyId,
-        board_id: boardId,
-        column_id: columnId,
-        store,
-        urgency,
-        sc_number: scNumber,
-        kalos_job_number: kalosJob,
-        description: desc,
-        date_started: dateStart || null,
-        eta_scheduled: eta ? new Date(eta).toISOString() : null,
-        rack_circuit_case: rackCase,
-        part_ordered: partOrdered,
-        who_ordered: who,
-        notes,
-        assigned_to: assigned,
-        vendor_id: vendorId,
-        vendor_email: vendorEmail,
-        needs_review: needsReview,
-        alert_at: alertAt ? new Date(alertAt).toISOString() : null,
-        alert_note: alertNote,
-        source: 'manual',
-        created_by: userId,
-      })
-      .select()
-      .single()
-
-    if (error || !card) return { error: error?.message ?? 'Failed to create card' }
-
-    await logActivity(supabase, {
-      cardId: card.id,
-      companyId,
-      userId,
-      activityType: 'card_created',
-      message: 'Card created',
-    })
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { cardId: card.id }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function updateDispatchCard(cardId: string, boardId: string, updates: Record<string, unknown>, changeLog?: { field: string; label: string; oldValue: string; newValue: string }[]) {
-  try {
-    const { supabase, userId, companyId } = await requireDispatchAccess()
-
-    const { error } = await supabase
-      .from('dispatch_cards')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', cardId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    // Log each changed field
-    for (const change of changeLog ?? []) {
-      if (change.oldValue !== change.newValue) {
-        await logActivity(supabase, {
-          cardId,
-          companyId,
-          userId,
-          activityType: 'field_changed',
-          message: `${change.label} updated`,
-          fieldName: change.field,
-          oldValue: change.oldValue || undefined,
-          newValue: change.newValue || undefined,
-        })
-      }
-    }
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function moveDispatchCard(cardId: string, boardId: string, newColumnId: string | null, newColumnName: string, oldColumnName: string) {
-  try {
-    const { supabase, userId, companyId } = await requireDispatchAccess()
-
-    const { error } = await supabase
-      .from('dispatch_cards')
-      .update({ column_id: newColumnId, updated_at: new Date().toISOString() })
-      .eq('id', cardId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    await logActivity(supabase, {
-      cardId,
-      companyId,
-      userId,
-      activityType: 'status_changed',
-      message: `Moved from "${oldColumnName}" to "${newColumnName}"`,
-      fieldName: 'column',
-      oldValue: oldColumnName,
-      newValue: newColumnName,
-    })
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function closeDispatchCard(cardId: string, boardId: string) {
-  try {
-    const { supabase, userId, companyId } = await requireDispatchAccess()
-
-    const now = new Date().toISOString()
-    const { error } = await supabase
-      .from('dispatch_cards')
-      .update({ closed_at: now, updated_at: now })
-      .eq('id', cardId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    await logActivity(supabase, {
-      cardId,
-      companyId,
-      userId,
-      activityType: 'card_closed',
-      message: 'Card closed',
-    })
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function reopenDispatchCard(cardId: string, boardId: string) {
-  try {
-    const { supabase, userId, companyId } = await requireDispatchAccess()
-
-    const { error } = await supabase
-      .from('dispatch_cards')
-      .update({ closed_at: null, updated_at: new Date().toISOString() })
-      .eq('id', cardId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    await logActivity(supabase, {
-      cardId,
-      companyId,
-      userId,
-      activityType: 'card_reopened',
-      message: 'Card reopened',
-    })
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function deleteDispatchCard(cardId: string, boardId: string) {
-  try {
-    const { supabase, companyId } = await requireDispatchManager()
-
-    const { error } = await supabase
-      .from('dispatch_cards')
-      .delete()
-      .eq('id', cardId)
-      .eq('company_id', companyId)
-
-    if (error) return { error: error.message }
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-// ── Activity notes ────────────────────────────────────────────────────────────
-
-export async function addDispatchNote(cardId: string, boardId: string, message: string) {
-  try {
-    const { supabase, userId, companyId } = await requireDispatchAccess()
-
-    const msg = message.trim()
-    if (!msg) return { error: 'Note cannot be empty' }
-
-    await logActivity(supabase, {
-      cardId,
-      companyId,
-      userId,
-      activityType: 'note_added',
-      message: msg,
-    })
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
-}
-
-export async function getDispatchActivity(cardId: string) {
-  try {
-    const { supabase, companyId } = await requireDispatchAccess()
 
     const { data, error } = await supabase
-      .from('dispatch_activity_logs')
-      .select(`*, actor:profiles!dispatch_activity_logs_actor_id_fkey(id, full_name, avatar_url)`)
-      .eq('card_id', cardId)
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: true })
-
+      .from('dispatch_service_calls').insert(payload).select('id, status').single()
     if (error) return { error: error.message }
-    return { logs: data ?? [] }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
+    await logActivity(supabase, data.id, userId, 'call_created', null, data.status)
+    if (input.assigned_vendor_id) {
+      await supabase.from('dispatch_call_vendors')
+        .insert({ call_id: data.id, vendor_id: input.assigned_vendor_id })
+    }
+    revalidatePath(PATH, 'layout')
+    return { ok: true, id: data.id as string }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed to create call' } }
 }
 
-// ── Vendor CRUD ───────────────────────────────────────────────────────────────
-
-export async function createDispatchVendor(formData: FormData) {
-  try {
-    const { supabase, companyId } = await requireDispatchManager()
-
-    const name  = String(formData.get('name') ?? '').trim()
-    const email = String(formData.get('email') ?? '').trim() || null
-    const phone = String(formData.get('phone') ?? '').trim() || null
-    const notes = String(formData.get('notes') ?? '').trim() || null
-
-    if (!name) return { error: 'Vendor name is required' }
-
-    const { data, error } = await supabase
-      .from('dispatch_vendors')
-      .insert({ company_id: companyId, name, email, phone, notes })
-      .select()
-      .single()
-
-    if (error) return { error: error.message }
-
-    revalidatePath('/app/dispatch')
-    return { vendor: data }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
+export interface UpdateCallInput {
+  service_call_number?: string
+  status?: CallStatus
+  urgency?: Urgency
+  priority_level_id?: string | null
+  next_action?: NextAction
+  eta_scheduled?: string | null
+  scheduled_date?: string | null
+  assigned_vendor_id?: string | null
+  part_status?: PartStatus
+  proposal_status?: ProposalStatus
+  tracking_url?: string | null
+  internal_job_number?: string | null
+  internal_job_url?: string | null
+  rack_circuit_case?: string | null
+  description?: string
+  manager_note?: string | null
+  completed_date?: string | null
+  nte?: number | null
+  custom_fields?: Record<string, string>
 }
 
-export async function updateDispatchVendor(vendorId: string, updates: { name?: string; email?: string; phone?: string; notes?: string; is_active?: boolean }) {
+export async function updateServiceCall(callId: string, patch: UpdateCallInput) {
   try {
-    const { supabase, companyId } = await requireDispatchManager()
+    const { supabase, userId, companyId, isManagement, isAdmin } = await ctx()
+
+    if ('manager_note' in patch && !isManagement) {
+      return { error: 'Only managers or dispatchers can change the manager note.' }
+    }
+    // Changing the call number re-keys the call's external identity — admin only.
+    if ('service_call_number' in patch) {
+      const trimmed = patch.service_call_number?.trim()
+      if (!trimmed) return { error: "Service call number can't be empty." }
+      patch.service_call_number = trimmed
+      if (!isAdmin) return { error: 'Only admins can change the service call number.' }
+    }
+
+    if (patch.priority_level_id) {
+      const { data: level } = await supabase
+        .from('dispatch_priority_levels').select('severity')
+        .eq('id', patch.priority_level_id).single()
+      if (level) patch.urgency = level.severity as Urgency
+    }
+
+    const { data: before } = await supabase
+      .from('dispatch_service_calls')
+      .select('status, assigned_vendor_id, eta_scheduled, scheduled_date, next_action')
+      .eq('id', callId).eq('company_id', companyId).single()
+    if (!before) return { error: 'Call not found' }
+
+    if (patch.status === 'completed' && !patch.completed_date && before.status !== 'completed') {
+      patch.completed_date = new Date().toISOString()
+    }
 
     const { error } = await supabase
-      .from('dispatch_vendors')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', vendorId)
-      .eq('company_id', companyId)
-
+      .from('dispatch_service_calls').update(patch)
+      .eq('id', callId).eq('company_id', companyId)
     if (error) return { error: error.message }
 
-    revalidatePath('/app/dispatch')
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
+    // Activity trail for the changes that matter operationally.
+    if (patch.status !== undefined && patch.status !== before.status) {
+      await logActivity(supabase, callId, userId, 'status_change', before.status, patch.status)
+    }
+    if (patch.assigned_vendor_id !== undefined && patch.assigned_vendor_id !== before.assigned_vendor_id) {
+      await logActivity(supabase, callId, userId, 'assignment_change', before.assigned_vendor_id, patch.assigned_vendor_id)
+    }
+    if (patch.eta_scheduled !== undefined && patch.eta_scheduled !== before.eta_scheduled) {
+      await logActivity(supabase, callId, userId, 'eta_change', before.eta_scheduled, patch.eta_scheduled)
+    }
+    if (patch.scheduled_date !== undefined && patch.scheduled_date !== before.scheduled_date) {
+      await logActivity(supabase, callId, userId, 'schedule_change', before.scheduled_date, patch.scheduled_date)
+    }
+    if (patch.next_action !== undefined && patch.next_action !== before.next_action) {
+      await logActivity(supabase, callId, userId, 'next_action_change', before.next_action, patch.next_action)
+    }
+
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed to update call' } }
 }
 
-export async function forwardTicketEmail(cardId: string, boardId: string, toEmail: string, subject: string, body: string) {
+// Clears the "needs review" flag on an auto-imported call.
+export async function acknowledgeCall(callId: string) {
   try {
-    const { supabase, userId, companyId } = await requireDispatchAccess()
+    const { supabase, userId, companyId } = await ctx()
+    const { error } = await supabase.from('dispatch_service_calls')
+      .update({ needs_acknowledgment: false }).eq('id', callId).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    await logActivity(supabase, callId, userId, 'acknowledged', null, null)
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
 
-    const result = await sendTicketForward(toEmail, subject, body)
-    if (!result.success) return { error: result.error ?? 'Failed to send email' }
+// Replaces the full set of techs on a call; the first becomes primary.
+export async function assignVendorsToCall(callId: string, vendorIds: string[]) {
+  try {
+    const { supabase, userId, companyId } = await ctx()
+    const { data: before } = await supabase
+      .from('dispatch_service_calls').select('assigned_vendor_id')
+      .eq('id', callId).eq('company_id', companyId).single()
+    if (!before) return { error: 'Call not found' }
 
-    await logActivity(supabase, {
-      cardId,
-      companyId,
-      userId,
-      activityType: 'email_forwarded',
-      message: `Ticket forwarded to ${toEmail}`,
-      newValue: toEmail,
+    const { error: delErr } = await supabase.from('dispatch_call_vendors').delete().eq('call_id', callId)
+    if (delErr) return { error: delErr.message }
+    if (vendorIds.length > 0) {
+      const { error: insErr } = await supabase.from('dispatch_call_vendors')
+        .insert(vendorIds.map((vendor_id) => ({ call_id: callId, vendor_id })))
+      if (insErr) return { error: insErr.message }
+    }
+    const newPrimary = vendorIds[0] ?? null
+    const { error } = await supabase.from('dispatch_service_calls')
+      .update({ assigned_vendor_id: newPrimary }).eq('id', callId)
+    if (error) return { error: error.message }
+    if (newPrimary !== before.assigned_vendor_id) {
+      await logActivity(supabase, callId, userId, 'assignment_change', before.assigned_vendor_id, newPrimary)
+    }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function addCallNote(callId: string, category: NoteCategory, text: string) {
+  try {
+    const { supabase, userId } = await ctx()
+    if (!text.trim()) return { error: 'Note text is required' }
+    const { error } = await supabase.from('dispatch_call_notes').insert({
+      call_id: callId, user_id: userId, note_category: category, note_text: text.trim(),
     })
-
-    revalidatePath(`/app/dispatch/${boardId}`)
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
+    if (error) return { error: error.message }
+    await logActivity(supabase, callId, userId, 'note_added', null, category)
+    // Bump updated_at so "days since update" reflects the note.
+    await supabase.from('dispatch_service_calls')
+      .update({ updated_at: new Date().toISOString() }).eq('id', callId)
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
-export async function updateBoardSettings(formData: FormData) {
+export async function deleteServiceCall(callId: string) {
   try {
-    const { supabase, companyId, role } = await requireDispatchAccess()
-    if (!['owner', 'admin'].includes(role)) return { error: 'Admin access required' }
-
-    const boardId = formData.get('boardId') as string
-    const gmailLabel = (formData.get('gmailLabel') as string).trim() || null
-    const gmailDefaultColumnId = (formData.get('gmailDefaultColumnId') as string).trim() || null
-
-    const { error } = await supabase
-      .from('dispatch_boards')
-      .update({
-        gmail_label: gmailLabel,
-        gmail_default_column_id: gmailDefaultColumnId || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', boardId)
-      .eq('company_id', companyId)
-
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Only managers or dispatchers can delete calls.' }
+    const { error } = await supabase.from('dispatch_service_calls')
+      .delete().eq('id', callId).eq('company_id', companyId)
     if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
 
-    revalidatePath('/app/dispatch')
-    return { success: true }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Unknown error' }
-  }
+// ── Stores ──────────────────────────────────────────────────────────────────
+
+export interface StoreInput {
+  store_number?: string
+  store_name?: string
+  customer_id?: string | null
+  address?: string | null
+  city?: string | null
+  state?: string | null
+  google_maps_url?: string | null
+  store_manager?: string | null
+  district_manager?: string | null
+  main_tech_id?: string | null
+  notes?: string | null
+}
+
+export async function createStore(input: StoreInput) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!input.store_number?.trim() || !input.store_name?.trim()) {
+      return { error: 'Store number and name are required' }
+    }
+    const { data, error } = await supabase.from('dispatch_stores').insert({
+      ...input, store_number: input.store_number.trim(), store_name: input.store_name.trim(),
+      company_id: companyId,
+    }).select('id').single()
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true, id: data.id as string }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function updateStore(storeId: string, patch: StoreInput) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    // Store identity is management-only; other fields are open to all members.
+    const touchesIdentity = ['store_name', 'store_number', 'google_maps_url'].some((f) => f in patch)
+    if (touchesIdentity && !isManagement) {
+      return { error: 'Only managers or dispatchers can change store details.' }
+    }
+    const { error } = await supabase.from('dispatch_stores')
+      .update(patch).eq('id', storeId).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function deleteStore(storeId: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const { error } = await supabase.from('dispatch_stores')
+      .delete().eq('id', storeId).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// ── Customers + priority scales ─────────────────────────────────────────────
+
+export async function createCustomer(name: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!name.trim()) return { error: 'Name is required' }
+    const { data, error } = await supabase.from('dispatch_customers')
+      .insert({ name: name.trim(), company_id: companyId }).select('id').single()
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true, id: data.id as string }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function deleteCustomer(id: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const { error } = await supabase.from('dispatch_customers')
+      .delete().eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export interface PriorityLevelInput {
+  customer_id: string
+  code: string
+  label: string
+  severity: Urgency
+  sort_order: number
+}
+
+export async function createPriorityLevel(input: PriorityLevelInput) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const { data, error } = await supabase.from('dispatch_priority_levels')
+      .insert({ ...input, company_id: companyId }).select('id').single()
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true, id: data.id as string }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function deletePriorityLevel(id: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const { error } = await supabase.from('dispatch_priority_levels')
+      .delete().eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// ── Techs / vendors ─────────────────────────────────────────────────────────
+
+export interface TechInput {
+  name?: string
+  company?: string | null
+  email?: string | null
+  phone?: string | null
+  trade_type?: string | null
+  active?: boolean
+}
+
+export async function createTech(input: TechInput) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!input.name?.trim()) return { error: 'Name is required' }
+    const { data, error } = await supabase.from('dispatch_techs').insert({
+      ...input, name: input.name.trim(), company_id: companyId,
+    }).select('id').single()
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true, id: data.id as string }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function updateTech(id: string, patch: TechInput) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const { error } = await supabase.from('dispatch_techs')
+      .update(patch).eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function deleteTech(id: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const { error } = await supabase.from('dispatch_techs')
+      .delete().eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// ── Custom form fields (the org's own "fillable blanks" on the call card) ───
+
+export async function addFormField(label: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!label.trim()) return { error: 'Field label is required' }
+    const { data: existing } = await supabase.from('dispatch_form_fields')
+      .select('sort_order').eq('company_id', companyId)
+      .order('sort_order', { ascending: false }).limit(1)
+    const next = existing?.length ? existing[0].sort_order + 1 : 0
+    const { data, error } = await supabase.from('dispatch_form_fields')
+      .insert({ company_id: companyId, label: label.trim(), sort_order: next })
+      .select('id').single()
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true, id: data.id as string }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function removeFormField(id: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    // Deletes the DEFINITION only — values already saved on calls stay in
+    // their custom_fields jsonb (harmless, just no longer rendered).
+    const { error } = await supabase.from('dispatch_form_fields')
+      .delete().eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
