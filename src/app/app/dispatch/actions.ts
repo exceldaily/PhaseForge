@@ -569,6 +569,26 @@ export async function linkMyTech(techId: string) {
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// Rows light up red/yellow this many hours before a call's ETA — per org.
+export async function updateEtaAlertSettings(redHours: number, yellowHours: number) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const red = Math.round(redHours); const yellow = Math.round(yellowHours)
+    if (!Number.isFinite(red) || !Number.isFinite(yellow) || red < 1 || yellow < 1 || red > 720 || yellow > 720) {
+      return { error: 'Hours must be between 1 and 720.' }
+    }
+    if (red > yellow) return { error: 'Red hours must be at or below yellow hours.' }
+    const { error } = await supabase.from('dispatch_company_settings').upsert({
+      company_id: companyId, eta_red_hours: red, eta_yellow_hours: yellow,
+      updated_at: new Date().toISOString(),
+    })
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // Built-in call-card fields an org can remove from its forms (values already
 // saved on calls keep showing). Only these names are accepted.
 const OPTIONAL_BUILTIN_FIELDS = ['rack_circuit_case']

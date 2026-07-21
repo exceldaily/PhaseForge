@@ -56,7 +56,7 @@ const SORT_LABEL: Record<QueueSort, string> = {
   eta_desc: 'ETA Latest',
 }
 
-export function DispatchClient({ stores, vendors, customers, assets, priorityLevels, formFields, hiddenBuiltinFields, calls, canEdit }: {
+export function DispatchClient({ stores, vendors, customers, assets, priorityLevels, formFields, hiddenBuiltinFields, etaRedHours, etaYellowHours, calls, canEdit }: {
   stores: Store[]
   vendors: Vendor[]
   customers: Customer[]
@@ -64,6 +64,8 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   hiddenBuiltinFields: string[]
+  etaRedHours: number
+  etaYellowHours: number
   calls: CallWithRelations[]
   canEdit: boolean
 }) {
@@ -71,7 +73,6 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
   const [view, setView] = useState<'list' | 'kanban'>('list')
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<CallFilters>(EMPTY_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showManage, setShowManage] = useState(false)
   const [openCallId, setOpenCallId] = useState<string | null>(null)
@@ -107,9 +108,8 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
   }, [activeSection, visible, workQueue, sections, sort, showClosed, filters.status])
 
   const openCall = openCallId ? prioritized.find((c) => c.id === openCallId) ?? null : null
-  const activeFilterCount = Object.entries(filters).filter(([k, v]) =>
-    Array.isArray(v) ? v.length > 0 : v !== '' && v !== 0 && k !== 'minDaysOpen' || (k === 'minDaysOpen' && v !== 0),
-  ).length
+  // Subtitle counts ignore filters — the true size of the active workload.
+  const allActive = useMemo(() => buildUniqueWorkQueue(prioritized), [prioritized])
 
   const set = <K extends keyof CallFilters>(k: K, v: CallFilters[K]) => setFilters((f) => ({ ...f, [k]: v }))
 
@@ -117,38 +117,16 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
     <div className="flex h-full flex-col">
       {/* ── Header ── */}
       <div className="border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <Radio size={16} className="text-indigo-500" /> Dispatch
-          </span>
-          <div className="flex overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-            <button onClick={() => setView('list')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium ${view === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-              <List size={13} /> List
-            </button>
-            <button onClick={() => setView('kanban')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium ${view === 'kanban' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-              <KanbanSquare size={13} /> Kanban
-            </button>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h1 className="flex items-center gap-1.5 text-base font-bold text-slate-900 dark:text-slate-100">
+              <Radio size={16} className="text-indigo-500" /> Dispatch Command Center
+            </h1>
+            <p className="mt-0.5 text-xs text-slate-400">
+              {allActive.length} unique active {allActive.length === 1 ? 'call' : 'calls'} across {stores.length} {stores.length === 1 ? 'store' : 'stores'}
+            </p>
           </div>
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search calls, stores, techs…"
-              className="w-56 rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-xs outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800"
-            />
-          </div>
-          <button onClick={() => setShowFilters((s) => !s)}
-            className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${showFilters || activeFilterCount ? 'border-indigo-300 text-indigo-600' : 'border-slate-200 text-slate-500 dark:border-slate-700'}`}>
-            Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
-          </button>
-          <label className="flex items-center gap-1.5 text-xs text-slate-500">
-            <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="accent-indigo-600" />
-            Show closed
-          </label>
-          <div className="ml-auto flex gap-2">
+          <div className="flex gap-2">
             {canEdit && (
               <>
                 <button onClick={() => setShowManage(true)}
@@ -164,8 +142,34 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
           </div>
         </div>
 
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <div className="flex overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+            <button onClick={() => setView('list')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium ${view === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <List size={13} /> List
+            </button>
+            <button onClick={() => setView('kanban')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium ${view === 'kanban' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+              <KanbanSquare size={13} /> Kanban
+            </button>
+          </div>
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search store #, call #, job #, tech, description…"
+              className="w-64 rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-xs outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800"
+            />
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-slate-500">
+            <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="accent-indigo-600" />
+            Show closed
+          </label>
+        </div>
+
         {/* ── Filter bar ── */}
-        {showFilters && (
+        {(
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <select className={selectCls} value={filters.customerId} onChange={(e) => set('customerId', e.target.value)}>
               <option value="">All customers</option>
@@ -254,11 +258,9 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
           </div>
         ) : view === 'list' ? (
           <div className="mx-auto max-w-6xl space-y-2">
-            {activeSection !== 'all' && (
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                {SMART_SECTION_LABELS[activeSection]} ({listCalls.length})
-              </p>
-            )}
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {activeSection === 'all' ? SORT_LABEL[sort] : SMART_SECTION_LABELS[activeSection]} ({listCalls.length})
+            </p>
             {listCalls.length === 0 && (
               <p className="py-16 text-center text-sm text-slate-400">
                 {activeSection === 'all'
@@ -267,7 +269,8 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
               </p>
             )}
             {listCalls.map((call) => (
-              <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)} />
+              <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)}
+                etaAlert={{ redHours: etaRedHours, yellowHours: etaYellowHours }} />
             ))}
           </div>
         ) : (
@@ -301,6 +304,7 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
           stores={stores} vendors={vendors} customers={customers}
           priorityLevels={priorityLevels} formFields={formFields}
           hiddenBuiltinFields={hiddenBuiltinFields}
+          etaRedHours={etaRedHours} etaYellowHours={etaYellowHours}
           onClose={() => setShowManage(false)}
           onChanged={() => router.refresh()}
         />

@@ -39,6 +39,9 @@ export interface DispatchData {
   formFields: DispatchFormField[]
   // Built-in call-card fields this org removed from its forms (e.g. rack_circuit_case).
   hiddenBuiltinFields: string[]
+  // Rows turn red/yellow this many hours before a call's ETA.
+  etaRedHours: number
+  etaYellowHours: number
   calls: CallWithRelations[]
 }
 
@@ -53,7 +56,7 @@ export async function getDispatchData(): Promise<DispatchData> {
     supabase.from('assets').select('id, customer_id, name, asset_type, make, model, status').order('name'),
     supabase.from('dispatch_priority_levels').select('*').order('sort_order'),
     supabase.from('dispatch_form_fields').select('*').eq('is_active', true).order('sort_order'),
-    supabase.from('dispatch_company_settings').select('hidden_builtin_fields').maybeSingle(),
+    supabase.from('dispatch_company_settings').select('hidden_builtin_fields, eta_red_hours, eta_yellow_hours').maybeSingle(),
     supabase.from('dispatch_service_calls').select(
       '*, store:dispatch_stores(*, customer:customers(name)), ' +
       'customer:customers(name), ' +
@@ -100,6 +103,8 @@ export async function getDispatchData(): Promise<DispatchData> {
     priorityLevels: (levelsRes.data ?? []) as PriorityLevel[],
     formFields: (fieldsRes.data ?? []) as DispatchFormField[],
     hiddenBuiltinFields: settingsRes.data?.hidden_builtin_fields ?? [],
+    etaRedHours: settingsRes.data?.eta_red_hours ?? 12,
+    etaYellowHours: settingsRes.data?.eta_yellow_hours ?? 24,
     calls,
   }
 }

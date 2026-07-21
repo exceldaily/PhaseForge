@@ -11,7 +11,7 @@ import { linkMyTech } from '@/app/app/dispatch/actions'
 import { CallRow } from './CallRow'
 import { CallDetailPanel } from './CallDetailPanel'
 
-export function MyWorkClient({ myTech, techs, calls, vendors, assets, priorityLevels, formFields, hiddenBuiltinFields, canEdit }: {
+export function MyWorkClient({ myTech, techs, calls, vendors, assets, priorityLevels, formFields, hiddenBuiltinFields, etaRedHours = 12, etaYellowHours = 24, canEdit }: {
   myTech: Vendor | null
   techs: Vendor[]
   calls: CallWithRelations[]
@@ -20,6 +20,8 @@ export function MyWorkClient({ myTech, techs, calls, vendors, assets, priorityLe
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   hiddenBuiltinFields: string[]
+  etaRedHours?: number
+  etaYellowHours?: number
   canEdit: boolean
 }) {
   const router = useRouter()
@@ -90,7 +92,8 @@ export function MyWorkClient({ myTech, techs, calls, vendors, assets, priorityLe
           ) : (
             <div className="space-y-2">
               {active.map((call) => (
-                <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)} />
+                <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)}
+                  etaAlert={{ redHours: etaRedHours, yellowHours: etaYellowHours }} />
               ))}
             </div>
           )}
@@ -103,7 +106,8 @@ export function MyWorkClient({ myTech, techs, calls, vendors, assets, priorityLe
             </h2>
             <div className="space-y-2">
               {done.map((call) => (
-                <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)} />
+                <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)}
+                  etaAlert={{ redHours: etaRedHours, yellowHours: etaYellowHours }} />
               ))}
             </div>
           </section>
