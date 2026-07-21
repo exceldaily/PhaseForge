@@ -7,7 +7,9 @@ import type {
   CallStatus, CallWithRelations, Customer, DispatchAsset, DispatchFormField, PartStatus,
   PrioritizedCall, PriorityLevel, ProposalStatus, Store, Urgency, Vendor,
 } from '@/lib/dispatch/types'
-import { prioritizeCalls } from '@/lib/dispatch/priorityEngine'
+import {
+  buildSmartSections, buildUniqueWorkQueue, prioritizeCalls, SMART_SECTION_LABELS, type SmartSection,
+} from '@/lib/dispatch/priorityEngine'
 import { applyCallFilters, EMPTY_FILTERS, matchesSearch, type CallFilters } from '@/lib/dispatch/filters'
 import { titleCase } from '@/lib/dispatch/utils'
 import { CallRow } from './CallRow'
@@ -26,6 +28,33 @@ const PART_STATUSES: PartStatus[] = ['none', 'part_needed', 'ordered', 'received
 const PROPOSAL_STATUSES: ProposalStatus[] = ['none', 'quote_requested', 'sent', 'approved', 'parts_received', 'rejected']
 
 const selectCls = 'rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+
+// Command Center smart-section chips (ported from DispatchForge).
+const SECTION_ORDER: SmartSection[] = [
+  'new_unacknowledged', 'needs_dispatch', 'no_tech', 'missing_eta', 'follow_up', 'parts_received',
+  'proposal_approved', 'scheduled_today', 'scheduled_tomorrow', 'aging', 'recently_completed',
+]
+
+const SECTION_ACCENT: Record<SmartSection, string> = {
+  new_unacknowledged: 'border-sky-300 text-sky-700 dark:border-sky-500/40 dark:text-sky-400',
+  needs_dispatch: 'border-red-300 text-red-700 dark:border-red-500/40 dark:text-red-400',
+  no_tech: 'border-orange-300 text-orange-700 dark:border-orange-500/40 dark:text-orange-400',
+  missing_eta: 'border-orange-300 text-orange-700 dark:border-orange-500/40 dark:text-orange-400',
+  follow_up: 'border-amber-300 text-amber-700 dark:border-amber-500/40 dark:text-amber-400',
+  parts_received: 'border-teal-300 text-teal-700 dark:border-teal-500/40 dark:text-teal-300',
+  proposal_approved: 'border-teal-300 text-teal-700 dark:border-teal-500/40 dark:text-teal-300',
+  scheduled_today: 'border-blue-300 text-blue-700 dark:border-blue-500/40 dark:text-blue-300',
+  scheduled_tomorrow: 'border-blue-200 text-blue-700/80 dark:border-blue-500/30 dark:text-blue-400/80',
+  aging: 'border-rose-300 text-rose-700 dark:border-rose-500/40 dark:text-rose-400',
+  recently_completed: 'border-emerald-200 text-emerald-700/80 dark:border-emerald-500/30 dark:text-emerald-500/70',
+}
+
+type QueueSort = 'smart' | 'eta_asc' | 'eta_desc'
+const SORT_LABEL: Record<QueueSort, string> = {
+  smart: 'Smart Priority',
+  eta_asc: 'ETA Soonest',
+  eta_desc: 'ETA Latest',
+}
 
 export function DispatchClient({ stores, vendors, customers, assets, priorityLevels, formFields, hiddenBuiltinFields, calls, canEdit }: {
   stores: Store[]
@@ -47,15 +76,35 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
   const [showManage, setShowManage] = useState(false)
   const [openCallId, setOpenCallId] = useState<string | null>(null)
   const [showClosed, setShowClosed] = useState(false)
+  const [activeSection, setActiveSection] = useState<SmartSection | 'all'>('all')
+  const [sort, setSort] = useState<QueueSort>('smart')
 
   const prioritized = useMemo(() => prioritizeCalls(calls), [calls])
+  const filteredAll = useMemo(
+    () => applyCallFilters(prioritized, filters).filter((c) => matchesSearch(c, query)),
+    [prioritized, filters, query],
+  )
+  // Kanban and the closed toggle keep the pre-sections behavior.
   const visible = useMemo(() => {
-    let rows = applyCallFilters(prioritized, filters).filter((c) => matchesSearch(c, query))
-    if (!showClosed && !filters.status) {
-      rows = rows.filter((c) => c.status !== 'completed' && c.status !== 'cancelled')
-    }
-    return rows
-  }, [prioritized, filters, query, showClosed])
+    if (showClosed || filters.status) return filteredAll
+    return filteredAll.filter((c) => c.status !== 'completed' && c.status !== 'cancelled')
+  }, [filteredAll, filters.status, showClosed])
+  const sections = useMemo(() => buildSmartSections(filteredAll), [filteredAll])
+  const workQueue = useMemo(() => buildUniqueWorkQueue(filteredAll), [filteredAll])
+  const listCalls = useMemo(() => {
+    const base = activeSection === 'all'
+      ? (showClosed || filters.status ? visible : workQueue)
+      : sections[activeSection]
+    if (sort === 'smart') return base
+    return [...base].sort((a, b) => {
+      const at = a.eta_scheduled ? new Date(a.eta_scheduled).getTime() : null
+      const bt = b.eta_scheduled ? new Date(b.eta_scheduled).getTime() : null
+      if (at === null && bt === null) return b.priority_score - a.priority_score
+      if (at === null) return 1
+      if (bt === null) return -1
+      return sort === 'eta_asc' ? at - bt : bt - at
+    })
+  }, [activeSection, visible, workQueue, sections, sort, showClosed, filters.status])
 
   const openCall = openCallId ? prioritized.find((c) => c.id === openCallId) ?? null : null
   const activeFilterCount = Object.entries(filters).filter(([k, v]) =>
@@ -162,6 +211,34 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
             </button>
           </div>
         )}
+
+        {/* ── Smart section chips (Command Center) ── */}
+        {view === 'list' && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <button onClick={() => setActiveSection('all')}
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-300 ${
+                activeSection === 'all' ? 'bg-slate-200/70 dark:bg-slate-700/60' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}>
+              All Active <span className="opacity-70">{workQueue.length}</span>
+            </button>
+            {SECTION_ORDER.map((key) => (
+              <button key={key} onClick={() => setActiveSection(activeSection === key ? 'all' : key)}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${SECTION_ACCENT[key]} ${
+                  activeSection === key ? 'bg-slate-200/70 dark:bg-slate-700/60' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}>
+                {SMART_SECTION_LABELS[key]} <span className="opacity-70">{sections[key].length}</span>
+              </button>
+            ))}
+            <label className="ml-auto flex items-center gap-1.5 text-xs text-slate-500">
+              Sort
+              <select value={sort} onChange={(e) => setSort(e.target.value as QueueSort)} className={selectCls}>
+                {(Object.keys(SORT_LABEL) as QueueSort[]).map((v) => (
+                  <option key={v} value={v}>{SORT_LABEL[v]}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* ── Body ── */}
@@ -177,10 +254,19 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
           </div>
         ) : view === 'list' ? (
           <div className="mx-auto max-w-6xl space-y-2">
-            {visible.length === 0 && (
-              <p className="py-16 text-center text-sm text-slate-400">No calls match — adjust filters or create one.</p>
+            {activeSection !== 'all' && (
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                {SMART_SECTION_LABELS[activeSection]} ({listCalls.length})
+              </p>
             )}
-            {visible.map((call) => (
+            {listCalls.length === 0 && (
+              <p className="py-16 text-center text-sm text-slate-400">
+                {activeSection === 'all'
+                  ? 'Nothing needs attention right now. All calls are up to date, assigned, and scheduled.'
+                  : 'No calls in this section.'}
+              </p>
+            )}
+            {listCalls.map((call) => (
               <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)} />
             ))}
           </div>

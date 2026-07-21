@@ -474,6 +474,101 @@ export async function removeFormField(id: string) {
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// ── On-call rotation ────────────────────────────────────────────────────────
+
+export async function addOnCallParticipant(name: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!name.trim()) return { error: 'Name is required' }
+    const { data: existing } = await supabase.from('dispatch_on_call_participants')
+      .select('sort_order').eq('company_id', companyId)
+      .order('sort_order', { ascending: false }).limit(1)
+    const next = existing?.length ? existing[0].sort_order + 1 : 0
+    const { error } = await supabase.from('dispatch_on_call_participants')
+      .insert({ company_id: companyId, name: name.trim(), sort_order: next })
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function renameOnCallParticipant(id: string, name: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!name.trim()) return { error: 'Name is required' }
+    const { error } = await supabase.from('dispatch_on_call_participants')
+      .update({ name: name.trim() }).eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function removeOnCallParticipant(id: string) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    const { error } = await supabase.from('dispatch_on_call_participants')
+      .delete().eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function reorderOnCallParticipants(orderedIds: string[]) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await supabase.from('dispatch_on_call_participants')
+        .update({ sort_order: i }).eq('id', orderedIds[i]).eq('company_id', companyId)
+      if (error) return { error: error.message }
+    }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+export async function updateOnCallSettings(input: { anchor_date: string; rotation_interval: string }) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!['week', 'biweek', 'month'].includes(input.rotation_interval)) return { error: 'Bad interval' }
+    const { error } = await supabase.from('dispatch_on_call_settings').upsert({
+      company_id: companyId, anchor_date: input.anchor_date,
+      rotation_interval: input.rotation_interval, updated_at: new Date().toISOString(),
+    })
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// ── My Work: link the signed-in member to a tech record ─────────────────────
+
+export async function linkMyTech(techId: string) {
+  try {
+    const { supabase, userId, companyId, isManagement } = await ctx()
+    const { data: tech } = await supabase.from('dispatch_techs')
+      .select('id, profile_id').eq('id', techId).eq('company_id', companyId).single()
+    if (!tech) return { error: 'Tech not found' }
+    if (tech.profile_id && tech.profile_id !== userId && !isManagement) {
+      return { error: 'That tech is already linked to another member.' }
+    }
+    // Release any tech previously claimed by this member, then claim.
+    await supabase.from('dispatch_techs')
+      .update({ profile_id: null }).eq('company_id', companyId).eq('profile_id', userId)
+    const { error } = await supabase.from('dispatch_techs')
+      .update({ profile_id: userId }).eq('id', techId).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // Built-in call-card fields an org can remove from its forms (values already
 // saved on calls keep showing). Only these names are accepted.
 const OPTIONAL_BUILTIN_FIELDS = ['rack_circuit_case']

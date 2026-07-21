@@ -99,6 +99,8 @@ export interface Vendor {
   phone: string | null
   trade_type: string | null
   active: boolean
+  // Signed-in member this tech corresponds to — powers My Work.
+  profile_id?: string | null
   created_at: string
 }
 
