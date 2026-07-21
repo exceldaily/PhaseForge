@@ -7,7 +7,9 @@ import type {
   PrioritizedCall, PriorityLevel, ProposalStatus, Urgency, Vendor,
 } from '@/lib/dispatch/types'
 import { recommendNextAction } from '@/lib/dispatch/priorityEngine'
-import { calendarDateKey, dateInputToNoonUtc, formatDateTime, formatEta, titleCase } from '@/lib/dispatch/utils'
+import {
+  calendarDateKey, dateInputToNoonUtc, etaInputToIso, etaTimeKey, formatDateTime, formatEta, titleCase,
+} from '@/lib/dispatch/utils'
 import {
   acknowledgeCall, addCallNote, assignVendorsToCall, deleteServiceCall, updateServiceCall,
 } from '@/app/app/dispatch/actions'
@@ -35,12 +37,13 @@ function Label({ children }: { children: React.ReactNode }) {
   return <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{children}</label>
 }
 
-export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, formFields, canEdit, onClose, onChanged }: {
+export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, formFields, hiddenBuiltinFields = [], canEdit, onClose, onChanged }: {
   call: PrioritizedCall
   vendors: Vendor[]
   assets?: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
+  hiddenBuiltinFields?: string[]
   canEdit: boolean
   onClose: () => void
   onChanged: () => void
@@ -50,9 +53,13 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
   const [noteCategory, setNoteCategory] = useState<NoteCategory>('internal_note')
   const [savingNote, setSavingNote] = useState(false)
   const [tab, setTab] = useState<'details' | 'notes' | 'activity'>('details')
+  const [etaDate, setEtaDate] = useState(calendarDateKey(call.eta_scheduled))
+  const [etaTime, setEtaTime] = useState(etaTimeKey(call.eta_scheduled))
 
+  // Store-less (customer-only) calls carry the customer directly.
+  const callCustomerId = call.customer_id ?? call.store?.customer_id ?? null
   const customerLevels = priorityLevels
-    .filter((p) => p.customer_id === call.store.customer_id)
+    .filter((p) => p.customer_id === callCustomerId)
     .sort((a, b) => a.sort_order - b.sort_order)
   const recommended = recommendNextAction(call)
 
@@ -61,6 +68,15 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
     const res = await updateServiceCall(call.id, p)
     if (res && 'error' in res && res.error) setError(res.error)
     else onChanged()
+  }
+
+  // Saves the ETA only when the combined date+time actually changed, so
+  // tabbing between the two inputs doesn't spam updates.
+  const commitEta = (nextDate: string, nextTime: string) => {
+    const nextIso = nextDate ? etaInputToIso(nextDate, nextTime || null) : null
+    const prevMs = call.eta_scheduled ? new Date(call.eta_scheduled).getTime() : null
+    const nextMs = nextIso ? new Date(nextIso).getTime() : null
+    if (prevMs !== nextMs) void patch({ eta_scheduled: nextIso })
   }
 
   const toggleVendor = async (vendorId: string) => {
@@ -95,7 +111,7 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                #{call.store.store_number} {call.store.store_name}
+                {call.store ? `#${call.store.store_number} ${call.store.store_name}` : call.customer_name ?? 'No location'}
               </p>
               <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <span className="font-semibold text-indigo-600">
@@ -105,13 +121,8 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                       </a>
                     : call.service_call_number}
                 </span>
-                {call.internal_job_number && (
-                  <span>Job {call.internal_job_url
-                    ? <a href={call.internal_job_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-indigo-500 hover:underline">{call.internal_job_number}</a>
-                    : <b>{call.internal_job_number}</b>}
-                  </span>
-                )}
-                {call.customer_name && <span>{call.customer_name}</span>}
+                {call.internal_job_number && <span>Job <b>{call.internal_job_number}</b></span>}
+                {call.store && call.customer_name && <span>{call.customer_name}</span>}
                 <span>{call.days_open}d open</span>
                 {call.nte != null && <span>NTE ${Number(call.nte).toLocaleString()}</span>}
               </p>
@@ -174,8 +185,15 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
               </div>
               <div>
                 <Label>ETA (intake) — currently {formatEta(call.eta_scheduled)}</Label>
-                <input type="date" className={inputCls} defaultValue={calendarDateKey(call.eta_scheduled)} readOnly={!canEdit}
-                  onBlur={(e) => { if (canEdit) void patch({ eta_scheduled: e.target.value ? dateInputToNoonUtc(e.target.value) : null }) }} />
+                <div className="flex gap-1.5">
+                  <input type="date" className={inputCls} value={etaDate} readOnly={!canEdit}
+                    onChange={(e) => setEtaDate(e.target.value)}
+                    onBlur={() => { if (canEdit) commitEta(etaDate, etaTime) }} />
+                  <input type="time" className={inputCls} style={{ maxWidth: '6.5rem' }} value={etaTime}
+                    readOnly={!canEdit} disabled={!etaDate} title="Exact time (optional)"
+                    onChange={(e) => setEtaTime(e.target.value)}
+                    onBlur={() => { if (canEdit) commitEta(etaDate, etaTime) }} />
+                </div>
               </div>
               <div>
                 <Label>Scheduled Date</Label>
@@ -224,7 +242,7 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                   onChange={(e) => void patch({ asset_id: e.target.value || null })}>
                   <option value="">—</option>
                   {assets
-                    .filter((a) => a.customer_id === call.store.customer_id || a.id === call.asset_id)
+                    .filter((a) => a.customer_id === callCustomerId || a.id === call.asset_id)
                     .map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}{a.asset_type ? ` · ${a.asset_type}` : ''}
@@ -232,11 +250,13 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                     ))}
                 </select>
               </div>
-              <div>
-                <Label>Rack / Circuit / Case</Label>
-                <input className={inputCls} defaultValue={call.rack_circuit_case ?? ''} readOnly={!canEdit}
-                  onBlur={(e) => { if (canEdit && e.target.value !== (call.rack_circuit_case ?? '')) void patch({ rack_circuit_case: e.target.value.trim() || null }) }} />
-              </div>
+              {(!hiddenBuiltinFields.includes('rack_circuit_case') || call.rack_circuit_case) && (
+                <div>
+                  <Label>Rack / Circuit / Case</Label>
+                  <input className={inputCls} defaultValue={call.rack_circuit_case ?? ''} readOnly={!canEdit}
+                    onBlur={(e) => { if (canEdit && e.target.value !== (call.rack_circuit_case ?? '')) void patch({ rack_circuit_case: e.target.value.trim() || null }) }} />
+                </div>
+              )}
               <div>
                 <Label>NTE ($)</Label>
                 <input type="number" step="0.01" min="0" className={inputCls} defaultValue={call.nte ?? ''} readOnly={!canEdit}
@@ -248,13 +268,9 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                   onBlur={(e) => { if (canEdit && e.target.value !== (call.tracking_url ?? '')) void patch({ tracking_url: e.target.value.trim() || null }) }} />
               </div>
               <div>
-                <Label>Internal Job # / Link</Label>
-                <div className="flex gap-1.5">
-                  <input className={inputCls} defaultValue={call.internal_job_number ?? ''} readOnly={!canEdit} placeholder="Job #"
-                    onBlur={(e) => { if (canEdit && e.target.value !== (call.internal_job_number ?? '')) void patch({ internal_job_number: e.target.value.trim() || null }) }} />
-                  <input type="url" className={inputCls} defaultValue={call.internal_job_url ?? ''} readOnly={!canEdit} placeholder="URL"
-                    onBlur={(e) => { if (canEdit && e.target.value !== (call.internal_job_url ?? '')) void patch({ internal_job_url: e.target.value.trim() || null }) }} />
-                </div>
+                <Label>Internal Job #</Label>
+                <input className={inputCls} defaultValue={call.internal_job_number ?? ''} readOnly={!canEdit} placeholder="Job #"
+                  onBlur={(e) => { if (canEdit && e.target.value !== (call.internal_job_number ?? '')) void patch({ internal_job_number: e.target.value.trim() || null }) }} />
               </div>
               {formFields.map((f) => (
                 <div key={f.id}>

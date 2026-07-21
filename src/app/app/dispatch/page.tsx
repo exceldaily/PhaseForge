@@ -34,6 +34,7 @@ export default async function DispatchPage() {
       assets={data.assets}
       priorityLevels={data.priorityLevels}
       formFields={data.formFields}
+      hiddenBuiltinFields={data.hiddenBuiltinFields}
       calls={data.calls}
       canEdit={ctx.canEdit}
     />

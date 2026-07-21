@@ -32,9 +32,9 @@ export function CallRow({ call, onOpen }: { call: PrioritizedCall; onOpen: () =>
       className="block w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-900">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-          #{call.store.store_number} {call.store.store_name}
+          {call.store ? `#${call.store.store_number} ${call.store.store_name}` : call.customer_name ?? 'No location'}
         </span>
-        {call.customer_name && <span className="text-xs text-slate-400">{call.customer_name}</span>}
+        {call.store && call.customer_name && <span className="text-xs text-slate-400">{call.customer_name}</span>}
         <span className="text-xs font-semibold text-indigo-600">
           {call.tracking_url
             ? <a href={call.tracking_url} target="_blank" rel="noopener noreferrer"
@@ -44,14 +44,7 @@ export function CallRow({ call, onOpen }: { call: PrioritizedCall; onOpen: () =>
             : call.service_call_number}
         </span>
         {call.internal_job_number && (
-          <span className="text-xs text-slate-500">
-            Job {call.internal_job_url
-              ? <a href={call.internal_job_url} target="_blank" rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()} className="font-semibold text-indigo-500 hover:underline">
-                  {call.internal_job_number}
-                </a>
-              : <b>{call.internal_job_number}</b>}
-          </span>
+          <span className="text-xs text-slate-500">Job <b>{call.internal_job_number}</b></span>
         )}
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${URGENCY_COLORS[call.urgency]}`}>
           {call.priority_level ? call.priority_level.code : call.urgency}

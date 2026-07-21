@@ -126,11 +126,13 @@ export interface DispatchFormField {
 export interface ServiceCall {
   id: string
   company_id: string
-  store_id: string
+  // Every call belongs to a customer and/or a store — residential-style
+  // customers may have no store/location at all.
+  store_id: string | null
+  customer_id: string | null
   service_call_number: string
   tracking_url: string | null
   internal_job_number: string | null
-  internal_job_url: string | null
   urgency: Urgency
   priority_level_id: string | null
   status: CallStatus
@@ -179,7 +181,7 @@ export interface CallActivity {
 
 // Denormalized shape used throughout the UI so components don't re-join on render.
 export interface CallWithRelations extends ServiceCall {
-  store: Store
+  store: Store | null
   customer_name: string | null
   vendor: Vendor | null
   vendors: Vendor[]

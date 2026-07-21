@@ -30,6 +30,19 @@ export function dateInputToNoonUtc(value: string): string {
   return `${value}T12:00:00.000Z`
 }
 
+// ETA convention (see formatEta): wall-clock stored as UTC; midnight = no
+// exact time given, so the UI shows a date only.
+export function etaInputToIso(date: string, time?: string | null): string {
+  return `${date}T${time ? `${time}:00` : '00:00:00'}.000Z`
+}
+
+// The HH:MM for a time input from a stored ETA — '' when it's date-only.
+export function etaTimeKey(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  const time = dateStr.slice(11, 16)
+  return time === '00:00' ? '' : time
+}
+
 export function localDateKey(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')

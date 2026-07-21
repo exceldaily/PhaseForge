@@ -27,13 +27,14 @@ const PROPOSAL_STATUSES: ProposalStatus[] = ['none', 'quote_requested', 'sent', 
 
 const selectCls = 'rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
 
-export function DispatchClient({ stores, vendors, customers, assets, priorityLevels, formFields, calls, canEdit }: {
+export function DispatchClient({ stores, vendors, customers, assets, priorityLevels, formFields, hiddenBuiltinFields, calls, canEdit }: {
   stores: Store[]
   vendors: Vendor[]
   customers: Customer[]
   assets: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
+  hiddenBuiltinFields: string[]
   calls: CallWithRelations[]
   canEdit: boolean
 }) {
@@ -165,13 +166,13 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
 
       {/* ── Body ── */}
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-100 p-4 dark:bg-slate-950">
-        {stores.length === 0 ? (
+        {stores.length === 0 && customers.length === 0 && calls.length === 0 ? (
           <div className="mx-auto max-w-md py-16 text-center">
             <Radio size={36} className="mx-auto text-slate-300" />
             <p className="mt-3 text-sm font-medium text-slate-600 dark:text-slate-300">Set up Dispatch</p>
             <p className="mt-1 text-sm text-slate-400">
-              Add your stores and techs first — open <b>Manage</b> above. Then create service calls
-              and this becomes your prioritized dispatch queue.
+              Add your customers, stores, and techs first — open <b>Manage</b> above. Then create
+              service calls and this becomes your prioritized dispatch queue.
             </p>
           </div>
         ) : view === 'list' ? (
@@ -193,6 +194,7 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
         <NewCallModal
           stores={stores} vendors={vendors} customers={customers} assets={assets}
           priorityLevels={priorityLevels} formFields={formFields}
+          hiddenBuiltinFields={hiddenBuiltinFields}
           canEdit={canEdit}
           onClose={() => setShowNew(false)}
           onCreated={() => { setShowNew(false); router.refresh() }}
@@ -202,6 +204,7 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
         <CallDetailPanel
           call={openCall as PrioritizedCall}
           vendors={vendors} assets={assets} priorityLevels={priorityLevels} formFields={formFields}
+          hiddenBuiltinFields={hiddenBuiltinFields}
           canEdit={canEdit}
           onClose={() => setOpenCallId(null)}
           onChanged={() => router.refresh()}
@@ -211,6 +214,7 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
         <ManageModal
           stores={stores} vendors={vendors} customers={customers}
           priorityLevels={priorityLevels} formFields={formFields}
+          hiddenBuiltinFields={hiddenBuiltinFields}
           onClose={() => setShowManage(false)}
           onChanged={() => router.refresh()}
         />
