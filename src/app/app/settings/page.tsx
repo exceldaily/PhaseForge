@@ -71,7 +71,7 @@ export default async function SettingsPage() {
             </div>
             <div>
               <h2 className="font-semibold text-slate-900">Scheduling &amp; Calendar</h2>
-              <p className="text-sm text-slate-500">Google Calendar connection, superintendents, SCH labels</p>
+              <p className="text-sm text-slate-500">Google Calendar connection, superintendents, schedule labels</p>
             </div>
           </div>
           <Link href="/app/settings/scheduling" className="text-sm font-medium text-indigo-600 hover:underline">

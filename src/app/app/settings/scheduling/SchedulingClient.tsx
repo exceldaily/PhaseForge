@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calendar, CheckCircle2, AlertTriangle, Plus, Pencil, HardHat, Tag } from 'lucide-react'
+import { Calendar, CheckCircle2, AlertTriangle, Info, Plus, Pencil, HardHat, Tag, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
@@ -53,8 +53,21 @@ export function SchedulingClient({ configured, connection, superintendents, labe
   const [error, setError] = useState<string | null>(params.get('error'))
   const [editSup, setEditSup] = useState<Superintendent | 'new' | null>(null)
   const [editLabel, setEditLabel] = useState<SchLabel | 'new' | null>(null)
+  const [showIntro, setShowIntro] = useState(false)
 
   const connected = Boolean(connection?.is_active)
+
+  // First-visit explainer: shown once, dismiss sticks per device.
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (!localStorage.getItem('pf-scheduling-intro-seen')) setShowIntro(true)
+    } catch { /* ignore */ }
+  }, [])
+  const dismissIntro = () => {
+    setShowIntro(false)
+    try { localStorage.setItem('pf-scheduling-intro-seen', '1') } catch { /* ignore */ }
+  }
 
   async function loadCalendars() {
     setError(null)
@@ -67,8 +80,25 @@ export function SchedulingClient({ configured, connection, superintendents, labe
     <div className="mx-auto max-w-4xl space-y-8 p-4 sm:p-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Scheduling</h1>
-        <p className="text-sm text-slate-500">Google Calendar connection, superintendents, and SCH schedule labels.</p>
+        <p className="text-sm text-slate-500">Google Calendar connection, superintendents, and schedule labels.</p>
       </div>
+
+      {/* ── First-visit explainer ── */}
+      {showIntro && (
+        <div className="relative rounded-xl border border-sky-200 bg-sky-50/70 p-4 pr-10 text-sm leading-6 text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">
+          <button onClick={dismissIntro} title="Dismiss" className="absolute right-3 top-3 text-sky-400 hover:text-sky-600"><X size={15} /></button>
+          <p className="mb-1 flex items-center gap-1.5 font-semibold"><Info size={15} /> How calendar scheduling works</p>
+          <p>
+            PhaseForge pushes your project phases onto a Google Calendar you choose — each phase becomes
+            an event, and moving the event in Google moves the phase here. <strong>Superintendents</strong> are
+            your field leads: assign one to a project and its events take that person&apos;s color.
+            <strong> Schedule labels</strong> are optional tags — a crew, a division, or a person (like
+            &ldquo;Refrigeration&rdquo; or &ldquo;Night Crew&rdquo;) — and each label can route its events to a specific
+            calendar, color, or send an invite. Nothing is written to Google until you connect an account
+            and pick a calendar, and only events PhaseForge created are ever touched.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
@@ -111,8 +141,8 @@ export function SchedulingClient({ configured, connection, superintendents, labe
             <SetupStep
               n={4}
               done={labels.length > 0}
-              label="Create your SCH schedule labels"
-              hint='e.g. "SCH - John Smith" — maps to event colors, calendars, and invites'
+              label="Create your schedule labels"
+              hint='Tags like "Refrigeration" or "Night Crew" — each maps to an event color, calendar, and invites'
               action={labels.length === 0 ? <Button size="sm" variant="outline" onClick={() => setEditLabel('new')}>Add one</Button> : null}
             />
           </ol>
@@ -286,7 +316,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
                     {!s.is_active && <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">inactive</span>}
                   </p>
                   <p className="text-xs text-slate-400">
-                    {[s.email, s.gcal_calendar_id && 'own calendar', `${s.default_label_ids.length} default SCH`].filter(Boolean).join(' · ')}
+                    {[s.email, s.gcal_calendar_id && 'own calendar', `${s.default_label_ids.length} default labels`].filter(Boolean).join(' · ')}
                   </p>
                 </div>
                 <button onClick={() => setEditSup(s)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">
@@ -298,16 +328,16 @@ export function SchedulingClient({ configured, connection, superintendents, labe
         )}
       </section>
 
-      {/* ── SCH labels ── */}
+      {/* ── Schedule labels ── */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <Tag size={16} className="text-indigo-500" /> SCH Schedule Labels
+            <Tag size={16} className="text-indigo-500" /> Schedule Labels
           </h2>
           <Button size="sm" onClick={() => setEditLabel('new')}><Plus size={14} /> Add</Button>
         </div>
         {labels.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">No SCH labels yet — e.g. &quot;SCH - John Smith&quot;, &quot;SCH - Refrigeration&quot;. Each label can map to a calendar, event color, and attendee.</p>
+          <p className="py-4 text-center text-sm text-slate-400">No schedule labels yet — tags like &quot;Refrigeration&quot;, &quot;Night Crew&quot;, or a person&apos;s name. Each label can map to a calendar, event color, and attendee.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {labels.map((l) => (
@@ -337,7 +367,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
         </Modal>
       )}
       {editLabel && (
-        <Modal open onClose={() => setEditLabel(null)} title={editLabel === 'new' ? 'Add SCH Label' : 'Edit SCH Label'}>
+        <Modal open onClose={() => setEditLabel(null)} title={editLabel === 'new' ? 'Add Schedule Label' : 'Edit Schedule Label'}>
           <LabelForm
             label={editLabel === 'new' ? null : editLabel}
             superintendents={superintendents}
@@ -407,7 +437,7 @@ function SupForm({ sup, labels, onDone }: { sup: Superintendent | null; labels: 
       </div>
       {labels.length > 0 && (
         <div>
-          <p className="mb-1.5 text-sm font-medium text-slate-700">Default SCH labels (applied when this superintendent is assigned)</p>
+          <p className="mb-1.5 text-sm font-medium text-slate-700">Default schedule labels (applied when this superintendent is assigned)</p>
           <div className="flex flex-wrap gap-1.5">
             {labels.map((l) => (
               <button
@@ -460,7 +490,7 @@ function LabelForm({ label, superintendents, onDone }: { label: SchLabel | null;
         })
       }}
     >
-      <Input name="name" label="Label name" defaultValue={label?.name} required autoFocus placeholder='e.g. "SCH - John Smith"' />
+      <Input name="name" label="Label name" defaultValue={label?.name} required autoFocus placeholder='e.g. "Refrigeration" or "John Smith"' />
       <div>
         <p className="mb-1.5 text-sm font-medium text-slate-700">Calendar color</p>
         <div className="flex flex-wrap gap-2">
