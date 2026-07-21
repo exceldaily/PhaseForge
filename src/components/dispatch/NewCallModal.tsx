@@ -181,8 +181,8 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!callNumber.trim() || !description.trim() || (!storeId && !effectiveCustomerId)) {
-      setError('Service call #, description, and a customer or store are required.')
+    if (!description.trim() || (!storeId && !effectiveCustomerId)) {
+      setError('A description and a customer or store are required.')
       return
     }
     if (customerLevels.length > 0 && !priorityLevelId) {
@@ -196,7 +196,7 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
     const res = await createServiceCall({
       store_id: storeId || null,
       customer_id: effectiveCustomerId || null,
-      service_call_number: callNumber.trim(),
+      service_call_number: callNumber.trim() || null,
       tracking_url: trackingUrl.trim() || null,
       internal_job_number: jobNumber.trim() || null,
       urgency,
@@ -288,8 +288,9 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
 
             <SectionLabel>External</SectionLabel>
             <div>
-              <FieldLabel>Service Call #</FieldLabel>
-              <input className={inputCls} value={callNumber} onChange={(e) => setCallNumber(e.target.value)} placeholder="SC-20481" />
+              <FieldLabel>Service Call # (auto if blank)</FieldLabel>
+              <input className={inputCls} value={callNumber} onChange={(e) => setCallNumber(e.target.value)}
+                placeholder="Customer's call #, or leave blank" />
             </div>
             <div>
               <FieldLabel>Tracking # Link (URL, optional)</FieldLabel>
