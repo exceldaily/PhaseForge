@@ -32,6 +32,8 @@ export default async function PartsPage() {
       priorityLevels={data.priorityLevels}
       formFields={data.formFields}
       hiddenBuiltinFields={data.hiddenBuiltinFields}
+      etaRedHours={data.etaRedHours}
+      etaYellowHours={data.etaYellowHours}
       canEdit={ctx.canEdit}
     />
   )

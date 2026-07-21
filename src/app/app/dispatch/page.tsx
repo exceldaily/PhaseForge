@@ -35,6 +35,8 @@ export default async function DispatchPage() {
       priorityLevels={data.priorityLevels}
       formFields={data.formFields}
       hiddenBuiltinFields={data.hiddenBuiltinFields}
+      etaRedHours={data.etaRedHours}
+      etaYellowHours={data.etaYellowHours}
       calls={data.calls}
       canEdit={ctx.canEdit}
     />

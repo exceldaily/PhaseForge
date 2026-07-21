@@ -10,13 +10,15 @@ import { prioritizeCalls } from '@/lib/dispatch/priorityEngine'
 import { CallRow } from './CallRow'
 import { CallDetailPanel } from './CallDetailPanel'
 
-export function PartsClient({ calls, vendors, assets, priorityLevels, formFields, hiddenBuiltinFields, canEdit }: {
+export function PartsClient({ calls, vendors, assets, priorityLevels, formFields, hiddenBuiltinFields, etaRedHours = 12, etaYellowHours = 24, canEdit }: {
   calls: CallWithRelations[]
   vendors: Vendor[]
   assets: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   hiddenBuiltinFields: string[]
+  etaRedHours?: number
+  etaYellowHours?: number
   canEdit: boolean
 }) {
   const router = useRouter()
@@ -66,7 +68,8 @@ export function PartsClient({ calls, vendors, assets, priorityLevels, formFields
           <div className="space-y-2">
             {activeCalls.length === 0 && <p className="py-8 text-center text-xs text-slate-400">No calls in this stage.</p>}
             {activeCalls.map((call) => (
-              <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)} />
+              <CallRow key={call.id} call={call} onOpen={() => setOpenCallId(call.id)}
+                  etaAlert={{ redHours: etaRedHours, yellowHours: etaYellowHours }} />
             ))}
           </div>
         </section>

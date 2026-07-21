@@ -37,6 +37,8 @@ export default async function MyWorkPage() {
       priorityLevels={data.priorityLevels}
       formFields={data.formFields}
       hiddenBuiltinFields={data.hiddenBuiltinFields}
+      etaRedHours={data.etaRedHours}
+      etaYellowHours={data.etaYellowHours}
       // Techs work their own calls from the field; server actions still guard
       // manager-only edits (manager note, call number, deletes).
       canEdit={true}

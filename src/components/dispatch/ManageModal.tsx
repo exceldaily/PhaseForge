@@ -8,7 +8,7 @@ import { titleCase } from '@/lib/dispatch/utils'
 import {
   addFormField, createCustomer, createPriorityLevel, createStore, createTech,
   deleteCustomer, deletePriorityLevel, deleteStore, deleteTech, removeFormField,
-  setBuiltinFieldHidden, updateStore, updateTech,
+  setBuiltinFieldHidden, updateEtaAlertSettings, updateStore, updateTech,
 } from '@/app/app/dispatch/actions'
 
 const inputCls = 'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'
@@ -16,13 +16,15 @@ const URGENCIES: Urgency[] = ['urgent', 'high', 'normal', 'low']
 
 type Tab = 'stores' | 'techs' | 'customers' | 'fields'
 
-export function ManageModal({ stores, vendors, customers, priorityLevels, formFields, hiddenBuiltinFields = [], onClose, onChanged }: {
+export function ManageModal({ stores, vendors, customers, priorityLevels, formFields, hiddenBuiltinFields = [], etaRedHours = 12, etaYellowHours = 24, onClose, onChanged }: {
   stores: Store[]
   vendors: Vendor[]
   customers: Customer[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   hiddenBuiltinFields?: string[]
+  etaRedHours?: number
+  etaYellowHours?: number
   onClose: () => void
   onChanged: () => void
 }) {
@@ -219,6 +221,30 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
                 Rack / Circuit / Case
                 <span className="text-slate-400">(refrigeration/HVAC. Uncheck it if your calls never use it.)</span>
               </label>
+            </div>
+            <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">ETA row alerts</p>
+              <p className="mb-2 text-xs text-slate-500">
+                On the Command Center, a call row lights up <b className="text-rose-600">red</b> when its ETA is this
+                close (or already blown), and <b className="text-amber-600">yellow</b> when it is one step out.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                Red within
+                <input type="number" min={1} max={720} defaultValue={etaRedHours} key={`red-${etaRedHours}`}
+                  onBlur={(e) => {
+                    const v = Number(e.target.value)
+                    if (v && v !== etaRedHours) void run(() => updateEtaAlertSettings(v, etaYellowHours))
+                  }}
+                  className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
+                hours, yellow within
+                <input type="number" min={1} max={720} defaultValue={etaYellowHours} key={`yellow-${etaYellowHours}`}
+                  onBlur={(e) => {
+                    const v = Number(e.target.value)
+                    if (v && v !== etaYellowHours) void run(() => updateEtaAlertSettings(etaRedHours, v))
+                  }}
+                  className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
+                hours
+              </div>
             </div>
           </div>
         )}
