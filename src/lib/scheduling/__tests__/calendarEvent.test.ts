@@ -30,11 +30,11 @@ describe('buildEventTitle', () => {
 
 describe('buildEventDescription', () => {
   const desc = buildEventDescription(base)
-  it('includes job number, client, superintendent, SCH, links', () => {
+  it('includes job number, client, superintendent, labels, links', () => {
     expect(desc).toContain('Job #: 324-10482')
     expect(desc).toContain('Client: ALDI')
     expect(desc).toContain('Superintendent: John Smith')
-    expect(desc).toContain('SCH: SCH - John Smith')
+    expect(desc).toContain('Labels: SCH - John Smith')
     expect(desc).toContain('PlanGrid: https://plangrid.example/x')
     expect(desc).toContain('PhaseForge project: https://www.phase-forge.com/app/projects/p1')
   })

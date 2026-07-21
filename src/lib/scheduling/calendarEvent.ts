@@ -50,7 +50,7 @@ export function buildEventDescription(s: EventSource): string {
   lines.push(`Dates: ${s.startDate} → ${s.endDate}`)
   add('Project Manager', s.pmName)
   add('Superintendent', s.superintendentName)
-  if (s.schLabelNames?.length) lines.push(`SCH: ${s.schLabelNames.join(', ')}`)
+  if (s.schLabelNames?.length) lines.push(`Labels: ${s.schLabelNames.join(', ')}`)
   add('Address', s.formattedAddress)
   add('Map', s.mapsUrl)
   lines.push('')
