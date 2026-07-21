@@ -43,7 +43,8 @@ export async function getDispatchData(): Promise<DispatchData> {
   const [storesRes, vendorsRes, customersRes, levelsRes, fieldsRes, callsRes] = await Promise.all([
     supabase.from('dispatch_stores').select('*').order('store_number'),
     supabase.from('dispatch_techs').select('*').order('name'),
-    supabase.from('dispatch_customers').select('*').order('name'),
+    // Shared with the Customers page — one customer list drives both.
+    supabase.from('customers').select('id, company_id, name, created_at').order('name'),
     supabase.from('dispatch_priority_levels').select('*').order('sort_order'),
     supabase.from('dispatch_form_fields').select('*').eq('is_active', true).order('sort_order'),
     supabase.from('dispatch_service_calls').select(

@@ -137,6 +137,9 @@ export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDis
       if (item.gate === 'reports') return canUseReports
       if (item.gate === 'dispatch') return canUseDispatch
       if (item.gate === 'schedules') return canUseSchedules
+      // Customers is shared with Dispatch — dispatch orgs see it even without
+      // the customers ops module.
+      if (item.gate === 'customers') return opsModules.includes('customers') || canUseDispatch
       return opsModules.includes(item.gate)
     }
     return NAV_GROUPS
