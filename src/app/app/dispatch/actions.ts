@@ -55,6 +55,7 @@ export interface CreateCallInput {
   eta_scheduled?: string | null
   scheduled_date?: string | null
   rack_circuit_case?: string | null
+  asset_id?: string | null
   description: string
   manager_note?: string | null
   assigned_vendor_id?: string | null
@@ -105,6 +106,7 @@ export interface UpdateCallInput {
   internal_job_number?: string | null
   internal_job_url?: string | null
   rack_circuit_case?: string | null
+  asset_id?: string | null
   description?: string
   manager_note?: string | null
   completed_date?: string | null

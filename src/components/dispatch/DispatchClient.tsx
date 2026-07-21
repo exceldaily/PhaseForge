@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { KanbanSquare, List, Plus, Radio, Search, Settings2, X } from 'lucide-react'
 import type {
-  CallStatus, CallWithRelations, Customer, DispatchFormField, PartStatus,
+  CallStatus, CallWithRelations, Customer, DispatchAsset, DispatchFormField, PartStatus,
   PrioritizedCall, PriorityLevel, ProposalStatus, Store, Urgency, Vendor,
 } from '@/lib/dispatch/types'
 import { prioritizeCalls } from '@/lib/dispatch/priorityEngine'
@@ -27,10 +27,11 @@ const PROPOSAL_STATUSES: ProposalStatus[] = ['none', 'quote_requested', 'sent', 
 
 const selectCls = 'rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
 
-export function DispatchClient({ stores, vendors, customers, priorityLevels, formFields, calls, canEdit }: {
+export function DispatchClient({ stores, vendors, customers, assets, priorityLevels, formFields, calls, canEdit }: {
   stores: Store[]
   vendors: Vendor[]
   customers: Customer[]
+  assets: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   calls: CallWithRelations[]
@@ -190,7 +191,8 @@ export function DispatchClient({ stores, vendors, customers, priorityLevels, for
       {/* ── Overlays ── */}
       {showNew && (
         <NewCallModal
-          stores={stores} vendors={vendors} priorityLevels={priorityLevels} formFields={formFields}
+          stores={stores} vendors={vendors} customers={customers} assets={assets}
+          priorityLevels={priorityLevels} formFields={formFields}
           canEdit={canEdit}
           onClose={() => setShowNew(false)}
           onCreated={() => { setShowNew(false); router.refresh() }}
@@ -199,7 +201,7 @@ export function DispatchClient({ stores, vendors, customers, priorityLevels, for
       {openCall && (
         <CallDetailPanel
           call={openCall as PrioritizedCall}
-          vendors={vendors} priorityLevels={priorityLevels} formFields={formFields}
+          vendors={vendors} assets={assets} priorityLevels={priorityLevels} formFields={formFields}
           canEdit={canEdit}
           onClose={() => setOpenCallId(null)}
           onChanged={() => router.refresh()}

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ExternalLink, Trash2, X } from 'lucide-react'
 import type {
-  CallStatus, DispatchFormField, NextAction, NoteCategory, PartStatus,
+  CallStatus, DispatchAsset, DispatchFormField, NextAction, NoteCategory, PartStatus,
   PrioritizedCall, PriorityLevel, ProposalStatus, Urgency, Vendor,
 } from '@/lib/dispatch/types'
 import { recommendNextAction } from '@/lib/dispatch/priorityEngine'
@@ -35,9 +35,10 @@ function Label({ children }: { children: React.ReactNode }) {
   return <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-slate-400">{children}</label>
 }
 
-export function CallDetailPanel({ call, vendors, priorityLevels, formFields, canEdit, onClose, onChanged }: {
+export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, formFields, canEdit, onClose, onChanged }: {
   call: PrioritizedCall
   vendors: Vendor[]
+  assets?: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   canEdit: boolean
@@ -216,6 +217,20 @@ export function CallDetailPanel({ call, vendors, priorityLevels, formFields, can
                   })}
                   {vendors.length === 0 && <span className="text-xs text-slate-400">No techs yet — add them under Manage.</span>}
                 </div>
+              </div>
+              <div>
+                <Label>Equipment (from customer records)</Label>
+                <select className={inputCls} value={call.asset_id ?? ''} disabled={!canEdit}
+                  onChange={(e) => void patch({ asset_id: e.target.value || null })}>
+                  <option value="">—</option>
+                  {assets
+                    .filter((a) => a.customer_id === call.store.customer_id || a.id === call.asset_id)
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}{a.asset_type ? ` · ${a.asset_type}` : ''}
+                      </option>
+                    ))}
+                </select>
               </div>
               <div>
                 <Label>Rack / Circuit / Case</Label>
