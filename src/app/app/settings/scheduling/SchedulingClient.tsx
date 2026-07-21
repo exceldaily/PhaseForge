@@ -87,16 +87,13 @@ export function SchedulingClient({ configured, connection, superintendents, labe
       {showIntro && (
         <div className="relative rounded-xl border border-sky-200 bg-sky-50/70 p-4 pr-10 text-sm leading-6 text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">
           <button onClick={dismissIntro} title="Dismiss" className="absolute right-3 top-3 text-sky-400 hover:text-sky-600"><X size={15} /></button>
-          <p className="mb-1 flex items-center gap-1.5 font-semibold"><Info size={15} /> How calendar scheduling works</p>
-          <p>
-            PhaseForge pushes your project phases onto a Google Calendar you choose — each phase becomes
-            an event, and moving the event in Google moves the phase here. <strong>Superintendents</strong> are
-            your field leads: assign one to a project and its events take that person&apos;s color.
-            <strong> Schedule labels</strong> are optional tags — a crew, a division, or a person (like
-            &ldquo;Refrigeration&rdquo; or &ldquo;Night Crew&rdquo;) — and each label can route its events to a specific
-            calendar, color, or send an invite. Nothing is written to Google until you connect an account
-            and pick a calendar, and only events PhaseForge created are ever touched.
-          </p>
+          <p className="mb-2 flex items-center gap-1.5 font-semibold"><Info size={15} /> How calendar scheduling works</p>
+          <ul className="list-disc space-y-1.5 pl-5">
+            <li>{'Every project phase becomes an event on a Google Calendar you pick. Move or resize that event in Google, and the phase dates update here automatically — the two always stay in step.'}</li>
+            <li><strong>{'Superintendents '}</strong>{'are your field leads. Assign one to a project and all of that project’s events show up in their color, so you can tell whose jobs are whose at a glance.'}</li>
+            <li><strong>{'Schedule labels '}</strong>{'are optional tags for grouping work — a crew, a division, or a person (for example “Refrigeration” or “Night Crew”). A label can send its events to a different calendar, set the event color, or invite someone by email.'}</li>
+            <li><strong>{'Your calendar is safe. '}</strong>{'Nothing is written until you connect a Google account and choose a calendar, and PhaseForge only ever touches events it created — never your personal or existing events.'}</li>
+          </ul>
         </div>
       )}
 
