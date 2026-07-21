@@ -155,6 +155,105 @@ export function prioritizeCalls(calls: CallWithRelations[], now: Date = new Date
     .sort((a, b) => b.priority_score - a.priority_score)
 }
 
+// ── Smart sections (Command Center chips) — ported from DispatchForge ───────
+
+export type SmartSection =
+  | 'new_unacknowledged'
+  | 'needs_dispatch'
+  | 'no_tech'
+  | 'missing_eta'
+  | 'follow_up'
+  | 'parts_received'
+  | 'proposal_approved'
+  | 'scheduled_today'
+  | 'scheduled_tomorrow'
+  | 'aging'
+  | 'recently_completed'
+
+export const SMART_SECTION_LABELS: Record<SmartSection, string> = {
+  new_unacknowledged: 'New — Needs Review',
+  needs_dispatch: 'Needs Dispatch Now',
+  no_tech: 'No Tech or Vendor Assigned',
+  missing_eta: 'Missing ETA',
+  follow_up: 'Follow-Up Needed',
+  parts_received: 'Parts Received — Ready to Schedule',
+  proposal_approved: 'Proposal Approved — Ready for Action',
+  scheduled_today: 'Scheduled Today',
+  scheduled_tomorrow: 'Scheduled Tomorrow',
+  aging: 'Aging Calls',
+  recently_completed: 'Recently Completed',
+}
+
+export type PrimaryQueue =
+  | 'needs_dispatch'
+  | 'missing_eta'
+  | 'follow_up'
+  | 'parts_received'
+  | 'proposal_approved'
+  | 'scheduled_today'
+  | 'scheduled_tomorrow'
+  | 'general_active'
+
+export function getPrimaryQueue(call: PrioritizedCall, now: Date = new Date()): PrimaryQueue | null {
+  if (CLOSED_STATUSES.includes(call.status)) return null
+
+  const hasAssignedVendor = !!call.assigned_vendor_id || call.vendors.length > 0
+
+  if (call.status === 'open' && !hasAssignedVendor) return 'needs_dispatch'
+  if ((call.status === 'open' || call.status === 'in_progress') && !call.eta_scheduled) return 'missing_eta'
+  if (call.status === 'incomplete') return 'follow_up'
+  if (call.status === 'part_received' || call.part_status === 'received') return 'parts_received'
+  if (call.status === 'proposal_approved' || call.proposal_status === 'approved') return 'proposal_approved'
+  if (call.scheduled_date && isSameDay(call.scheduled_date, now)) return 'scheduled_today'
+  if (call.scheduled_date && isTomorrow(call.scheduled_date, now)) return 'scheduled_tomorrow'
+
+  return 'general_active'
+}
+
+// Every non-closed call exactly once, in smart-priority order.
+export function buildUniqueWorkQueue(calls: PrioritizedCall[], now: Date = new Date()): PrioritizedCall[] {
+  return dedupeCallsById(calls).filter((call) => getPrimaryQueue(call, now) !== null)
+}
+
+export function buildSmartSections(calls: PrioritizedCall[]): Record<SmartSection, PrioritizedCall[]> {
+  const now = new Date()
+  const sections: Record<SmartSection, PrioritizedCall[]> = {
+    new_unacknowledged: [],
+    needs_dispatch: [],
+    no_tech: [],
+    missing_eta: [],
+    follow_up: [],
+    parts_received: [],
+    proposal_approved: [],
+    scheduled_today: [],
+    scheduled_tomorrow: [],
+    aging: [],
+    recently_completed: [],
+  }
+
+  for (const call of calls) {
+    const isOpenish = !CLOSED_STATUSES.includes(call.status)
+
+    if (call.needs_acknowledgment) sections.new_unacknowledged.push(call)
+    if (call.urgency === 'urgent' && isOpenish) sections.needs_dispatch.push(call)
+    if (call.status === 'open' && !call.assigned_vendor_id) sections.no_tech.push(call)
+    if (isOpenish && !call.eta_scheduled) sections.missing_eta.push(call)
+    if (call.status === 'incomplete') sections.follow_up.push(call)
+    if (call.status === 'part_received') sections.parts_received.push(call)
+    if (call.status === 'proposal_approved' || (call.proposal_status === 'approved' && isOpenish)) {
+      sections.proposal_approved.push(call)
+    }
+    if (call.scheduled_date && isSameDay(call.scheduled_date, now)) sections.scheduled_today.push(call)
+    if (call.scheduled_date && isTomorrow(call.scheduled_date, now)) sections.scheduled_tomorrow.push(call)
+    if (isOpenish && call.days_open >= 7) sections.aging.push(call)
+    if (call.status === 'completed' && call.completed_date && daysBetween(call.completed_date, now) <= 3) {
+      sections.recently_completed.push(call)
+    }
+  }
+
+  return sections
+}
+
 export function getCallConditionBadges(call: PrioritizedCall, now: Date = new Date()): string[] {
   const badges: string[] = []
   const isOpenish = !CLOSED_STATUSES.includes(call.status)

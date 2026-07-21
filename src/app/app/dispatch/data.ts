@@ -4,6 +4,7 @@ import { canUseTickets } from '@/lib/constants'
 import type {
   CallNote, CallWithRelations, Customer, DispatchAsset, DispatchFormField, PriorityLevel, Store, Vendor,
 } from '@/lib/dispatch/types'
+import type { OnCallParticipant, OnCallSettings } from '@/lib/dispatch/onCall'
 
 export interface DispatchContext {
   allowed: boolean
@@ -101,4 +102,36 @@ export async function getDispatchData(): Promise<DispatchData> {
     hiddenBuiltinFields: settingsRes.data?.hidden_builtin_fields ?? [],
     calls,
   }
+}
+
+export async function getOnCallData(): Promise<{ participants: OnCallParticipant[]; settings: OnCallSettings | null }> {
+  const supabase = await createClient()
+  const [participantsRes, settingsRes] = await Promise.all([
+    supabase.from('dispatch_on_call_participants').select('*').order('sort_order'),
+    supabase.from('dispatch_on_call_settings').select('*').maybeSingle(),
+  ])
+  return {
+    participants: (participantsRes.data ?? []) as OnCallParticipant[],
+    settings: (settingsRes.data ?? null) as OnCallSettings | null,
+  }
+}
+
+// The tech record belonging to the signed-in member. Falls back to a one-time
+// auto-claim when an unclaimed tech row carries the member's email.
+export async function getMyTech(): Promise<Vendor | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data: byProfile } = await supabase.from('dispatch_techs')
+    .select('*').eq('profile_id', user.id).limit(1)
+  if (byProfile?.[0]) return byProfile[0] as Vendor
+  if (user.email) {
+    const { data: byEmail } = await supabase.from('dispatch_techs')
+      .select('*').ilike('email', user.email).is('profile_id', null).limit(1)
+    if (byEmail?.[0]) {
+      await supabase.from('dispatch_techs').update({ profile_id: user.id }).eq('id', byEmail[0].id)
+      return { ...(byEmail[0] as Vendor), profile_id: user.id }
+    }
+  }
+  return null
 }
