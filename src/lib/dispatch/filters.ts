@@ -29,7 +29,7 @@ export const EMPTY_FILTERS: CallFilters = {
 
 export function applyCallFilters(calls: PrioritizedCall[], filters: CallFilters): PrioritizedCall[] {
   return calls.filter((call) => {
-    if (filters.customerId && call.store.customer_id !== filters.customerId) return false
+    if (filters.customerId && (call.customer_id ?? call.store?.customer_id) !== filters.customerId) return false
     if (filters.storeId && call.store_id !== filters.storeId) return false
     if (filters.status && call.status !== filters.status) return false
     if (filters.urgencies.length && !filters.urgencies.includes(call.urgency)) return false
@@ -47,8 +47,9 @@ export function matchesSearch(call: PrioritizedCall, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
   return (
-    call.store.store_number.toLowerCase().includes(q) ||
-    call.store.store_name.toLowerCase().includes(q) ||
+    (call.store?.store_number ?? '').toLowerCase().includes(q) ||
+    (call.store?.store_name ?? '').toLowerCase().includes(q) ||
+    (call.customer_name ?? '').toLowerCase().includes(q) ||
     call.service_call_number.toLowerCase().includes(q) ||
     (call.internal_job_number ?? '').toLowerCase().includes(q) ||
     call.vendors.some((v) => v.name.toLowerCase().includes(q) || (v.company ?? '').toLowerCase().includes(q)) ||

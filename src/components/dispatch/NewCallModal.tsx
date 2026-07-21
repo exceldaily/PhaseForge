@@ -6,9 +6,10 @@ import type {
   CallStatus, Customer, DispatchAsset, DispatchFormField, PartStatus, PriorityLevel,
   ProposalStatus, Store, Urgency, Vendor,
 } from '@/lib/dispatch/types'
-import { dateInputToNoonUtc, titleCase } from '@/lib/dispatch/utils'
+import { dateInputToNoonUtc, etaInputToIso, titleCase } from '@/lib/dispatch/utils'
 import {
   addFormField, createCustomer, createServiceCall, createStore, removeFormField,
+  setBuiltinFieldHidden,
 } from '@/app/app/dispatch/actions'
 
 const URGENCY_OPTIONS: Urgency[] = ['urgent', 'high', 'normal', 'low']
@@ -35,13 +36,14 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function NewCallModal({ stores, vendors, customers, assets, priorityLevels, formFields, canEdit, onClose, onCreated }: {
+export function NewCallModal({ stores, vendors, customers, assets, priorityLevels, formFields, hiddenBuiltinFields, canEdit, onClose, onCreated }: {
   stores: Store[]
   vendors: Vendor[]
   customers: Customer[]
   assets: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
+  hiddenBuiltinFields: string[]
   canEdit: boolean
   onClose: () => void
   onCreated: () => void
@@ -49,8 +51,8 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
   // Local mirrors so inline-created customers/stores appear without a reload.
   const [customerList, setCustomerList] = useState<Customer[]>(customers)
   const [storeList, setStoreList] = useState<Store[]>(stores)
-  const [customerId, setCustomerId] = useState(stores[0]?.customer_id ?? '')
-  const [storeId, setStoreId] = useState(stores[0]?.id ?? '')
+  const [customerId, setCustomerId] = useState('')
+  const [storeId, setStoreId] = useState('')
   const [assetId, setAssetId] = useState('')
   const [addingCustomer, setAddingCustomer] = useState(false)
   const [newCustomerName, setNewCustomerName] = useState('')
@@ -60,12 +62,12 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
   const [callNumber, setCallNumber] = useState('')
   const [trackingUrl, setTrackingUrl] = useState('')
   const [jobNumber, setJobNumber] = useState('')
-  const [jobUrl, setJobUrl] = useState('')
   const [urgency, setUrgency] = useState<Urgency>('normal')
   const [priorityLevelId, setPriorityLevelId] = useState('')
   const [status, setStatus] = useState<CallStatus>('open')
   const [dateStarted, setDateStarted] = useState(new Date().toISOString().slice(0, 10))
   const [eta, setEta] = useState('')
+  const [etaTime, setEtaTime] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
   const [rack, setRack] = useState('')
   const [nte, setNte] = useState('')
@@ -77,8 +79,9 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const [newFieldLabel, setNewFieldLabel] = useState('')
   const [addingField, setAddingField] = useState(false)
-  // Local mirror so added/removed fields show immediately inside the open modal.
+  // Local mirrors so added/removed fields show immediately inside the open modal.
   const [fields, setFields] = useState<DispatchFormField[]>(formFields)
+  const [hiddenBuiltin, setHiddenBuiltin] = useState<string[]>(hiddenBuiltinFields)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -93,20 +96,18 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
 
   function handleCustomerChange(newCustomerId: string) {
     setCustomerId(newCustomerId)
-    // Keep the store only if it belongs to the newly chosen customer.
+    // Keep the store only if it belongs to the newly chosen customer — a store
+    // is optional, so never auto-pick one the dispatcher didn't choose.
     const stillValid = storeList.some((s) => s.id === storeId && (!newCustomerId || s.customer_id === newCustomerId))
-    if (!stillValid) {
-      const first = newCustomerId ? storeList.find((s) => s.customer_id === newCustomerId) : storeList[0]
-      setStoreId(first?.id ?? '')
-    }
+    if (!stillValid) setStoreId('')
     setAssetId('')
     setPriorityLevelId('')
   }
 
   function handleStoreChange(newStoreId: string) {
     setStoreId(newStoreId)
-    const newCustomerId = storeList.find((s) => s.id === newStoreId)?.customer_id
-    if (!priorityLevels.some((p) => p.id === priorityLevelId && p.customer_id === newCustomerId)) {
+    const nextCustomerId = customerId || storeList.find((s) => s.id === newStoreId)?.customer_id
+    if (!priorityLevels.some((p) => p.id === priorityLevelId && p.customer_id === nextCustomerId)) {
       setPriorityLevelId('')
     }
     setAssetId('')
@@ -167,15 +168,25 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
     setFields((f) => f.filter((x) => x.id !== id))
   }
 
+  // Built-in optional fields (rack/circuit/case) hide and restore per org,
+  // same feel as the custom fields.
+  async function setRackHidden(hidden: boolean) {
+    if (hidden && !confirm('Remove Rack / Circuit / Case from your call forms? You can bring it back anytime with the + button below.')) return
+    const res = await setBuiltinFieldHidden('rack_circuit_case', hidden)
+    if ('error' in res && res.error) { setError(res.error); return }
+    setHiddenBuiltin((h) => (hidden ? [...h, 'rack_circuit_case'] : h.filter((f) => f !== 'rack_circuit_case')))
+    if (hidden) setRack('')
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (!storeId || !callNumber.trim() || !description.trim()) {
-      setError('Store, service call #, and description are required.')
+    if (!callNumber.trim() || !description.trim() || (!storeId && !effectiveCustomerId)) {
+      setError('Service call #, description, and a customer or store are required.')
       return
     }
     if (customerLevels.length > 0 && !priorityLevelId) {
-      setError("Choose a priority level for this store's customer.")
+      setError('Choose a priority level for this customer.')
       return
     }
     setSaving(true)
@@ -183,16 +194,16 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
       Object.entries(customValues).filter(([id, v]) => v.trim() && fields.some((f) => f.id === id)),
     )
     const res = await createServiceCall({
-      store_id: storeId,
+      store_id: storeId || null,
+      customer_id: effectiveCustomerId || null,
       service_call_number: callNumber.trim(),
       tracking_url: trackingUrl.trim() || null,
       internal_job_number: jobNumber.trim() || null,
-      internal_job_url: jobUrl.trim() || null,
       urgency,
       priority_level_id: priorityLevelId || null,
       status,
       date_started: new Date(dateStarted).toISOString(),
-      eta_scheduled: eta ? dateInputToNoonUtc(eta) : null,
+      eta_scheduled: eta ? etaInputToIso(eta, etaTime || null) : null,
       scheduled_date: scheduledDate ? dateInputToNoonUtc(scheduledDate) : null,
       rack_circuit_case: rack.trim() || null,
       asset_id: assetId || null,
@@ -267,7 +278,7 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
                 </div>
               ) : (
                 <select className={inputCls} value={storeId} onChange={(e) => handleStoreChange(e.target.value)}>
-                  {visibleStores.length === 0 && <option value="">No stores yet — use + new</option>}
+                  <option value="">No store (customer only)</option>
                   {visibleStores.map((s) => (
                     <option key={s.id} value={s.id}>#{s.store_number} — {s.store_name}</option>
                   ))}
@@ -290,10 +301,8 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
               <FieldLabel>Internal Job #</FieldLabel>
               <input className={inputCls} value={jobNumber} onChange={(e) => setJobNumber(e.target.value)} placeholder="Optional" />
             </div>
-            <div>
-              <FieldLabel>Job # Link (URL, optional)</FieldLabel>
-              <input type="url" className={inputCls} value={jobUrl} onChange={(e) => setJobUrl(e.target.value)} placeholder="https://…" />
-            </div>
+            <div />
+
 
             <SectionLabel>Details</SectionLabel>
             <div>
@@ -330,7 +339,11 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
             </div>
             <div>
               <FieldLabel>ETA (from call intake)</FieldLabel>
-              <input type="date" className={inputCls} value={eta} onChange={(e) => setEta(e.target.value)} />
+              <div className="flex gap-1.5">
+                <input type="date" className={inputCls} value={eta} onChange={(e) => setEta(e.target.value)} />
+                <input type="time" className={inputCls} style={{ maxWidth: '7.5rem' }} value={etaTime}
+                  onChange={(e) => setEtaTime(e.target.value)} disabled={!eta} title="Exact time (optional)" />
+              </div>
             </div>
             <div>
               <FieldLabel>Scheduled Date (optional)</FieldLabel>
@@ -352,10 +365,21 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
                 ))}
               </select>
             </div>
-            <div>
-              <FieldLabel>Rack / Circuit / Case</FieldLabel>
-              <input className={inputCls} value={rack} onChange={(e) => setRack(e.target.value)} placeholder="e.g. Rack 3 - Dairy" />
-            </div>
+            {!hiddenBuiltin.includes('rack_circuit_case') && (
+              <div className="group relative">
+                <FieldLabel>
+                  Rack / Circuit / Case
+                  {canEdit && (
+                    <button type="button" title="Remove this field from your call forms"
+                      onClick={() => void setRackHidden(true)}
+                      className="ml-1.5 hidden text-rose-400 hover:text-rose-600 group-hover:inline pointer-coarse:inline">
+                      <X size={10} className="inline" />
+                    </button>
+                  )}
+                </FieldLabel>
+                <input className={inputCls} value={rack} onChange={(e) => setRack(e.target.value)} placeholder="e.g. Rack 3 - Dairy" />
+              </div>
+            )}
             <div>
               <FieldLabel>NTE ($, optional)</FieldLabel>
               <input type="number" step="0.01" min="0" className={inputCls} value={nte} onChange={(e) => setNte(e.target.value)} placeholder="Not to exceed" />
@@ -374,7 +398,17 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
             </div>
 
             {/* ── Org custom fields: fillable blanks, addable/removable ── */}
-            {(fields.length > 0 || canEdit) && <SectionLabel>Your Fields</SectionLabel>}
+            {(fields.length > 0 || canEdit) && (
+              <>
+                <SectionLabel>Custom Fields</SectionLabel>
+                {canEdit && (
+                  <p className="sm:col-span-2 -mt-1.5 text-[11px] leading-snug text-slate-400">
+                    Extra blanks your org wants on every call card, like PO #, gate code, or
+                    landlord contact. Add or remove them here or under Manage &gt; Card Fields.
+                  </p>
+                )}
+              </>
+            )}
             {fields.map((f) => (
               <div key={f.id} className="group relative">
                 <FieldLabel>
@@ -392,7 +426,7 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
               </div>
             ))}
             {canEdit && (
-              <div className="flex items-end">
+              <div className="flex flex-wrap items-end gap-1.5">
                 {addingField ? (
                   <div className="flex w-full gap-1.5">
                     <input autoFocus className={inputCls} value={newFieldLabel}
@@ -404,10 +438,19 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
                     <button type="button" onClick={() => setAddingField(false)} className="px-1 text-xs text-slate-400">✕</button>
                   </div>
                 ) : (
-                  <button type="button" onClick={() => setAddingField(true)}
-                    className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2.5 py-1.5 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600">
-                    <Plus size={12} /> Add a field
-                  </button>
+                  <>
+                    <button type="button" onClick={() => setAddingField(true)}
+                      className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2.5 py-1.5 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600">
+                      <Plus size={12} /> Add a field
+                    </button>
+                    {hiddenBuiltin.includes('rack_circuit_case') && (
+                      <button type="button" onClick={() => void setRackHidden(false)}
+                        title="Bring the built-in Rack / Circuit / Case field back"
+                        className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2.5 py-1.5 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600">
+                        <Plus size={12} /> Rack / Circuit / Case
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}

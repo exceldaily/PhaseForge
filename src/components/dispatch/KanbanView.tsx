@@ -36,7 +36,7 @@ export function KanbanView({ calls, onOpen }: {
               <button key={call.id} onClick={() => onOpen(call.id)}
                 className="block w-full rounded-md border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-800">
                 <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                  #{call.store.store_number} {call.store.store_name}
+                  {call.store ? `#${call.store.store_number} ${call.store.store_name}` : call.customer_name ?? 'No location'}
                 </p>
                 <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400">{call.description}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">

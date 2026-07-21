@@ -43,11 +43,12 @@ async function logActivity(
 }
 
 export interface CreateCallInput {
-  store_id: string
+  // At least one of store/customer is required — enforced in createServiceCall.
+  store_id?: string | null
+  customer_id?: string | null
   service_call_number: string
   tracking_url?: string | null
   internal_job_number?: string | null
-  internal_job_url?: string | null
   urgency: Urgency
   priority_level_id?: string | null
   status: CallStatus
@@ -69,7 +70,17 @@ export async function createServiceCall(input: CreateCallInput) {
   try {
     const { supabase, userId, companyId } = await ctx()
 
+    if (!input.store_id && !input.customer_id) {
+      return { error: 'Pick a customer or a store for the call.' }
+    }
     const payload: Record<string, unknown> = { ...input, company_id: companyId }
+    // A store-based call inherits the store's customer unless one was chosen.
+    if (input.store_id && !input.customer_id) {
+      const { data: store } = await supabase
+        .from('dispatch_stores').select('customer_id')
+        .eq('id', input.store_id).single()
+      payload.customer_id = store?.customer_id ?? null
+    }
     // A chosen priority level always drives the internal urgency bucket.
     if (input.priority_level_id) {
       const { data: level } = await supabase
@@ -104,7 +115,6 @@ export interface UpdateCallInput {
   proposal_status?: ProposalStatus
   tracking_url?: string | null
   internal_job_number?: string | null
-  internal_job_url?: string | null
   rack_circuit_case?: string | null
   asset_id?: string | null
   description?: string
@@ -443,6 +453,30 @@ export async function removeFormField(id: string) {
     // their custom_fields jsonb (harmless, just no longer rendered).
     const { error } = await supabase.from('dispatch_form_fields')
       .delete().eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH, 'layout')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Built-in call-card fields an org can remove from its forms (values already
+// saved on calls keep showing). Only these names are accepted.
+const OPTIONAL_BUILTIN_FIELDS = ['rack_circuit_case']
+
+export async function setBuiltinFieldHidden(field: string, hidden: boolean) {
+  try {
+    const { supabase, companyId, isManagement } = await ctx()
+    if (!isManagement) return { error: 'Managers only' }
+    if (!OPTIONAL_BUILTIN_FIELDS.includes(field)) return { error: 'Unknown field' }
+    const { data: row } = await supabase.from('dispatch_company_settings')
+      .select('hidden_builtin_fields').eq('company_id', companyId).maybeSingle()
+    const next = new Set<string>(row?.hidden_builtin_fields ?? [])
+    if (hidden) next.add(field)
+    else next.delete(field)
+    const { error } = await supabase.from('dispatch_company_settings').upsert({
+      company_id: companyId, hidden_builtin_fields: [...next],
+      updated_at: new Date().toISOString(),
+    })
     if (error) return { error: error.message }
     revalidatePath(PATH, 'layout')
     return { ok: true }

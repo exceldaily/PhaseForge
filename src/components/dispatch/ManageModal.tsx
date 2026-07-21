@@ -7,7 +7,8 @@ import type { Customer, DispatchFormField, PriorityLevel, Store, Urgency, Vendor
 import { titleCase } from '@/lib/dispatch/utils'
 import {
   addFormField, createCustomer, createPriorityLevel, createStore, createTech,
-  deleteCustomer, deletePriorityLevel, deleteStore, deleteTech, removeFormField, updateStore, updateTech,
+  deleteCustomer, deletePriorityLevel, deleteStore, deleteTech, removeFormField,
+  setBuiltinFieldHidden, updateStore, updateTech,
 } from '@/app/app/dispatch/actions'
 
 const inputCls = 'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'
@@ -15,12 +16,13 @@ const URGENCIES: Urgency[] = ['urgent', 'high', 'normal', 'low']
 
 type Tab = 'stores' | 'techs' | 'customers' | 'fields'
 
-export function ManageModal({ stores, vendors, customers, priorityLevels, formFields, onClose, onChanged }: {
+export function ManageModal({ stores, vendors, customers, priorityLevels, formFields, hiddenBuiltinFields = [], onClose, onChanged }: {
   stores: Store[]
   vendors: Vendor[]
   customers: Customer[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
+  hiddenBuiltinFields?: string[]
   onClose: () => void
   onChanged: () => void
 }) {
@@ -207,6 +209,16 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
                 </div>
               ))}
               {formFields.length === 0 && <p className="py-2 text-center text-xs text-slate-400">No custom fields yet.</p>}
+            </div>
+            <div className="border-t border-slate-200 pt-3 dark:border-slate-700">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Built-in optional fields</p>
+              <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <input type="checkbox" className="accent-indigo-600"
+                  checked={!hiddenBuiltinFields.includes('rack_circuit_case')}
+                  onChange={(e) => void run(() => setBuiltinFieldHidden('rack_circuit_case', !e.target.checked))} />
+                Rack / Circuit / Case
+                <span className="text-slate-400">(refrigeration/HVAC. Uncheck it if your calls never use it.)</span>
+              </label>
             </div>
           </div>
         )}
