@@ -46,7 +46,9 @@ export interface CreateCallInput {
   // At least one of store/customer is required — enforced in createServiceCall.
   store_id?: string | null
   customer_id?: string | null
-  service_call_number: string
+  // Blank = auto-numbered (SC-1001, SC-1002…) — direct customers often have
+  // no external service-channel number.
+  service_call_number?: string | null
   tracking_url?: string | null
   internal_job_number?: string | null
   urgency: Urgency
@@ -74,6 +76,19 @@ export async function createServiceCall(input: CreateCallInput) {
       return { error: 'Pick a customer or a store for the call.' }
     }
     const payload: Record<string, unknown> = { ...input, company_id: companyId }
+    if (!input.service_call_number?.trim()) {
+      // Next SC-<n> for this org. Numbers are labels (no unique constraint),
+      // so a rare race just yields a duplicate label, not a failure.
+      const { data: rows } = await supabase.from('dispatch_service_calls')
+        .select('service_call_number').eq('company_id', companyId).like('service_call_number', 'SC-%')
+      const maxN = (rows ?? []).reduce((max, r) => {
+        const n = Number(String(r.service_call_number).slice(3))
+        return Number.isFinite(n) && n > max ? n : max
+      }, 1000)
+      payload.service_call_number = `SC-${maxN + 1}`
+    } else {
+      payload.service_call_number = input.service_call_number.trim()
+    }
     // A store-based call inherits the store's customer unless one was chosen.
     if (input.store_id && !input.customer_id) {
       const { data: store } = await supabase
