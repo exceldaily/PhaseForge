@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Plus, Trash2, X } from 'lucide-react'
 import type { Customer, DispatchFormField, PriorityLevel, Store, Urgency, Vendor } from '@/lib/dispatch/types'
 import { titleCase } from '@/lib/dispatch/utils'
@@ -131,6 +132,11 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
 
         {tab === 'customers' && (
           <div className="space-y-4">
+            <p className="text-xs text-slate-500">
+              This list is shared with the{' '}
+              <Link href="/app/customers" className="font-medium text-indigo-600 hover:underline">Customers page</Link>
+              {' '}— add a customer in either place and it shows up in both. Priority scales below are Dispatch-specific.
+            </p>
             <div className="flex gap-2">
               <input className={inputCls} placeholder="Customer / chain name (e.g. ALDI)" value={cName} onChange={(e) => setCName(e.target.value)} />
               <button onClick={() => { void run(() => createCustomer(cName)); setCName('') }}
@@ -141,7 +147,7 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
                 <div key={c.id} className="rounded-md border border-slate-200 p-2.5 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <b className="text-xs text-slate-700 dark:text-slate-200">{c.name}</b>
-                    <button onClick={() => { if (confirm(`Delete customer ${c.name} and its priority scale?`)) void run(() => deleteCustomer(c.id)) }}
+                    <button onClick={() => { if (confirm(`Delete customer ${c.name}? This removes the customer for the WHOLE organization (Customers page included), plus its priority scale.`)) void run(() => deleteCustomer(c.id)) }}
                       className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">

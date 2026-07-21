@@ -304,12 +304,14 @@ export async function deleteStore(storeId: string) {
 
 // ── Customers + priority scales ─────────────────────────────────────────────
 
+// Customers are SHARED with the Customers page (public.customers) — creating
+// one here makes it available everywhere, and vice versa.
 export async function createCustomer(name: string) {
   try {
     const { supabase, companyId, isManagement } = await ctx()
     if (!isManagement) return { error: 'Managers only' }
     if (!name.trim()) return { error: 'Name is required' }
-    const { data, error } = await supabase.from('dispatch_customers')
+    const { data, error } = await supabase.from('customers')
       .insert({ name: name.trim(), company_id: companyId }).select('id').single()
     if (error) return { error: error.message }
     revalidatePath(PATH, 'layout')
@@ -319,9 +321,10 @@ export async function createCustomer(name: string) {
 
 export async function deleteCustomer(id: string) {
   try {
-    const { supabase, companyId, isManagement } = await ctx()
-    if (!isManagement) return { error: 'Managers only' }
-    const { error } = await supabase.from('dispatch_customers')
+    const { supabase, companyId, isAdmin } = await ctx()
+    // Deleting removes the org-wide customer record (Customers page included) — admin only.
+    if (!isAdmin) return { error: 'Admins only' }
+    const { error } = await supabase.from('customers')
       .delete().eq('id', id).eq('company_id', companyId)
     if (error) return { error: error.message }
     revalidatePath(PATH, 'layout')

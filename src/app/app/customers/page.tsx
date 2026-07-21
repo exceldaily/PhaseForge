@@ -1,11 +1,12 @@
-import { requireModule } from '@/lib/operations/server'
+import { requireModuleOrDispatch } from '@/lib/operations/server'
 import { createClient } from '@/lib/supabase/server'
 import { CustomersClient } from './CustomersClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CustomersPage() {
-  const ctx = await requireModule('customers')
+  // Dispatch orgs get Customers too — the two modules share one customer list.
+  const ctx = await requireModuleOrDispatch('customers')
   const supabase = await createClient()
 
   const [{ data: customers }, { data: locations }, { data: assets }, { data: divisions }, { data: calls }] =

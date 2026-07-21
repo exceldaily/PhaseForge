@@ -52,6 +52,24 @@ export async function requireModule(key: ModuleKey): Promise<OpsContext> {
   return ctx
 }
 
+// Like requireModule, but Dispatch access also opens the door — used by the
+// Customers page, whose data is shared with the Dispatch module (RLS mirrors
+// this via public.dispatch_allowed()).
+export async function requireModuleOrDispatch(key: ModuleKey): Promise<OpsContext> {
+  const ctx = await getOpsContext()
+  const def = getModuleDef(key)
+  if (def && !moduleAllowsRole(def, ctx.opsRole)) redirect('/app/dashboard')
+  if (ctx.enabledModules.includes(key)) return ctx
+
+  const supabase = await createClient()
+  const { data: company } = await supabase
+    .from('companies').select('plan, dispatch_enabled').eq('id', ctx.companyId).single()
+  const dispatchAllowed = Boolean(company?.dispatch_enabled) ||
+    ['individual', 'pro', 'business', 'enterprise'].includes(company?.plan ?? '')
+  if (!dispatchAllowed) redirect('/app/dashboard')
+  return ctx
+}
+
 // Sidebar helper: which operations modules should this user see links for?
 export function visibleModules(ctx: OpsContext) {
   return OPERATIONS_MODULES.filter(
