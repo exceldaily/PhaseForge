@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { canUseTickets } from '@/lib/constants'
 import type {
-  CallNote, CallWithRelations, Customer, DispatchFormField, PriorityLevel, Store, Vendor,
+  CallNote, CallWithRelations, Customer, DispatchAsset, DispatchFormField, PriorityLevel, Store, Vendor,
 } from '@/lib/dispatch/types'
 
 export interface DispatchContext {
@@ -33,6 +33,7 @@ export interface DispatchData {
   stores: Store[]
   vendors: Vendor[]
   customers: Customer[]
+  assets: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   calls: CallWithRelations[]
@@ -40,11 +41,13 @@ export interface DispatchData {
 
 export async function getDispatchData(): Promise<DispatchData> {
   const supabase = await createClient()
-  const [storesRes, vendorsRes, customersRes, levelsRes, fieldsRes, callsRes] = await Promise.all([
+  const [storesRes, vendorsRes, customersRes, assetsRes, levelsRes, fieldsRes, callsRes] = await Promise.all([
     supabase.from('dispatch_stores').select('*').order('store_number'),
     supabase.from('dispatch_techs').select('*').order('name'),
     // Shared with the Customers page — one customer list drives both.
     supabase.from('customers').select('id, company_id, name, created_at').order('name'),
+    // The customers' equipment database — powers the "which unit is broken" picker.
+    supabase.from('assets').select('id, customer_id, name, asset_type, make, model, status').order('name'),
     supabase.from('dispatch_priority_levels').select('*').order('sort_order'),
     supabase.from('dispatch_form_fields').select('*').eq('is_active', true).order('sort_order'),
     supabase.from('dispatch_service_calls').select(
@@ -86,6 +89,7 @@ export async function getDispatchData(): Promise<DispatchData> {
     stores: (storesRes.data ?? []) as Store[],
     vendors: (vendorsRes.data ?? []) as Vendor[],
     customers: (customersRes.data ?? []) as Customer[],
+    assets: (assetsRes.data ?? []) as DispatchAsset[],
     priorityLevels: (levelsRes.data ?? []) as PriorityLevel[],
     formFields: (fieldsRes.data ?? []) as DispatchFormField[],
     calls,

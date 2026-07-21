@@ -102,6 +102,17 @@ export interface Vendor {
   created_at: string
 }
 
+// A customer's equipment record (public.assets — shared with the Customers page).
+export interface DispatchAsset {
+  id: string
+  customer_id: string
+  name: string
+  asset_type: string | null
+  make: string | null
+  model: string | null
+  status: string
+}
+
 // An org-defined extra field on the New Service Call card ("fillable blank").
 export interface DispatchFormField {
   id: string
@@ -129,6 +140,8 @@ export interface ServiceCall {
   eta_scheduled: string | null
   scheduled_date: string | null
   rack_circuit_case: string | null
+  // Which piece of the customer's equipment is having the issue (assets.id).
+  asset_id: string | null
   description: string
   manager_note?: string | null
   assigned_vendor_id: string | null

@@ -31,6 +31,7 @@ export default async function DispatchPage() {
       stores={data.stores}
       vendors={data.vendors}
       customers={data.customers}
+      assets={data.assets}
       priorityLevels={data.priorityLevels}
       formFields={data.formFields}
       calls={data.calls}

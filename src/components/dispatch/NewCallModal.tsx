@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import type {
-  CallStatus, DispatchFormField, PartStatus, PriorityLevel, ProposalStatus, Store, Urgency, Vendor,
+  CallStatus, Customer, DispatchAsset, DispatchFormField, PartStatus, PriorityLevel,
+  ProposalStatus, Store, Urgency, Vendor,
 } from '@/lib/dispatch/types'
 import { dateInputToNoonUtc, titleCase } from '@/lib/dispatch/utils'
-import { addFormField, createServiceCall, removeFormField } from '@/app/app/dispatch/actions'
+import {
+  addFormField, createCustomer, createServiceCall, createStore, removeFormField,
+} from '@/app/app/dispatch/actions'
 
 const URGENCY_OPTIONS: Urgency[] = ['urgent', 'high', 'normal', 'low']
 // Quote/proposal states live only in the Proposal Status field, not here.
@@ -32,16 +35,28 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function NewCallModal({ stores, vendors, priorityLevels, formFields, canEdit, onClose, onCreated }: {
+export function NewCallModal({ stores, vendors, customers, assets, priorityLevels, formFields, canEdit, onClose, onCreated }: {
   stores: Store[]
   vendors: Vendor[]
+  customers: Customer[]
+  assets: DispatchAsset[]
   priorityLevels: PriorityLevel[]
   formFields: DispatchFormField[]
   canEdit: boolean
   onClose: () => void
   onCreated: () => void
 }) {
+  // Local mirrors so inline-created customers/stores appear without a reload.
+  const [customerList, setCustomerList] = useState<Customer[]>(customers)
+  const [storeList, setStoreList] = useState<Store[]>(stores)
+  const [customerId, setCustomerId] = useState(stores[0]?.customer_id ?? '')
   const [storeId, setStoreId] = useState(stores[0]?.id ?? '')
+  const [assetId, setAssetId] = useState('')
+  const [addingCustomer, setAddingCustomer] = useState(false)
+  const [newCustomerName, setNewCustomerName] = useState('')
+  const [addingStore, setAddingStore] = useState(false)
+  const [newStoreNum, setNewStoreNum] = useState('')
+  const [newStoreName, setNewStoreName] = useState('')
   const [callNumber, setCallNumber] = useState('')
   const [trackingUrl, setTrackingUrl] = useState('')
   const [jobNumber, setJobNumber] = useState('')
@@ -67,17 +82,67 @@ export function NewCallModal({ stores, vendors, priorityLevels, formFields, canE
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const selectedStore = stores.find((s) => s.id === storeId)
+  const selectedStore = storeList.find((s) => s.id === storeId)
+  // Customer drives the store list, priority scale, and equipment picker.
+  const effectiveCustomerId = customerId || selectedStore?.customer_id || ''
+  const visibleStores = customerId ? storeList.filter((s) => s.customer_id === customerId) : storeList
+  const customerAssets = assets.filter((a) => a.customer_id === effectiveCustomerId && a.status !== 'retired')
   const customerLevels = priorityLevels
-    .filter((p) => p.customer_id === selectedStore?.customer_id)
+    .filter((p) => p.customer_id === effectiveCustomerId)
     .sort((a, b) => a.sort_order - b.sort_order)
+
+  function handleCustomerChange(newCustomerId: string) {
+    setCustomerId(newCustomerId)
+    // Keep the store only if it belongs to the newly chosen customer.
+    const stillValid = storeList.some((s) => s.id === storeId && (!newCustomerId || s.customer_id === newCustomerId))
+    if (!stillValid) {
+      const first = newCustomerId ? storeList.find((s) => s.customer_id === newCustomerId) : storeList[0]
+      setStoreId(first?.id ?? '')
+    }
+    setAssetId('')
+    setPriorityLevelId('')
+  }
 
   function handleStoreChange(newStoreId: string) {
     setStoreId(newStoreId)
-    const newCustomerId = stores.find((s) => s.id === newStoreId)?.customer_id
+    const newCustomerId = storeList.find((s) => s.id === newStoreId)?.customer_id
     if (!priorityLevels.some((p) => p.id === priorityLevelId && p.customer_id === newCustomerId)) {
       setPriorityLevelId('')
     }
+    setAssetId('')
+  }
+
+  async function handleAddCustomer() {
+    const name = newCustomerName.trim()
+    if (!name) return
+    const res = await createCustomer(name)
+    if ('error' in res && res.error) { setError(res.error); return }
+    if ('id' in res && res.id) {
+      setCustomerList((l) => [...l, { id: res.id!, company_id: '', name, created_at: new Date().toISOString() }])
+      setCustomerId(res.id)
+      setStoreId('')
+    }
+    setNewCustomerName('')
+    setAddingCustomer(false)
+  }
+
+  async function handleAddStore() {
+    const num = newStoreNum.trim(); const name = newStoreName.trim()
+    if (!num || !name) { setError('Store number and name are required.'); return }
+    const res = await createStore({ store_number: num, store_name: name, customer_id: customerId || null })
+    if ('error' in res && res.error) { setError(res.error); return }
+    if ('id' in res && res.id) {
+      const store: Store = {
+        id: res.id, company_id: '', customer_id: customerId || null,
+        store_number: num, store_name: name, address: null, city: null, state: null,
+        main_tech_id: null, store_manager: null, district_manager: null,
+        google_maps_url: null, notes: null, created_at: new Date().toISOString(),
+      }
+      setStoreList((l) => [...l, store])
+      setStoreId(res.id)
+    }
+    setNewStoreNum(''); setNewStoreName('')
+    setAddingStore(false)
   }
 
   async function handleAddField() {
@@ -130,6 +195,7 @@ export function NewCallModal({ stores, vendors, priorityLevels, formFields, canE
       eta_scheduled: eta ? dateInputToNoonUtc(eta) : null,
       scheduled_date: scheduledDate ? dateInputToNoonUtc(scheduledDate) : null,
       rack_circuit_case: rack.trim() || null,
+      asset_id: assetId || null,
       nte: nte.trim() ? Number(nte) : null,
       description: description.trim(),
       manager_note: managerNote.trim() || null,
@@ -153,13 +219,60 @@ export function NewCallModal({ stores, vendors, priorityLevels, formFields, canE
 
         <form onSubmit={handleSubmit} className="space-y-3 text-sm">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <FieldLabel>Store</FieldLabel>
-              <select className={inputCls} value={storeId} onChange={(e) => handleStoreChange(e.target.value)}>
-                {stores.map((s) => (
-                  <option key={s.id} value={s.id}>#{s.store_number} — {s.store_name}</option>
-                ))}
-              </select>
+            <SectionLabel>Customer / Store</SectionLabel>
+            <div>
+              <FieldLabel>
+                Customer
+                {canEdit && !addingCustomer && (
+                  <button type="button" onClick={() => setAddingCustomer(true)}
+                    className="ml-1.5 font-semibold text-indigo-500 hover:text-indigo-700 normal-case">+ new</button>
+                )}
+              </FieldLabel>
+              {addingCustomer ? (
+                <div className="flex gap-1.5">
+                  <input autoFocus className={inputCls} value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAddCustomer() } }}
+                    placeholder="Customer name…" />
+                  <button type="button" onClick={() => void handleAddCustomer()}
+                    className="rounded-md bg-indigo-600 px-2.5 text-xs font-medium text-white">Add</button>
+                  <button type="button" onClick={() => setAddingCustomer(false)} className="px-1 text-xs text-slate-400">✕</button>
+                </div>
+              ) : (
+                <select className={inputCls} value={customerId} onChange={(e) => handleCustomerChange(e.target.value)}>
+                  <option value="">Any customer</option>
+                  {customerList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
+            </div>
+            <div>
+              <FieldLabel>
+                Store / Location
+                {canEdit && !addingStore && (
+                  <button type="button" onClick={() => setAddingStore(true)}
+                    className="ml-1.5 font-semibold text-indigo-500 hover:text-indigo-700 normal-case">+ new</button>
+                )}
+              </FieldLabel>
+              {addingStore ? (
+                <div className="flex gap-1.5">
+                  <input autoFocus className={inputCls} value={newStoreNum} style={{ maxWidth: '5.5rem' }}
+                    onChange={(e) => setNewStoreNum(e.target.value)} placeholder="Store #" />
+                  <input className={inputCls} value={newStoreName}
+                    onChange={(e) => setNewStoreName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleAddStore() } }}
+                    placeholder="Store name…" />
+                  <button type="button" onClick={() => void handleAddStore()}
+                    className="rounded-md bg-indigo-600 px-2.5 text-xs font-medium text-white">Add</button>
+                  <button type="button" onClick={() => setAddingStore(false)} className="px-1 text-xs text-slate-400">✕</button>
+                </div>
+              ) : (
+                <select className={inputCls} value={storeId} onChange={(e) => handleStoreChange(e.target.value)}>
+                  {visibleStores.length === 0 && <option value="">No stores yet — use + new</option>}
+                  {visibleStores.map((s) => (
+                    <option key={s.id} value={s.id}>#{s.store_number} — {s.store_name}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <SectionLabel>External</SectionLabel>
@@ -222,6 +335,22 @@ export function NewCallModal({ stores, vendors, priorityLevels, formFields, canE
             <div>
               <FieldLabel>Scheduled Date (optional)</FieldLabel>
               <input type="date" className={inputCls} value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            </div>
+            <div>
+              <FieldLabel>Equipment (from customer records)</FieldLabel>
+              <select className={inputCls} value={assetId} onChange={(e) => setAssetId(e.target.value)}
+                disabled={customerAssets.length === 0}>
+                <option value="">
+                  {customerAssets.length === 0
+                    ? (effectiveCustomerId ? 'No equipment on file for this customer' : 'Pick a customer first')
+                    : 'Select the unit having issues…'}
+                </option>
+                {customerAssets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}{a.asset_type ? ` · ${a.asset_type}` : ''}{a.make || a.model ? ` (${[a.make, a.model].filter(Boolean).join(' ')})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <FieldLabel>Rack / Circuit / Case</FieldLabel>
