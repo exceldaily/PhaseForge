@@ -25,11 +25,16 @@ async function withPdfJs(buf: Buffer): Promise<string> {
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i)
       const content = await page.getTextContent()
-      out +=
-        content.items
-          .map((item) => ('str' in item ? item.str : ''))
-          .filter(Boolean)
-          .join(' ') + '\n'
+      // Preserve line structure: pdf.js marks end-of-line items with hasEOL.
+      // Line-based consumers (punch import) need real newlines; whitespace-
+      // collapsing consumers (quote form parser) are unaffected.
+      let pageText = ''
+      for (const item of content.items) {
+        if (!('str' in item)) continue
+        pageText += item.str
+        pageText += item.hasEOL ? '\n' : ' '
+      }
+      out += pageText + '\n'
     }
     return out
   } finally {
