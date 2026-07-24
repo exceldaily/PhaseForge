@@ -66,28 +66,31 @@ export default async function SchedulesPage({ searchParams }: {
   const weekStart = /^\d{4}-\d{2}-\d{2}$/.test(params.week ?? '') ? params.week! : sundayOf(new Date())
   const teamId = teams.find((t) => t.id === params.team)?.id ?? teams[0]?.id ?? null
 
-  let jobs: {
-    id: string; title: string; job_number: string | null; shift_label: string | null
-    sort_order: number; days: Record<number, string[]>
-  }[] = []
+  // Fetch the WHOLE week (every team) in one pass: the selected team's board
+  // renders from it, and "Copy all" gets every other team's schedule too.
+  const { data: jobRows } = await supabase.from('schedule_jobs')
+    .select('id, title, job_number, shift_label, sort_order, superintendent_id')
+    .eq('company_id', profile.company_id).eq('week_start', weekStart)
+    .order('sort_order')
+  const ids = (jobRows ?? []).map((j) => j.id)
+  const { data: assignRows } = ids.length
+    ? await supabase.from('schedule_assignments').select('schedule_job_id, day, techs').in('schedule_job_id', ids)
+    : { data: [] }
+  const withDays = (jobRows ?? []).map((j) => ({
+    ...j,
+    days: Object.fromEntries(
+      (assignRows ?? []).filter((a) => a.schedule_job_id === j.id).map((a) => [a.day, a.techs as string[]]),
+    ),
+  }))
 
-  if (teamId) {
-    const { data: jobRows } = await supabase.from('schedule_jobs')
-      .select('id, title, job_number, shift_label, sort_order')
-      .eq('company_id', profile.company_id)
-      .eq('superintendent_id', teamId).eq('week_start', weekStart)
-      .order('sort_order')
-    const ids = (jobRows ?? []).map((j) => j.id)
-    const { data: assignRows } = ids.length
-      ? await supabase.from('schedule_assignments').select('schedule_job_id, day, techs').in('schedule_job_id', ids)
-      : { data: [] }
-    jobs = (jobRows ?? []).map((j) => ({
-      ...j,
-      days: Object.fromEntries(
-        (assignRows ?? []).filter((a) => a.schedule_job_id === j.id).map((a) => [a.day, a.techs as string[]]),
-      ),
+  const jobs = teamId ? withDays.filter((j) => j.superintendent_id === teamId) : []
+  // Every team with at least one job this week, for the Copy All button.
+  const allWeek = allTeams
+    .map((t) => ({
+      id: t.id, name: t.name, division: t.division, roster: t.roster,
+      jobs: withDays.filter((j) => j.superintendent_id === t.id),
     }))
-  }
+    .filter((t) => t.jobs.length > 0)
 
   return (
     <SchedulesClient
@@ -101,6 +104,7 @@ export default async function SchedulesPage({ searchParams }: {
       division={division}
       divisions={divisions}
       hasAnyTeams={allTeams.length > 0}
+      allWeek={allWeek}
     />
   )
 }
