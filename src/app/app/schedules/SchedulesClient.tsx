@@ -160,20 +160,29 @@ export function SchedulesClient({
         return `<tr><td style="${cell}font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
 
-      // Title bar spans the whole table width as one cell — Store name on the
-      // left, then Job#, date range, and the yellow shift chip on the right.
-      // Kept out of the body grid so it never forces the name columns wide.
+      // Title bar spans the whole table width as one cell — Store name plus
+      // Job#, date range, and the yellow shift chip. Kept out of the body grid
+      // so it never forces the name columns wide. On wide tables the name sits
+      // left and details right on one row; on narrow tables (small crews) the
+      // details drop to a second line so the store name never wraps mid-word.
       const barBits = [
         jobCell ? `<span style="font-size:12px;color:#333;">${jobCell}</span>` : '',
         `<span style="font-size:12px;font-weight:bold;">${dateRange}</span>`,
         j.shift_label ? `<span style="background:#ffff00;font-size:12px;font-weight:bold;padding:1px 8px;border:1px solid #000;">${esc(j.shift_label)}</span>` : '',
       ].filter(Boolean).join('&nbsp;&nbsp;')
-      const bar =
-        `<tr><td colspan="${gridCols}" style="${cell}padding:4px 8px;">` +
-        `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;"><tr>` +
-        `<td style="border:none;font-size:15px;font-weight:bold;font-family:Arial,sans-serif;">${esc(j.title)}</td>` +
-        `<td align="right" style="border:none;white-space:nowrap;font-family:Arial,sans-serif;">${barBits}</td>` +
-        `</tr></table></td></tr>`
+      const titleHtml = `<span style="font-size:15px;font-weight:bold;font-family:Arial,sans-serif;">${esc(j.title)}</span>`
+      // Rough px estimate: 15px bold title vs. the ~250px of details.
+      const oneLine = tableW >= j.title.length * 7.6 + 8 + 250 + 24
+      const barInner = oneLine
+        ? `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;"><tr>` +
+          `<td style="border:none;white-space:nowrap;">${titleHtml}</td>` +
+          `<td align="right" style="border:none;white-space:nowrap;font-family:Arial,sans-serif;">${barBits}</td>` +
+          `</tr></table>`
+        : `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;">` +
+          `<tr><td style="border:none;white-space:nowrap;">${titleHtml}</td></tr>` +
+          `<tr><td style="border:none;white-space:nowrap;padding-top:3px;font-family:Arial,sans-serif;">${barBits}</td></tr>` +
+          `</table>`
+      const bar = `<tr><td colspan="${gridCols}" style="${cell}padding:4px 8px;">${barInner}</td></tr>`
 
       const colgroup = `<colgroup><col style="width:${DAY_COL_PX}px">${Array.from({ length: techCols }, () => `<col style="width:${nameColPx}px">`).join('')}</colgroup>`
       return `<table cellspacing="0" cellpadding="0" width="${tableW}" style="border-collapse:collapse;table-layout:fixed;width:${tableW}px;margin-bottom:18px;">
