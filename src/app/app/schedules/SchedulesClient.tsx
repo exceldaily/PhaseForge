@@ -123,21 +123,50 @@ export function SchedulesClient({
         ...roster.filter((n) => weekNames.has(n)),
         ...[...weekNames].filter((n) => !roster.includes(n)),
       ]
+      // Body rows are 1 (day label) + one column per tech wide. The header
+      // MUST span the same total, or the email client redistributes column
+      // widths and everything looks shifted (big crews especially). So the
+      // header's colspans are computed to sum to exactly this width.
+      const bodyCols = 1 + columns.length
       const rows = visibleDays.map((d, i) => {
         const grey = i % 2 === 0
         const onDay = new Set(j.days[d] ?? [])
         const techCells = columns.map((n) =>
           `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
         ).join('')
-        return `<tr><td style="${cellBase}font-weight:bold;text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
+        return `<tr><td style="${cellBase}font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
-      return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;min-width:520px;">
-        <tr>
-          <td style="${cellBase}font-weight:bold;font-size:15px;text-align:center;">${esc(j.title)}</td>
-          <td style="${cellBase}text-align:center;">${jobCell}</td>
-          <td style="${cellBase}font-weight:bold;text-align:center;">${mmdd(weekStart)}-${mmdd(weekEnd)}</td>
-          <td style="${cellBase}background:#ffff00;font-weight:bold;text-align:center;">${esc(j.shift_label ?? '')}</td>
-        </tr>
+
+      // Title | Job# | Dates | Shift, colspans summing to bodyCols. When the
+      // crew is too small to give each its own column, Job# folds into the
+      // title (and, narrower still, the dates too) so the total always matches.
+      const dateRange = `${mmdd(weekStart)}-${mmdd(weekEnd)}`
+      const shiftCell = `<td colspan="1" style="${cellBase}background:#ffff00;font-weight:bold;text-align:center;white-space:nowrap;">${esc(j.shift_label ?? '')}</td>`
+      let headerRow: string
+      if (bodyCols >= 4) {
+        headerRow =
+          `<td colspan="${bodyCols - 3}" style="${cellBase}font-weight:bold;font-size:15px;text-align:center;">${esc(j.title)}</td>` +
+          `<td colspan="1" style="${cellBase}text-align:center;white-space:nowrap;">${jobCell}</td>` +
+          `<td colspan="1" style="${cellBase}font-weight:bold;text-align:center;white-space:nowrap;">${dateRange}</td>` +
+          shiftCell
+      } else if (bodyCols === 3) {
+        headerRow =
+          `<td colspan="1" style="${cellBase}font-weight:bold;font-size:15px;text-align:center;">${esc(j.title)}${jobCell ? `<br><span style="font-size:12px;font-weight:normal;">${jobCell}</span>` : ''}</td>` +
+          `<td colspan="1" style="${cellBase}font-weight:bold;text-align:center;white-space:nowrap;">${dateRange}</td>` +
+          shiftCell
+      } else {
+        headerRow =
+          `<td colspan="${Math.max(1, bodyCols - 1)}" style="${cellBase}font-weight:bold;font-size:15px;text-align:center;">${esc(j.title)}${jobCell ? ` — ${jobCell}` : ''} — ${dateRange}</td>` +
+          shiftCell
+      }
+      // table-layout:fixed + an explicit colgroup keeps the tech columns equal
+      // width so no single long name can stretch its column and knock the rest
+      // out of alignment. First column (day labels) is wider.
+      const colWidth = Math.max(56, Math.round(560 / bodyCols))
+      const colgroup = `<colgroup><col style="width:130px">${columns.map(() => `<col style="width:${colWidth}px">`).join('')}</colgroup>`
+      return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;table-layout:fixed;margin-bottom:18px;">
+        ${colgroup}
+        <tr>${headerRow}</tr>
         ${rows}
       </table>`
     }).join('')
