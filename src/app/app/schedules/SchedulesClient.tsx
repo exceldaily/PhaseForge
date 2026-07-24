@@ -123,48 +123,42 @@ export function SchedulesClient({
         ...roster.filter((n) => weekNames.has(n)),
         ...[...weekNames].filter((n) => !roster.includes(n)),
       ]
-      // Body rows are 1 (day label) + one column per tech wide. The header
-      // MUST span the same total number of columns, or the email client
-      // redistributes widths and the grid looks shifted. Columns AUTO-size to
-      // content (no fixed pixel widths) so a wide crew never overflows and
-      // gets cut off — the table just grows to fit its names.
-      const bodyCols = 1 + columns.length
+      // The grid is 1 (day label) + one column per tech, but NEVER fewer than
+      // 4 columns total — Title | Job# | Dates | Shift each always get their
+      // own header cell (small crews just stretch their last tech cell to
+      // fill). Header colspans sum to exactly the same total as day rows so
+      // the email client can't shift anything.
+      const techCols = columns.length
+      const gridCols = Math.max(1 + techCols, 4)
+      // Crews of 6+ get compact styling so the table doesn't sprawl: smaller
+      // font, tighter padding, short day names ("Mon 07/27").
+      const compact = techCols >= 6
+      const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      const cell = compact
+        ? 'border:1px solid #000;padding:2px 5px;font-family:Arial,sans-serif;font-size:11px;'
+        : cellBase
+      const padSpan = gridCols - (1 + techCols) // extra columns small crews must absorb
+
       const rows = visibleDays.map((d, i) => {
         const grey = i % 2 === 0
         const onDay = new Set(j.days[d] ?? [])
-        const techCells = columns.map((n) =>
-          `<td style="${cellBase}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
-        ).join('')
-        return `<tr><td style="${cellBase}font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
+        const techCells = columns.map((n, ci) => {
+          const span = ci === techCols - 1 && padSpan > 0 ? ` colspan="${padSpan + 1}"` : ''
+          return `<td${span} style="${cell}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`
+        }).join('')
+        const dayLabel = compact ? `${DAY_SHORT[d]} ${mmdd(shiftDate(weekStart, d))}` : `${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}`
+        return `<tr><td style="${cell}font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${dayLabel}</td>${techCells}</tr>`
       }).join('')
 
-      // Title | Job# | Dates | Shift. Colspans sum to bodyCols so the row is
-      // exactly as wide as the day rows. A big crew gives the title lots of
-      // span; a 2-person crew is too narrow for four separate cells, so Job#
-      // and dates sit inline in the title cell (one line, never stacked).
+      // Header: title absorbs the slack columns; Job#, dates, shift always one
+      // cell each in their own columns.
       const dateRange = `${mmdd(weekStart)}-${mmdd(weekEnd)}`
-      const shiftCell = `<td style="${cellBase}background:#ffff00;font-weight:bold;text-align:center;white-space:nowrap;">${esc(j.shift_label ?? '')}</td>`
-      const titleCore = `<span style="font-size:15px;font-weight:bold;">${esc(j.title)}</span>`
-      let headerRow: string
-      if (bodyCols >= 4) {
-        // Four cells: title takes the slack, Job#/dates/shift one column each.
-        headerRow =
-          `<td colspan="${bodyCols - 3}" style="${cellBase}font-weight:bold;text-align:center;">${titleCore}</td>` +
-          `<td style="${cellBase}text-align:center;white-space:nowrap;">${jobCell}</td>` +
-          `<td style="${cellBase}font-weight:bold;text-align:center;white-space:nowrap;">${dateRange}</td>` +
-          shiftCell
-      } else if (bodyCols === 3) {
-        // Title (with Job# inline) | dates | shift.
-        headerRow =
-          `<td colspan="1" style="${cellBase}text-align:center;">${titleCore}${jobCell ? `<br><span style="font-size:12px;color:#555;">${jobCell}</span>` : ''}</td>` +
-          `<td style="${cellBase}font-weight:bold;text-align:center;white-space:nowrap;">${dateRange}</td>` +
-          shiftCell
-      } else {
-        // Crew of 1 (or none): title carries Job# + dates inline, shift beside.
-        headerRow =
-          `<td colspan="${Math.max(1, bodyCols - 1)}" style="${cellBase}text-align:center;">${titleCore}${jobCell ? ` &nbsp;·&nbsp; ${jobCell}` : ''} &nbsp;·&nbsp; <b>${dateRange}</b></td>` +
-          shiftCell
-      }
+      const headerRow =
+        `<td colspan="${gridCols - 3}" style="${cell}font-weight:bold;font-size:${compact ? 13 : 15}px;text-align:center;">${esc(j.title)}</td>` +
+        `<td style="${cell}text-align:center;white-space:nowrap;">${jobCell}</td>` +
+        `<td style="${cell}font-weight:bold;text-align:center;white-space:nowrap;">${dateRange}</td>` +
+        `<td style="${cell}background:#ffff00;font-weight:bold;text-align:center;white-space:nowrap;">${esc(j.shift_label ?? '')}</td>`
+
       return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;">
         <tr>${headerRow}</tr>
         ${rows}
