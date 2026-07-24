@@ -29,13 +29,16 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
   return template.replace('{job}', encodeURIComponent(jobNumber.trim()))
 }
 
+interface WeekTeam { id: string; name: string; division: string | null; roster: string[]; jobs: Job[] }
+
 export function SchedulesClient({
   teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
-  division = '', divisions = [], hasAnyTeams = true,
+  division = '', divisions = [], hasAnyTeams = true, allWeek = [],
 }: {
   teams: Team[]; teamId: string | null; weekStart: string; jobs: Job[]; canEdit: boolean
   jobUrlTemplate?: string | null; directory?: DirEntry[]
   division?: string; divisions?: string[]; hasAnyTeams?: boolean
+  allWeek?: WeekTeam[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -99,12 +102,11 @@ export function SchedulesClient({
 
   // Rich copy: pasting into Gmail/Outlook reproduces the bordered-table format
   // (grey banding, yellow shift chip, Job# hyperlinked). Plain-text fallback
-  // included for SMS/plain editors.
-  const copyForEmail = async () => {
+  // included for SMS/plain editors. Reused per-team by "Copy all".
+  const buildTeamCopy = (teamName: string, current: Job[], teamRoster: string[]) => {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     const cellBase = 'border:1px solid #000;padding:2px 8px;font-family:Arial,sans-serif;font-size:13px;'
-    const current = liveJobs()
     const blocks = current.map((j) => {
       const url = jobUrl(jobUrlTemplate, j.job_number)
       const jobCell = j.job_number
@@ -120,8 +122,8 @@ export function SchedulesClient({
       // everyone else's names left.
       const weekNames = new Set(visibleDays.flatMap((d) => j.days[d] ?? []))
       const columns = [
-        ...roster.filter((n) => weekNames.has(n)),
-        ...[...weekNames].filter((n) => !roster.includes(n)),
+        ...teamRoster.filter((n) => weekNames.has(n)),
+        ...[...weekNames].filter((n) => !teamRoster.includes(n)),
       ]
       // The grid is 1 (day label) + one column per tech, but NEVER fewer than
       // 4 columns total — Title | Job# | Dates | Shift each always get their
@@ -164,9 +166,9 @@ export function SchedulesClient({
         ${rows}
       </table>`
     }).join('')
-    const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)} — ${esc(team?.name ?? '')} Team</p>${blocks}</div>`
+    const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)} — ${esc(teamName)} Team</p>${blocks}</div>`
 
-    const lines: string[] = [`${team?.name ?? 'Team'} — WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)}`, '']
+    const lines: string[] = [`${teamName} — WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)}`, '']
     for (const j of current) {
       lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}${j.shift_label ? `  — ${j.shift_label}` : ''}`)
       for (let d = 0; d < 7; d++) {
@@ -176,18 +178,39 @@ export function SchedulesClient({
       }
       lines.push('')
     }
+    return { html, plain: lines.join('\n') }
+  }
+
+  const writeClipboard = async (html: string, plain: string) => {
     try {
       await navigator.clipboard.write([
         new ClipboardItem({
           'text/html': new Blob([html], { type: 'text/html' }),
-          'text/plain': new Blob([lines.join('\n')], { type: 'text/plain' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' }),
         }),
       ])
       setMsg('Copied — paste into Gmail/Outlook for the full table format (plain text in SMS).')
     } catch {
-      await navigator.clipboard.writeText(lines.join('\n'))
+      await navigator.clipboard.writeText(plain)
       setMsg('Copied as plain text (rich copy not supported in this browser).')
     }
+  }
+
+  const copyForEmail = async () => {
+    const { html, plain } = buildTeamCopy(team?.name ?? 'Team', liveJobs(), roster)
+    await writeClipboard(html, plain)
+  }
+
+  // Every team's schedule for this week in one copy, separated per team. The
+  // on-screen team uses its live (possibly unsaved) edits; others use saved data.
+  const copyAllForEmail = async () => {
+    const sections = allWeek.map((t) =>
+      buildTeamCopy(t.name, t.id === teamId ? liveJobs() : t.jobs, t.roster))
+    if (sections.length === 0) { setMsg('No schedules on this week yet.'); return }
+    await writeClipboard(
+      sections.map((s) => s.html).join('<br>'),
+      sections.map((s) => s.plain).join('\n\n' + '='.repeat(40) + '\n\n'),
+    )
   }
 
   if (!hasAnyTeams && directory.length === 0) {
@@ -288,6 +311,10 @@ export function SchedulesClient({
             )}
             <button onClick={copyForEmail} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <ClipboardCopy size={13} /> Copy for email
+            </button>
+            <button onClick={copyAllForEmail} title="Copy every team's schedule for this week in one shot"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+              <ClipboardCopy size={13} /> Copy all
             </button>
             <button onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <Printer size={13} /> Print / PDF
