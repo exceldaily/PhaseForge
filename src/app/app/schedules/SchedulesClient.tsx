@@ -103,10 +103,33 @@ export function SchedulesClient({
   // Rich copy: pasting into Gmail/Outlook reproduces the bordered-table format
   // (grey banding, yellow shift chip, Job# hyperlinked). Plain-text fallback
   // included for SMS/plain editors. Reused per-team by "Copy all".
-  const buildTeamCopy = (teamName: string, current: Job[], teamRoster: string[]) => {
+  // One consistent column sizing for every table in a copy so stacked
+  // schedules line up. Name columns fit only the longest NAME (the header's
+  // Job#/date/shift live in a full-width title bar, so they don't force the
+  // body columns wide). The day column is a constant width everywhere.
+  // Measured across ALL jobs in the copy (every team, for "Copy all").
+  const measureCols = (allJobs: Job[]) => {
+    const CHAR = 6.6, PAD = 16
+    let longestName = 4
+    for (const j of allJobs) {
+      for (const names of Object.values(j.days)) for (const n of names) longestName = Math.max(longestName, n.length)
+    }
+    const nameColPx = Math.min(130, Math.max(56, Math.ceil(longestName * CHAR + PAD)))
+    const dayColPx = 120 // constant so "Wednesday 07/29" is identical everywhere
+    return { nameColPx, dayColPx }
+  }
+
+  const buildTeamCopy = (
+    teamName: string, current: Job[], teamRoster: string[],
+    metrics: { nameColPx: number; dayColPx: number },
+  ) => {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    const cellBase = 'border:1px solid #000;padding:2px 8px;font-family:Arial,sans-serif;font-size:13px;'
+    // ONE look for every table: same font, same day-column width, same name
+    // cell width everywhere.
+    const cell = 'border:1px solid #000;padding:2px 6px;font-family:Arial,sans-serif;font-size:12px;'
+    const { nameColPx, dayColPx: DAY_COL_PX } = metrics
+    const dateRange = `${mmdd(weekStart)}-${mmdd(weekEnd)}`
     const blocks = current.map((j) => {
       const url = jobUrl(jobUrlTemplate, j.job_number)
       const jobCell = j.job_number
@@ -116,53 +139,46 @@ export function SchedulesClient({
       // as a single row, not a week of blanks.
       const visibleDays = Array.from({ length: 7 }, (_, d) => d)
         .filter((d) => (j.days[d] ?? []).length > 0)
-      // FIXED column per person for the whole job: roster order first, then
-      // any extra (legacy/typed) names in appearance order. A tech who's off
-      // one day leaves an empty cell in HIS column instead of shifting
-      // everyone else's names left.
+      // Fixed column per person for the whole job: roster order first, then any
+      // extra (legacy/typed) names. A tech who's off one day leaves an empty
+      // cell in HIS column instead of shifting everyone else's names left.
       const weekNames = new Set(visibleDays.flatMap((d) => j.days[d] ?? []))
       const columns = [
         ...teamRoster.filter((n) => weekNames.has(n)),
         ...[...weekNames].filter((n) => !teamRoster.includes(n)),
       ]
-      // The grid is 1 (day label) + one column per tech, but NEVER fewer than
-      // 4 columns total — Title | Job# | Dates | Shift each always get their
-      // own header cell (small crews just stretch their last tech cell to
-      // fill). Header colspans sum to exactly the same total as day rows so
-      // the email client can't shift anything.
       const techCols = columns.length
-      const gridCols = Math.max(1 + techCols, 4)
-      // Crews of 6+ get compact styling so the table doesn't sprawl: smaller
-      // font, tighter padding, short day names ("Mon 07/27").
-      const compact = techCols >= 6
-      const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-      const cell = compact
-        ? 'border:1px solid #000;padding:2px 5px;font-family:Arial,sans-serif;font-size:11px;'
-        : cellBase
-      const padSpan = gridCols - (1 + techCols) // extra columns small crews must absorb
+      const gridCols = 1 + techCols // day label + one column per tech
+      const tableW = DAY_COL_PX + techCols * nameColPx
 
       const rows = visibleDays.map((d, i) => {
         const grey = i % 2 === 0
         const onDay = new Set(j.days[d] ?? [])
-        const techCells = columns.map((n, ci) => {
-          const span = ci === techCols - 1 && padSpan > 0 ? ` colspan="${padSpan + 1}"` : ''
-          return `<td${span} style="${cell}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`
-        }).join('')
-        const dayLabel = compact ? `${DAY_SHORT[d]} ${mmdd(shiftDate(weekStart, d))}` : `${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}`
-        return `<tr><td style="${cell}font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${dayLabel}</td>${techCells}</tr>`
+        const techCells = columns.map((n) =>
+          `<td style="${cell}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
+        ).join('')
+        return `<tr><td style="${cell}font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
 
-      // Header: title absorbs the slack columns; Job#, dates, shift always one
-      // cell each in their own columns.
-      const dateRange = `${mmdd(weekStart)}-${mmdd(weekEnd)}`
-      const headerRow =
-        `<td colspan="${gridCols - 3}" style="${cell}font-weight:bold;font-size:${compact ? 13 : 15}px;text-align:center;">${esc(j.title)}</td>` +
-        `<td style="${cell}text-align:center;white-space:nowrap;">${jobCell}</td>` +
-        `<td style="${cell}font-weight:bold;text-align:center;white-space:nowrap;">${dateRange}</td>` +
-        `<td style="${cell}background:#ffff00;font-weight:bold;text-align:center;white-space:nowrap;">${esc(j.shift_label ?? '')}</td>`
+      // Title bar spans the whole table width as one cell — Store name on the
+      // left, then Job#, date range, and the yellow shift chip on the right.
+      // Kept out of the body grid so it never forces the name columns wide.
+      const barBits = [
+        jobCell ? `<span style="font-size:12px;color:#333;">${jobCell}</span>` : '',
+        `<span style="font-size:12px;font-weight:bold;">${dateRange}</span>`,
+        j.shift_label ? `<span style="background:#ffff00;font-size:12px;font-weight:bold;padding:1px 8px;border:1px solid #000;">${esc(j.shift_label)}</span>` : '',
+      ].filter(Boolean).join('&nbsp;&nbsp;')
+      const bar =
+        `<tr><td colspan="${gridCols}" style="${cell}padding:4px 8px;">` +
+        `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;"><tr>` +
+        `<td style="border:none;font-size:15px;font-weight:bold;font-family:Arial,sans-serif;">${esc(j.title)}</td>` +
+        `<td align="right" style="border:none;white-space:nowrap;font-family:Arial,sans-serif;">${barBits}</td>` +
+        `</tr></table></td></tr>`
 
-      return `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:18px;">
-        <tr>${headerRow}</tr>
+      const colgroup = `<colgroup><col style="width:${DAY_COL_PX}px">${Array.from({ length: techCols }, () => `<col style="width:${nameColPx}px">`).join('')}</colgroup>`
+      return `<table cellspacing="0" cellpadding="0" width="${tableW}" style="border-collapse:collapse;table-layout:fixed;width:${tableW}px;margin-bottom:18px;">
+        ${colgroup}
+        ${bar}
         ${rows}
       </table>`
     }).join('')
@@ -197,15 +213,19 @@ export function SchedulesClient({
   }
 
   const copyForEmail = async () => {
-    const { html, plain } = buildTeamCopy(team?.name ?? 'Team', liveJobs(), roster)
+    const jobsNow = liveJobs()
+    const { html, plain } = buildTeamCopy(team?.name ?? 'Team', jobsNow, roster, measureCols(jobsNow))
     await writeClipboard(html, plain)
   }
 
   // Every team's schedule for this week in one copy, separated per team. The
-  // on-screen team uses its live (possibly unsaved) edits; others use saved data.
+  // on-screen team uses its live (possibly unsaved) edits; others use saved
+  // data. Column widths are measured across ALL teams so every table lines up.
   const copyAllForEmail = async () => {
-    const sections = allWeek.map((t) =>
-      buildTeamCopy(t.name, t.id === teamId ? liveJobs() : t.jobs, t.roster))
+    const perTeam = allWeek.map((t) => ({ ...t, jobsNow: t.id === teamId ? liveJobs() : t.jobs }))
+    // Each team sizes its own name columns (so one long name elsewhere can't
+    // widen everyone); the constant day column keeps them aligned.
+    const sections = perTeam.map((t) => buildTeamCopy(t.name, t.jobsNow, t.roster, measureCols(t.jobsNow)))
     if (sections.length === 0) { setMsg('No schedules on this week yet.'); return }
     await writeClipboard(
       sections.map((s) => s.html).join('<br>'),
