@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { canUseCalendarSync } from '@/lib/constants'
+import { DB_SCHEMA } from '@/lib/supabase/schema'
 import { pushPhase, pullLinkedEvents } from '@/lib/scheduling/syncCore'
 
 export const maxDuration = 300
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return NextResponse.json({ error: 'service credentials missing' }, { status: 500 })
-  const supabase = createClient(url, key, { auth: { persistSession: false } })
+  const supabase = createClient(url, key, { db: { schema: DB_SCHEMA }, auth: { persistSession: false } })
 
   const { data: connections } = await supabase
     .from('gcal_connections')

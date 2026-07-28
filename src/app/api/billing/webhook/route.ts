@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { DB_SCHEMA } from '@/lib/supabase/schema'
 
 let stripe: Stripe | null = null
 let supabase: any = null
@@ -18,7 +19,7 @@ const getSupabase = () => {
   if (!supabase) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    supabase = createClient(supabaseUrl, supabaseKey)
+    supabase = createClient(supabaseUrl, supabaseKey, { db: { schema: DB_SCHEMA } })
   }
   return supabase
 }
