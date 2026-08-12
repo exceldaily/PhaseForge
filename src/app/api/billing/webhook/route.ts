@@ -18,7 +18,8 @@ const getSupabase = () => {
   if (!supabase) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    supabase = createClient(supabaseUrl, supabaseKey)
+    // App data lives in the `phaseforge` schema (shared project with ReelFishHelp).
+    supabase = createClient(supabaseUrl, supabaseKey, { db: { schema: 'phaseforge' } })
   }
   return supabase
 }

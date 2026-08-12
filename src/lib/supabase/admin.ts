@@ -11,6 +11,9 @@ export function createAdminClient() {
   }
 
   return createSupabaseClient(url, serviceRoleKey, {
+    // App data lives in the `phaseforge` schema (project shared with
+    // ReelFishHelp, whose tables occupy `public`).
+    db: { schema: 'phaseforge' },
     auth: {
       autoRefreshToken: false,
       persistSession: false,

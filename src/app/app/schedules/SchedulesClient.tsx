@@ -103,20 +103,25 @@ export function SchedulesClient({
   // Rich copy: pasting into Gmail/Outlook reproduces the bordered-table format
   // (grey banding, yellow shift chip, Job# hyperlinked). Plain-text fallback
   // included for SMS/plain editors. Reused per-team by "Copy all".
-  // One consistent column sizing for every table in a copy so stacked
-  // schedules line up. Name columns fit only the longest NAME (the header's
-  // Job#/date/shift live in a full-width title bar, so they don't force the
-  // body columns wide). The day column is a constant width everywhere.
-  // Measured across ALL jobs in the copy (every team, for "Copy all").
+  // The day label is deliberately fixed in every email table.  Name columns
+  // are measured from names only (never from the header), then capped so a
+  // large crew remains comfortable inside Gmail's compose area.  Names may
+  // wrap within a capped cell, but are never hidden or ellipsized.
   const measureCols = (allJobs: Job[]) => {
-    const CHAR = 6.6, PAD = 16
+    const DAY_COL_PX = 132
+    const MAX_TABLE_PX = 760
+    const CHAR_PX = 6.1
+    const CELL_PADDING_PX = 14
     let longestName = 4
+    let mostTechs = 1
     for (const j of allJobs) {
-      for (const names of Object.values(j.days)) for (const n of names) longestName = Math.max(longestName, n.length)
+      const names = new Set(Object.values(j.days).flat())
+      mostTechs = Math.max(mostTechs, names.size)
+      for (const n of names) longestName = Math.max(longestName, n.length)
     }
-    const nameColPx = Math.min(130, Math.max(56, Math.ceil(longestName * CHAR + PAD)))
-    const dayColPx = 120 // constant so "Wednesday 07/29" is identical everywhere
-    return { nameColPx, dayColPx }
+    const naturalNameColPx = Math.min(112, Math.max(58, Math.ceil(longestName * CHAR_PX + CELL_PADDING_PX)))
+    const fittedNameColPx = Math.max(52, Math.floor((MAX_TABLE_PX - DAY_COL_PX) / mostTechs))
+    return { nameColPx: Math.min(naturalNameColPx, fittedNameColPx), dayColPx: DAY_COL_PX }
   }
 
   const buildTeamCopy = (
@@ -125,15 +130,15 @@ export function SchedulesClient({
   ) => {
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const DAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    // ONE look for every table: same font, same day-column width, same name
-    // cell width everywhere.
-    const cell = 'border:1px solid #000;padding:2px 6px;font-family:Arial,sans-serif;font-size:12px;'
+    // All presentation is on tables/cells: Gmail retains this reliably when a
+    // user pastes the ClipboardItem.  Width attributes back up the inline
+    // widths because Gmail is more consistent with table attributes than CSS.
+    const cell = 'border:1px solid #000;padding:3px 7px;font-family:Arial,sans-serif;font-size:11px;line-height:15px;'
     const { nameColPx, dayColPx: DAY_COL_PX } = metrics
-    const dateRange = `${mmdd(weekStart)}-${mmdd(weekEnd)}`
     const blocks = current.map((j) => {
       const url = jobUrl(jobUrlTemplate, j.job_number)
       const jobCell = j.job_number
-        ? `Job#${url ? `<a href="${url}" style="color:#1a73e8;">${esc(j.job_number)}</a>` : esc(j.job_number)}`
+        ? `Job#${url ? `<a href="${url}">${esc(j.job_number)}</a>` : esc(j.job_number)}`
         : ''
       // Only days with someone assigned make the email — a one-day job prints
       // as a single row, not a week of blanks.
@@ -155,38 +160,30 @@ export function SchedulesClient({
         const grey = i % 2 === 0
         const onDay = new Set(j.days[d] ?? [])
         const techCells = columns.map((n) =>
-          `<td style="${cell}text-align:center;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
+          `<td width="${nameColPx}" style="${cell}width:${nameColPx}px;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
         ).join('')
-        return `<tr><td style="${cell}font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
+        return `<tr><td width="${DAY_COL_PX}" style="${cell}width:${DAY_COL_PX}px;font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
 
-      // Title bar spans the whole table width as one cell — Store name plus
-      // Job#, date range, and the yellow shift chip. Kept out of the body grid
-      // so it never forces the name columns wide. On wide tables the name sits
-      // left and details right on one row; on narrow tables (small crews) the
-      // details drop to a second line so the store name never wraps mid-word.
-      const barBits = [
-        jobCell ? `<span style="font-size:12px;color:#333;">${jobCell}</span>` : '',
-        `<span style="font-size:12px;font-weight:bold;">${dateRange}</span>`,
-        j.shift_label ? `<span style="background:#ffff00;font-size:12px;font-weight:bold;padding:1px 8px;border:1px solid #000;">${esc(j.shift_label)}</span>` : '',
-      ].filter(Boolean).join('&nbsp;&nbsp;')
-      const titleHtml = `<span style="font-size:15px;font-weight:bold;font-family:Arial,sans-serif;">${esc(j.title)}</span>`
-      // Rough px estimate: 15px bold title vs. the ~250px of details.
-      const oneLine = tableW >= j.title.length * 7.6 + 8 + 250 + 24
-      const barInner = oneLine
-        ? `<table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;"><tr>` +
-          `<td style="border:none;white-space:nowrap;">${titleHtml}</td>` +
-          `<td align="right" style="border:none;white-space:nowrap;font-family:Arial,sans-serif;">${barBits}</td>` +
-          `</tr></table>`
-        : `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;">` +
-          `<tr><td style="border:none;white-space:nowrap;">${titleHtml}</td></tr>` +
-          `<tr><td style="border:none;white-space:nowrap;padding-top:3px;font-family:Arial,sans-serif;">${barBits}</td></tr>` +
-          `</table>`
+      // Use the exact same compact header in every table: location, Job#, then
+      // the yellow shift.  It deliberately has no week date, since dates are
+      // already present and more useful in each weekday row.
+      const barInner = `<table cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;"><tr>` +
+        `<td style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${esc(j.title)}</td>` +
+        `${jobCell ? `<td style="font-family:Arial,sans-serif;font-size:11px;white-space:nowrap;padding-left:12px;">${jobCell}</td>` : ''}` +
+        `${j.shift_label ? `<td style="background:#ffff00;border:1px solid #000;padding:1px 7px;font-family:Arial,sans-serif;font-size:11px;font-weight:bold;white-space:nowrap;">${esc(j.shift_label)}</td>` : ''}` +
+        `</tr></table>`
       const bar = `<tr><td colspan="${gridCols}" style="${cell}padding:4px 8px;">${barInner}</td></tr>`
+      // With fixed table layout, Gmail bases column widths on the first
+      // non-spanning row. This invisible sizing row must come before the title
+      // bar (which spans the table), otherwise Gmail makes every grid column
+      // the same width and the longer weekday labels run into a border.
+      const sizingRow = `<tr><td width="${DAY_COL_PX}" style="width:${DAY_COL_PX}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>` +
+        Array.from({ length: techCols }, () => `<td width="${nameColPx}" style="width:${nameColPx}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>`).join('') +
+        `</tr>`
 
-      const colgroup = `<colgroup><col style="width:${DAY_COL_PX}px">${Array.from({ length: techCols }, () => `<col style="width:${nameColPx}px">`).join('')}</colgroup>`
-      return `<table cellspacing="0" cellpadding="0" width="${tableW}" style="border-collapse:collapse;table-layout:fixed;width:${tableW}px;margin-bottom:18px;">
-        ${colgroup}
+      return `<table cellspacing="0" cellpadding="0" border="0" width="${tableW}" style="border-collapse:collapse;table-layout:fixed;width:${tableW}px;margin-bottom:18px;">
+        ${sizingRow}
         ${bar}
         ${rows}
       </table>`

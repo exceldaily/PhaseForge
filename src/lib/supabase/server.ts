@@ -7,6 +7,9 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // App data lives in the `phaseforge` schema (project shared with
+      // ReelFishHelp, whose tables occupy `public`).
+      db: { schema: 'phaseforge' },
       cookies: {
         getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {

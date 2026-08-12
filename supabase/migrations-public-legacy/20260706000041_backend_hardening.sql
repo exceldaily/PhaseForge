@@ -76,6 +76,17 @@ BEGIN
   END IF;
 END $$;
 
+-- get_my_team_ids() was created directly in the dashboard (never captured in a
+-- tracked migration) and is only referenced by hardening housekeeping below —
+-- no RLS policy calls it. Reconstructed here from team_members for local dev
+-- parity, mirroring get_my_company_id()'s style.
+CREATE OR REPLACE FUNCTION public.get_my_team_ids()
+RETURNS uuid[] LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT COALESCE(array_agg(team_id), '{}') FROM public.team_members WHERE profile_id = auth.uid()
+$$;
+
 -- ─── 2. Pin search_path on legacy functions (advisor: 0011) ─────────────────
 
 ALTER FUNCTION public.handle_new_user() SET search_path = public;

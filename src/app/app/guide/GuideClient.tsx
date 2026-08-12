@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList, Contact, FolderKanban,
+  BadgeDollarSign, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList, Contact, FolderKanban,
   GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Radio, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
@@ -318,6 +318,21 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Working a call', text: 'Open any call to edit everything inline: status, priority, dates, multi-tech assignment, links, NTE. Add categorized notes (customer, vendor, parts, scheduling…) and see the full activity timeline — every status change, assignment, ETA change, and note, with who and when. A suggested Next Action is computed from the call\'s state; you can override it.' },
       { heading: 'Stores, techs & customers', text: 'Under Manage: your store/site list (numbers, names, map links) and your tech and vendor roster. Customer accounts and their priority scales (P-codes mapped to internal urgency) live on the Dispatch → Customers & Priorities page, and under Manage → Customers.' },
       { heading: 'Who can do what', text: 'Owners, admins, managers, and dispatchers manage everything; changing a Service Call # is admin-only since it re-keys the call\'s identity. Dispatch is available on Individual, Pro, and Business plans.' },
+    ],
+  },
+  {
+    id: 'quotes',
+    icon: BadgeDollarSign,
+    title: 'Quotes',
+    summary: 'Tech RFQ forms in, vendor quote inquiries out, replies tracked — sent from each person\'s own Gmail. Paid plans.',
+    href: '/app/quotes',
+    hrefLabel: 'Open Quotes',
+    items: [
+      { heading: 'Connect your Gmail', text: 'Quotes send from your own email address, so each teammate connects their own Gmail on the Quotes page (one-time Google sign-in). Your email signature is pulled in automatically and added to the bottom of every quote. Nothing ever sends without you pressing Send.' },
+      { heading: 'Intake', text: 'Attach a tech\'s "Projects Forms" RFQ PDF and it becomes a quote request automatically — PO number, trade, tech name, job number, store, and the parts list are all parsed out. If a PDF is a scan without text, paste the form text instead. Every parsed field is editable afterward.' },
+      { heading: 'Vendors', text: 'Keep one shared vendor list with name, email, and trade. A Refrigeration quote preselects Refrigeration vendors; use Select all / Deselect all to adjust. Edit or deactivate vendors anytime — inactive vendors stay out of new sends.' },
+      { heading: 'Sending', text: 'Each vendor gets a personalized email (their own greeting, your signature) with just the parts and the ask — the job number is the subject line\'s tracking code, and internal details like store, PO, and trade never leak to vendors. Edit the message body before sending if you like.' },
+      { heading: 'Replies & completion', text: 'The outreach list tracks each vendor: sent, failed, or replied, with a running "3/5 replied" count. Press "Check for replies" to scan your Gmail for vendor answers. When every vendor has replied, the quote lights up "ready to complete" — Complete & archive moves it out of the active list (reopen anytime).' },
     ],
   },
 ]

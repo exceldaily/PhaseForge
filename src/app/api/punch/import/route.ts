@@ -89,9 +89,10 @@ export async function POST(req: NextRequest) {
 // ── PDF text parser ─────────────────────────────────────────────────────────
 
 async function parsePdf(buffer: Buffer): Promise<Array<{ description: string; location: null }>> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
-  const { text } = await pdfParse(buffer)
+  // Shared damage-tolerant pdf.js extractor (the installed pdf-parse is v2,
+  // whose class API is incompatible with the old callable import used before).
+  const { extractPdfText } = await import('@/lib/quotes/pdfText')
+  const text = await extractPdfText(buffer)
   const items: Array<{ description: string; location: null }> = []
 
   const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean)

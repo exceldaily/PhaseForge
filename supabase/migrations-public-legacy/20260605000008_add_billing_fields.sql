@@ -1,10 +1,10 @@
 -- Add billing fields to companies table for Stripe integration
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS
-  stripe_customer_id TEXT,
-  stripe_subscription_id TEXT,
-  billing_cycle_start DATE,
-  billing_cycle_end DATE,
-  billing_status TEXT DEFAULT 'active'; -- active | past_due | canceled
+ALTER TABLE companies
+  ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT,
+  ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT,
+  ADD COLUMN IF NOT EXISTS billing_cycle_start DATE,
+  ADD COLUMN IF NOT EXISTS billing_cycle_end DATE,
+  ADD COLUMN IF NOT EXISTS billing_status TEXT DEFAULT 'active'; -- active | past_due | canceled
 
 -- Create index for lookups
 CREATE INDEX IF NOT EXISTS idx_companies_stripe_customer_id
