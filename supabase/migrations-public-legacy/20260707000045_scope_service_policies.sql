@@ -2,8 +2,8 @@
 -- accidental grants to authenticated/anon: any signed-in user could INSERT
 -- into billing_history / notifications / preferences). service_role bypasses
 -- RLS, so behavior for legitimate server-side writes is unchanged.
-ALTER POLICY "Service role can insert invoices" ON public.billing_history TO service_role;
-ALTER POLICY "Service role can update invoices" ON public.billing_history TO service_role;
+ALTER POLICY "Service role can insert billing history" ON public.billing_history TO service_role;
+ALTER POLICY "Service role can update billing history" ON public.billing_history TO service_role;
 ALTER POLICY "Service role can insert notification preferences" ON public.notification_preferences TO service_role;
 ALTER POLICY "Service role insert notifications" ON public.notifications TO service_role;
 ALTER POLICY "Service role can insert preferences" ON public.user_preferences TO service_role;

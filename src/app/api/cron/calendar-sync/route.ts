@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return NextResponse.json({ error: 'service credentials missing' }, { status: 500 })
-  const supabase = createClient(url, key, { auth: { persistSession: false } })
+  // App data lives in the `phaseforge` schema (shared project with ReelFishHelp).
+  const supabase = createClient(url, key, { db: { schema: 'phaseforge' }, auth: { persistSession: false } })
 
   const { data: connections } = await supabase
     .from('gcal_connections')

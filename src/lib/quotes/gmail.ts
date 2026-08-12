@@ -40,7 +40,10 @@ export type UserGmail = {
  * when it is about to expire. Returns null when the user has not connected.
  * RLS guarantees a user can only ever load their own row.
  */
-export async function getUserGmail(supabase: SupabaseClient, userId: string): Promise<UserGmail | null> {
+// Schema-agnostic client type: the app's clients target the `phaseforge`
+// schema (shared Supabase project), not the default `public`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getUserGmail(supabase: SupabaseClient<any, any, any>, userId: string): Promise<UserGmail | null> {
   const { data: row } = await supabase
     .from('user_gmail_accounts')
     .select('id, account_email, access_token_enc, refresh_token_enc, access_token_expires_at, email_signature, is_active')
