@@ -44,8 +44,16 @@ export async function GET(req: NextRequest) {
       } catch { /* non-fatal */ }
     }
 
-    // Grab the signature immediately while we hold a fresh token.
-    const signature = await gmailGetSignature(tokens.access_token).catch(() => null)
+    // Grab the signature immediately while we hold a fresh token. A failure here
+    // must not abort the connection (sending still works), but it IS recorded:
+    // silently nulling it hid a disabled Gmail API behind "no signature found".
+    let signature: string | null = null
+    let signatureError: string | null = null
+    try {
+      signature = await gmailGetSignature(tokens.access_token)
+    } catch (e) {
+      signatureError = e instanceof Error ? e.message.slice(0, 300) : 'signature lookup failed'
+    }
 
     const row = {
       user_id: user.id,
@@ -53,9 +61,11 @@ export async function GET(req: NextRequest) {
       account_email: email,
       access_token_enc: encryptToken(tokens.access_token),
       access_token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-      scopes: QUOTES_SCOPE_LIST,
+      // What Google ACTUALLY granted, not what we asked for — users can decline
+      // individual permissions on the consent screen.
+      scopes: tokens.scope ? tokens.scope.split(' ') : QUOTES_SCOPE_LIST,
       is_active: true,
-      last_error: null,
+      last_error: signatureError,
       ...(signature ? { email_signature: signature } : {}),
       // Only overwrite the refresh token when Google actually returns one
       ...(tokens.refresh_token ? { refresh_token_enc: encryptToken(tokens.refresh_token) } : {}),

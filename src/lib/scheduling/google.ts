@@ -75,6 +75,9 @@ export async function exchangeCode(code: string, redirectUri: string) {
   if (!res.ok) throw new Error(`Token exchange failed: ${res.status} ${await res.text()}`)
   return res.json() as Promise<{
     access_token: string; refresh_token?: string; expires_in: number; id_token?: string
+    // Space-delimited list of what the user actually approved, which can be a
+    // subset of what was requested.
+    scope?: string
   }>
 }
 

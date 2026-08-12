@@ -111,15 +111,28 @@ export async function gmailSendMessage(
   return { messageId: data.id, threadId: data.threadId }
 }
 
-/** Reads the user's Gmail signature (HTML) from their primary send-as address. */
+/**
+ * Reads the user's Gmail signature (HTML), preferring their primary send-as
+ * address. Throws on API failure so the caller can record WHY it failed — an
+ * empty signature and a rejected request are very different problems, and
+ * swallowing the latter made a disabled Gmail API look like "no signature set".
+ */
 export async function gmailGetSignature(accessToken: string): Promise<string | null> {
   const res = await fetch(`${GMAIL}/settings/sendAs`, { headers: { Authorization: `Bearer ${accessToken}` } })
-  if (!res.ok) return null
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    let message = detail.slice(0, 300)
+    try { message = JSON.parse(detail).error?.message ?? message } catch { /* keep raw */ }
+    throw new Error(`Gmail signature lookup failed (${res.status}): ${message}`)
+  }
   const data = (await res.json()) as { sendAs?: { isPrimary?: boolean; isDefault?: boolean; signature?: string }[] }
-  const list = data.sendAs ?? []
-  const pick = list.find((s) => s.isPrimary) ?? list.find((s) => s.isDefault) ?? list.find((s) => s.signature)
-  const sig = (pick?.signature ?? '').trim()
-  return sig.length > 0 ? sig : null
+  const withSignature = (data.sendAs ?? []).filter((s) => (s.signature ?? '').trim().length > 0)
+  // Only consider addresses that actually carry a signature: a primary address
+  // with an empty signature must not shadow an alias that has one.
+  const pick = withSignature.find((s) => s.isPrimary)
+    ?? withSignature.find((s) => s.isDefault)
+    ?? withSignature[0]
+  return pick ? (pick.signature ?? '').trim() : null
 }
 
 /**
