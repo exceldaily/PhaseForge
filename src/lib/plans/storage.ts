@@ -25,7 +25,11 @@ export async function uploadPlanFile(path: string, data: Blob | Uint8Array, cont
     upsert: false,
   })
   if (error && !/already exists/i.test(error.message)) {
-    throw new Error(`Upload failed for ${path.split('/').pop()}: ${error.message}`)
+    const mb = (body.size / (1024 * 1024)).toFixed(1)
+    const friendly = /exceed|too large|payload|maximum allowed size/i.test(error.message)
+      ? `This file is ${mb}MB — too large for the storage per-file limit.`
+      : error.message
+    throw new Error(`Upload failed for ${path.split('/').pop()}: ${friendly}`)
   }
 }
 

@@ -91,3 +91,23 @@ export async function renderThumbnail(page: PDFPageProxy, width = 480): Promise<
     )
   })
 }
+
+/**
+ * High-resolution JPEG render of a page — the fallback when lossless page
+ * extraction produces an oversized file (scanned sets and PDFs with shared
+ * resource trees can make ONE extracted page nearly as big as the whole
+ * document). ~200 DPI on an ARCH D sheet, capped for mobile-safe memory.
+ */
+export async function renderPageToJpeg(page: PDFPageProxy, quality = 0.82): Promise<Blob> {
+  const base = page.getViewport({ scale: 1 })
+  // Aim for 200 DPI (PDF points are 1/72"): scale ≈ 200/72 ≈ 2.78
+  const targetWidth = (base.width * 200) / 72
+  const canvas = await renderPageToCanvas(page, targetWidth, { dpr: 1, maxPixels: 24_000_000 })
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Page render failed'))),
+      'image/jpeg',
+      quality,
+    )
+  })
+}

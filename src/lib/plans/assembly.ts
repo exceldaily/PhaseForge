@@ -14,6 +14,19 @@ export async function extractPage(source: PDFDocument, pageIndex: number): Promi
   return out.save({ useObjectStreams: true })
 }
 
+/**
+ * Build a single-page PDF from a JPEG render, preserving the sheet's real
+ * dimensions in points. Used only when lossless extraction is too large for
+ * the storage per-file limit.
+ */
+export async function pageFromJpeg(jpeg: ArrayBuffer, widthPts: number, heightPts: number): Promise<Uint8Array> {
+  const out = await PDFDocument.create()
+  const img = await out.embedJpg(jpeg)
+  const page = out.addPage([widthPts, heightPts])
+  page.drawImage(img, { x: 0, y: 0, width: widthPts, height: heightPts })
+  return out.save({ useObjectStreams: true })
+}
+
 export async function loadForSplitting(data: ArrayBuffer): Promise<PDFDocument> {
   return PDFDocument.load(data, { ignoreEncryption: false })
 }

@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/utils'
-import { loadPdf, extractPageText, renderThumbnail } from '@/lib/plans/pdf'
+import { loadPdf, extractPageText, renderThumbnail, renderPageToJpeg } from '@/lib/plans/pdf'
 import { detectSheetInfo, disciplineFromSheetNumber } from '@/lib/plans/detect'
-import { loadForSplitting, extractPage } from '@/lib/plans/assembly'
+import { loadForSplitting, extractPage, pageFromJpeg } from '@/lib/plans/assembly'
 import { uploadPlanFile, revisionPdfPath, revisionThumbPath } from '@/lib/plans/storage'
 import { STANDARD_DISCIPLINES, SET_TYPES } from '@/lib/plans/constants'
 import { commitPlanImport, type ImportSheetInput } from './actions'
@@ -169,17 +169,48 @@ export function UploadWizard({
       setStage({ kind: 'uploading', step: 'Preparing sheets…', done: 0, total: included.length })
       const buffer = await file.arrayBuffer()
       const doc = await loadForSplitting(buffer)
+      // Lazily-opened second handle (pdfjs) for the raster fallback below.
+      let renderDoc: Awaited<ReturnType<typeof loadPdf>> | null = null
+
+      // Storage enforces a per-file limit (50MB on the current plan). Scanned
+      // sets and PDFs with shared resource trees can make ONE losslessly
+      // extracted page nearly as large as the whole document, so oversized
+      // pages fall back to a high-resolution (~200 DPI) raster PDF — for a
+      // scanned sheet that is what the source page is anyway.
+      const SIZE_LIMIT = 45 * 1024 * 1024
+      const rasterFallback = async (r: ReviewRow): Promise<Uint8Array> => {
+        if (!renderDoc) renderDoc = await loadPdf(buffer)
+        const page = await renderDoc.getPage(r.pageNumber)
+        const jpeg = await renderPageToJpeg(page)
+        page.cleanup()
+        return pageFromJpeg(await jpeg.arrayBuffer(), r.pageWidth, r.pageHeight)
+      }
+      const isSizeError = (e: unknown) =>
+        e instanceof Error && /exceed|too large|payload|413|maximum allowed size/i.test(e.message)
 
       const inputs: ImportSheetInput[] = []
       for (let i = 0; i < included.length; i++) {
         const r = included[i]
         setStage({ kind: 'uploading', step: `Uploading ${r.sheetNumber}…`, done: i, total: included.length })
-        const pageBytes = await extractPage(doc, r.pageNumber - 1)
+        let pageBytes = await extractPage(doc, r.pageNumber - 1)
+        if (pageBytes.byteLength > SIZE_LIMIT) {
+          setStage({ kind: 'uploading', step: `Optimizing ${r.sheetNumber} (large page)…`, done: i, total: included.length })
+          pageBytes = await rasterFallback(r)
+        }
         const sheetId = r.matchesSheetId ?? crypto.randomUUID()
         const revisionId = crypto.randomUUID()
         const pdfPath = revisionPdfPath(projectId, sheetId, revisionId)
         const thumbPath = revisionThumbPath(projectId, sheetId, revisionId)
-        await uploadPlanFile(pdfPath, pageBytes, 'application/pdf')
+        try {
+          await uploadPlanFile(pdfPath, pageBytes, 'application/pdf')
+        } catch (e) {
+          // Storage said the file is too big even though it was under our own
+          // threshold (lower configured limit): rasterize and retry once.
+          if (!isSizeError(e)) throw e
+          setStage({ kind: 'uploading', step: `Optimizing ${r.sheetNumber} (large page)…`, done: i, total: included.length })
+          pageBytes = await rasterFallback(r)
+          await uploadPlanFile(pdfPath, pageBytes, 'application/pdf')
+        }
         await uploadPlanFile(thumbPath, r.thumbBlob, 'image/webp')
         inputs.push({
           sheetNumber: r.sheetNumber.trim().toUpperCase(),
@@ -200,6 +231,8 @@ export function UploadWizard({
           existingSheetId: r.matchesSheetId,
         })
       }
+
+      if (renderDoc) await (renderDoc as Awaited<ReturnType<typeof loadPdf>>).loadingTask.destroy()
 
       setStage({ kind: 'uploading', step: 'Organizing drawings…', done: included.length, total: included.length })
       const chosenSet = existingSets.find((s) => s.id === setChoice)
