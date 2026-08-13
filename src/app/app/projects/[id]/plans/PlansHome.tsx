@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, LayoutGrid, List as ListIcon, Columns2, Search, Upload, Download,
   Printer, Star, X, ChevronDown, FileText, MapPin, CheckSquare, Square as SquareIcon,
-  Package, ListOrdered, Archive, Trash2, Tag as TagIcon, Clock, Sparkles,
+  Package, ListOrdered, Archive, Trash2, Tag as TagIcon, Clock, Sparkles, MoreVertical,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -228,6 +228,34 @@ export function PlansHome({
     } else notify(res.error)
   }, [selected, projectId, notify])
 
+  const deleteOne = useCallback(async (s: SheetWithRevision) => {
+    if (!window.confirm(`Permanently delete ${s.sheet_number} and all of its revisions? This cannot be undone.`)) return
+    const res = await deleteSheets(projectId, [s.id])
+    if (res.success) {
+      setSheets((ss) => ss.filter((x) => x.id !== s.id))
+      notify(`${s.sheet_number} deleted`)
+    } else notify(res.error)
+  }, [projectId, notify])
+
+  const archiveOne = useCallback(async (s: SheetWithRevision) => {
+    const res = await updateSheetMeta(projectId, [s.id], { is_archived: !s.is_archived })
+    if (res.success) {
+      setSheets((ss) => ss.map((x) => x.id === s.id ? { ...x, is_archived: !s.is_archived } : x))
+      notify(s.is_archived ? 'Restored' : 'Archived')
+    } else notify(res.error)
+  }, [projectId, notify])
+
+  /** Long-press on a card (mobile pattern) enters select mode with it selected. */
+  const startSelectWith = useCallback((id: string) => {
+    setSelectMode(true)
+    setSelected((prev) => new Set(prev).add(id))
+  }, [])
+
+  const selectAllFiltered = useCallback(() => {
+    setSelected(new Set(filtered.map((s) => s.id)))
+    setSelectMode(true)
+  }, [filtered])
+
   const currentSetName = useMemo(() => {
     if (filterSet) return sets.find((s) => s.id === filterSet)?.name ?? ''
     return sets[0]?.name ?? null
@@ -318,6 +346,12 @@ export function PlansHome({
                     selectMode ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300')}>
                   Select
                 </button>
+                {selectMode && (
+                  <button onClick={selected.size === filtered.length ? () => setSelected(new Set()) : selectAllFiltered}
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 shrink-0">
+                    {selected.size === filtered.length && filtered.length > 0 ? 'Clear all' : `Select all (${filtered.length})`}
+                  </button>
+                )}
               </div>
 
               <div className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
@@ -420,7 +454,11 @@ export function PlansHome({
               <GridCard key={s.id} sheet={s} selectMode={selectMode} selected={selected.has(s.id)}
                 onOpen={() => selectMode ? toggleSelect(s.id) : openSheet(s)}
                 onToggleSelect={() => toggleSelect(s.id)}
-                onToggleFavorite={() => toggleFavorite(s)} />
+                onToggleFavorite={() => toggleFavorite(s)}
+                onLongPress={() => startSelectWith(s.id)}
+                onDownload={() => downloadSingleSheet(s).catch(() => notify('Download failed'))}
+                onArchive={canManage ? () => archiveOne(s) : undefined}
+                onDelete={isAdmin ? () => deleteOne(s) : undefined} />
             ))}
           </div>
         )}
@@ -471,11 +509,17 @@ export function PlansHome({
                         ? <span className="text-[10px] font-bold text-slate-400">ARCHIVED</span>
                         : <span className="text-[10px] font-bold text-emerald-600">CURRENT</span>}
                     </td>
-                    <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button title="Download" className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                         onClick={() => downloadSingleSheet(s).catch(() => notify('Download failed'))}>
                         <Download size={14} />
                       </button>
+                      {isAdmin && (
+                        <button title="Delete" className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"
+                          onClick={() => deleteOne(s)}>
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -716,19 +760,46 @@ function MenuItem({ children, onClick }: { children: React.ReactNode; onClick: (
   )
 }
 
-function GridCard({ sheet: s, selectMode, selected, onOpen, onToggleSelect, onToggleFavorite }: {
+function GridCard({
+  sheet: s, selectMode, selected, onOpen, onToggleSelect, onToggleFavorite,
+  onLongPress, onDownload, onArchive, onDelete,
+}: {
   sheet: SheetWithRevision
   selectMode: boolean
   selected: boolean
   onOpen: () => void
   onToggleSelect: () => void
   onToggleFavorite: () => void
+  onLongPress: () => void
+  onDownload: () => void
+  onArchive?: () => void
+  onDelete?: () => void
 }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  // Long-press (500ms hold without moving) enters multi-select — the mobile
+  // pattern; a suppressed click flag stops the release from opening the sheet.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressed = useRef(false)
+  const cancelPress = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null } }
+
   return (
     <div className={cn(
-      'group relative rounded-xl border bg-white dark:bg-slate-900 overflow-hidden transition-all cursor-pointer',
+      'group relative rounded-xl border bg-white dark:bg-slate-900 overflow-hidden transition-all cursor-pointer select-none',
       selected ? 'border-indigo-400 ring-2 ring-indigo-200 dark:ring-indigo-900' : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300 hover:shadow-md',
-    )} onClick={onOpen}>
+    )}
+      onClick={() => {
+        if (longPressed.current) { longPressed.current = false; return }
+        onOpen()
+      }}
+      onPointerDown={() => {
+        longPressed.current = false
+        pressTimer.current = setTimeout(() => { longPressed.current = true; onLongPress() }, 500)
+      }}
+      onPointerUp={cancelPress}
+      onPointerMove={cancelPress}
+      onPointerLeave={cancelPress}
+      onContextMenu={(e) => { e.preventDefault(); setMenuOpen((o) => !o) }}
+    >
       <Thumb path={s.current?.thumb_path ?? null} alt={s.sheet_number} className="aspect-[4/3] w-full" />
       <div className="px-2.5 py-2 border-t border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-1">
@@ -739,9 +810,16 @@ function GridCard({ sheet: s, selectMode, selected, onOpen, onToggleSelect, onTo
           {s.open_pin_count > 0 && (
             <span className="inline-flex items-center text-[9px] text-rose-500 shrink-0"><MapPin size={9} />{s.open_pin_count}</span>
           )}
-          <button className="ml-auto shrink-0" onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}>
+          <button className="ml-auto shrink-0" onClick={(e) => { e.stopPropagation(); onToggleFavorite() }}
+            onPointerDown={(e) => e.stopPropagation()}>
             <Star size={13} className={s.is_favorite ? 'text-amber-400' : 'text-slate-200 group-hover:text-slate-300 hover:!text-amber-400'}
               fill={s.is_favorite ? 'currentColor' : 'none'} />
+          </button>
+          <button className="shrink-0 -mr-1 p-0.5 rounded text-slate-300 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o) }}
+            onPointerDown={(e) => e.stopPropagation()}
+            title="Sheet actions">
+            <MoreVertical size={13} />
           </button>
         </div>
         <p className="text-[10px] text-slate-500 truncate">{s.title || s.discipline}</p>
@@ -749,14 +827,46 @@ function GridCard({ sheet: s, selectMode, selected, onOpen, onToggleSelect, onTo
       {(selectMode || selected) && (
         <button
           className="absolute top-1.5 left-1.5 p-0.5 rounded bg-white/90 dark:bg-slate-900/90 shadow"
-          onClick={(e) => { e.stopPropagation(); onToggleSelect() }}>
+          onClick={(e) => { e.stopPropagation(); onToggleSelect() }}
+          onPointerDown={(e) => e.stopPropagation()}>
           {selected ? <CheckSquare size={16} className="text-indigo-600" /> : <SquareIcon size={16} className="text-slate-400" />}
         </button>
       )}
       {s.is_archived && (
         <span className="absolute top-1.5 right-1.5 text-[9px] font-bold bg-slate-900/80 text-white rounded px-1.5 py-0.5">ARCHIVED</span>
       )}
+      {menuOpen && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={(e) => { e.stopPropagation(); setMenuOpen(false) }} onPointerDown={(e) => e.stopPropagation()} />
+          <div className="absolute right-1.5 bottom-10 z-30 w-40 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1 shadow-xl"
+            onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+            <CardMenuItem onClick={() => { setMenuOpen(false); onDownload() }}><Download size={13} /> Download</CardMenuItem>
+            <CardMenuItem onClick={() => { setMenuOpen(false); onToggleSelect() }}><CheckSquare size={13} /> Select</CardMenuItem>
+            {onArchive && (
+              <CardMenuItem onClick={() => { setMenuOpen(false); onArchive() }}>
+                <Archive size={13} /> {s.is_archived ? 'Restore' : 'Archive'}
+              </CardMenuItem>
+            )}
+            {onDelete && (
+              <>
+                <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                <CardMenuItem danger onClick={() => { setMenuOpen(false); onDelete() }}><Trash2 size={13} /> Delete</CardMenuItem>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
+  )
+}
+
+function CardMenuItem({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
+  return (
+    <button onClick={onClick}
+      className={cn('flex w-full items-center gap-2 px-3 py-1.5 text-xs font-medium text-left',
+        danger ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800')}>
+      {children}
+    </button>
   )
 }
 

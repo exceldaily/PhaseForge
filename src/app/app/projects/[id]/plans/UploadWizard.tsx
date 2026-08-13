@@ -60,6 +60,7 @@ export function UploadWizard({
   const [stage, setStage] = useState<Stage>({ kind: 'pick' })
   const [rows, setRows] = useState<ReviewRow[]>([])
   const [fileName, setFileName] = useState('')
+  const [skippedFiles, setSkippedFiles] = useState<string[]>([])
   const filesRef = useRef<File[]>([])
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -88,9 +89,6 @@ export function UploadWizard({
       setStage({ kind: 'error', message: 'Only PDF files are supported. Drop a PDF plan set or individual sheet PDFs.' })
       return
     }
-    const skipped = fileList.length - files.length
-    filesRef.current = files
-    setFileName(files.length === 1 ? files[0].name : `${files.length} PDF files${skipped ? ` (${skipped} non-PDF skipped)` : ''}`)
     if (!newSetName) {
       setNewSetName(files.length === 1
         ? files[0].name.replace(/\.pdf$/i, '')
@@ -98,35 +96,58 @@ export function UploadWizard({
     }
     setStage({ kind: 'processing', step: 'Reading PDFs…', done: 0, total: files.length })
     try {
-      // Count pages across all files first so progress is honest
-      const next: ReviewRow[] = []
-      const seen = new Map<string, number>()
-      let pagesDone = 0
-      let totalPages = 0
+      // Read every file up front, SKIPPING the ones that fail instead of
+      // aborting the whole batch. The classic failure: files dragged straight
+      // out of a ZIP window — Windows hands the browser stale references
+      // ("could not be read … permission problems"). Those need extracting.
+      const readable: File[] = []
       const docs: Awaited<ReturnType<typeof loadPdf>>[] = []
+      const failures: string[] = []
+      let totalPages = 0
       for (let fi = 0; fi < files.length; fi++) {
+        setStage({ kind: 'processing', step: `Reading ${files[fi].name}…`, done: fi, total: files.length })
         try {
           const pdf = await loadPdf(await files[fi].arrayBuffer())
+          readable.push(files[fi])
           docs.push(pdf)
           totalPages += pdf.numPages
         } catch (e) {
           const msg = e instanceof Error ? e.message : ''
-          for (const d of docs) d.loadingTask.destroy()
-          setStage({
-            kind: 'error',
-            message: /password/i.test(msg)
-              ? `"${files[fi].name}" is password-protected. Remove the password and try again.`
-              : `Could not read "${files[fi].name}": ${msg || 'the file appears to be corrupted.'}`,
-          })
-          return
+          const reason = /could not be read|NotReadable|permission/i.test(msg)
+            ? 'could not be read — if it came from a ZIP, extract the ZIP first'
+            : /password/i.test(msg)
+              ? 'password-protected'
+              : 'unreadable or corrupted'
+          failures.push(`${files[fi].name} (${reason})`)
         }
       }
+      if (readable.length === 0) {
+        setStage({
+          kind: 'error',
+          message: failures.length && /ZIP/i.test(failures[0])
+            ? 'None of the files could be read. They look like they were dragged straight out of a ZIP — right-click the ZIP, choose Extract All, then drop the extracted PDFs.'
+            : `None of the files could be read:\n${failures.join(', ')}`,
+        })
+        return
+      }
+      filesRef.current = readable
+      const skippedNote = [
+        fileList.length - files.length > 0 ? `${fileList.length - files.length} non-PDF skipped` : '',
+        failures.length > 0 ? `${failures.length} unreadable skipped` : '',
+      ].filter(Boolean).join(', ')
+      setFileName(readable.length === 1 ? readable[0].name : `${readable.length} PDF files${skippedNote ? ` (${skippedNote})` : ''}`)
+      setSkippedFiles(failures)
 
-      for (let fi = 0; fi < files.length; fi++) {
+      // Count pages across all files first so progress is honest
+      const next: ReviewRow[] = []
+      const seen = new Map<string, number>()
+      let pagesDone = 0
+      const filesArr = readable
+      for (let fi = 0; fi < filesArr.length; fi++) {
         const pdf = docs[fi]
         for (let p = 1; p <= pdf.numPages; p++) {
           pagesDone++
-          setStage({ kind: 'processing', step: files.length > 1 ? `Detecting sheets… (${files[fi].name})` : 'Detecting sheets…', done: pagesDone, total: totalPages })
+          setStage({ kind: 'processing', step: filesArr.length > 1 ? `Detecting sheets… (${filesArr[fi].name})` : 'Detecting sheets…', done: pagesDone, total: totalPages })
           const page = await pdf.getPage(p)
           const text = await extractPageText(page)
           const det = detectSheetInfo(text)
@@ -135,8 +156,8 @@ export function UploadWizard({
           // Single-page files with no detectable number fall back to the
           // FILENAME (people name sheet PDFs "A1.01 First Floor.pdf")
           let sheetNumber = det.sheetNumber
-            ?? (pdf.numPages === 1 ? filenameSheetNumber(files[fi].name) : null)
-            ?? (files.length > 1 ? `SHEET-${String(fi + 1).padStart(2, '0')}` : `SHEET-${String(p).padStart(2, '0')}`)
+            ?? (pdf.numPages === 1 ? filenameSheetNumber(filesArr[fi].name) : null)
+            ?? (filesArr.length > 1 ? `SHEET-${String(fi + 1).padStart(2, '0')}` : `SHEET-${String(p).padStart(2, '0')}`)
           // Duplicate numbers inside one import get suffixed rather than colliding
           const dupCount = seen.get(sheetNumber.toUpperCase()) ?? 0
           seen.set(sheetNumber.toUpperCase(), dupCount + 1)
@@ -148,7 +169,7 @@ export function UploadWizard({
             pageNumber: p,
             include: true,
             sheetNumber,
-            title: det.title ?? (pdf.numPages === 1 ? filenameTitle(files[fi].name) : ''),
+            title: det.title ?? (pdf.numPages === 1 ? filenameTitle(filesArr[fi].name) : ''),
             discipline: det.discipline ?? disciplineFromSheetNumber(sheetNumber) ?? 'Other',
             revisionLabel: det.revisionLabel ?? (match ? bumpRevision(match) : '0'),
             revisionDate: det.revisionDate,
@@ -373,6 +394,11 @@ export function UploadWizard({
                 </>
               )}
             </div>
+            {skippedFiles.length > 0 && (
+              <div className="mx-5 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                Skipped {skippedFiles.length} file{skippedFiles.length === 1 ? '' : 's'}: {skippedFiles.join(' · ')}
+              </div>
+            )}
             <div className="overflow-y-auto flex-1 px-5 py-3">
               <table className="w-full text-sm">
                 <thead>
