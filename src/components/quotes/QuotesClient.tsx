@@ -257,8 +257,8 @@ function VendorManager({ vendors }: { vendors: VendorItem[] }) {
     start(async () => {
       setError(null)
       const res = await addVendor({ name, email, tradeType: trade })
-      if (!res.ok) { setError(res.error ?? 'Could not add the vendor.'); return }
-      setItems((xs) => sorted([...xs, { id: `tmp-${Date.now()}`, name, email: email.toLowerCase(), tradeType: trade, active: true }]))
+      if (!res.ok || !res.id) { setError(res.error ?? 'Could not add the vendor.'); return }
+      setItems((xs) => sorted([...xs, { id: res.id, name, email: email.toLowerCase(), tradeType: trade, active: true }]))
       setName(''); setEmail(''); setTrade('')
     })
 
@@ -317,7 +317,14 @@ function VendorManager({ vendors }: { vendors: VendorItem[] }) {
                     onChange={(e) => {
                       const active = e.target.checked
                       setItems((xs) => xs.map((x) => (x.id === v.id ? { ...x, active } : x)))
-                      start(() => void updateVendor({ id: v.id, active }))
+                      start(async () => {
+                        const res = await updateVendor({ id: v.id, active })
+                        if (!res.ok) {
+                          // Roll the toggle back rather than showing a state the server rejected
+                          setItems((xs) => xs.map((x) => (x.id === v.id ? { ...x, active: !active } : x)))
+                          setEditError(res.error ?? 'Could not update the vendor.')
+                        }
+                      })
                     }}
                   />
                   Active
@@ -330,7 +337,13 @@ function VendorManager({ vendors }: { vendors: VendorItem[] }) {
                   onClick={() => {
                     if (!confirm(`Remove vendor ${v.name}?`)) return
                     setItems((xs) => xs.filter((x) => x.id !== v.id))
-                    start(() => void deleteVendor({ id: v.id }))
+                    start(async () => {
+                      const res = await deleteVendor({ id: v.id })
+                      if (!res.ok) {
+                        setItems((xs) => sorted([...xs, v]))
+                        setEditError(res.error ?? 'Could not remove the vendor.')
+                      }
+                    })
                   }}>
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -339,6 +352,11 @@ function VendorManager({ vendors }: { vendors: VendorItem[] }) {
           )}
           {items.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No vendors yet — add your quoting list above.</p>}
         </div>
+        {/* Errors from the Active toggle / Remove live outside the edit row, so
+            they need their own slot or a rejected change looks like it worked. */}
+        {editError && editingId === null && (
+          <p className="mt-2 text-sm font-medium text-rose-600">{editError}</p>
+        )}
       </div>
     </section>
   )

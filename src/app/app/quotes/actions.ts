@@ -38,14 +38,17 @@ export async function addVendor(input: { name: string; email: string; tradeType?
   const name = input.name.trim()
   const email = input.email.trim().toLowerCase()
   if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: 'Enter a name and a valid email.' }
-  const { error } = await supabase.from('quote_vendors').insert({
+  // Return the real row id. The client adds the vendor to its list optimistically,
+  // and without the id it holds a placeholder — so editing or deleting a
+  // just-added vendor before a refresh matched no row and silently did nothing.
+  const { data, error } = await supabase.from('quote_vendors').insert({
     company_id: companyId, name, email, trade_type: (input.tradeType ?? '').trim(),
-  })
+  }).select('id').single()
   if (error) {
     return { ok: false, error: error.code === '23505' ? 'A vendor with that email already exists.' : error.message }
   }
   revalidatePath(PATH)
-  return { ok: true }
+  return { ok: true, id: data.id as string }
 }
 
 export async function updateVendor(input: {
@@ -57,11 +60,17 @@ export async function updateVendor(input: {
   if (input.name !== undefined) patch.name = input.name.trim()
   if (input.tradeType !== undefined) patch.trade_type = input.tradeType.trim()
   if (input.email !== undefined) patch.email = input.email.trim().toLowerCase()
-  const { error } = await supabase
+  // `select()` so a no-op (row gone, or an id the caller invented) surfaces as
+  // an error instead of reporting success while nothing changed.
+  const { data, error } = await supabase
     .from('quote_vendors').update(patch)
     .eq('id', input.id).eq('company_id', companyId)
+    .select('id')
   if (error) {
     return { ok: false, error: error.code === '23505' ? 'Another vendor already uses that email.' : error.message }
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: 'That vendor no longer exists — refresh the page and try again.' }
   }
   revalidatePath(PATH)
   return { ok: true }
@@ -69,7 +78,14 @@ export async function updateVendor(input: {
 
 export async function deleteVendor(input: { id: string }) {
   const { supabase, companyId } = await ctx()
-  await supabase.from('quote_vendors').delete().eq('id', input.id).eq('company_id', companyId)
+  const { data, error } = await supabase
+    .from('quote_vendors').delete()
+    .eq('id', input.id).eq('company_id', companyId)
+    .select('id')
+  if (error) return { ok: false, error: error.message }
+  if (!data || data.length === 0) {
+    return { ok: false, error: 'That vendor no longer exists — refresh the page and try again.' }
+  }
   revalidatePath(PATH)
   return { ok: true }
 }
