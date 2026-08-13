@@ -8,7 +8,39 @@ export async function extractPdfText(buf: Buffer): Promise<string> {
   return withPdfJs(buf)
 }
 
+/**
+ * pdf.mjs references browser canvas globals (DOMMatrix / ImageData / Path2D)
+ * at module-evaluation time. In the Vercel Node runtime (no @napi-rs/canvas)
+ * that made the IMPORT itself throw "ReferenceError: DOMMatrix is not
+ * defined", so every quote-form PDF failed with "Could not read that PDF".
+ * Text extraction never touches these APIs — inert stubs are enough to let
+ * the module load. Rendering still requires a real canvas (not used here).
+ */
+function stubCanvasGlobals() {
+  const g = globalThis as Record<string, unknown>
+  if (typeof g.DOMMatrix === 'undefined') {
+    g.DOMMatrix = class DOMMatrix {
+      a = 1; b = 0; c = 0; d = 1; e = 0; f = 0
+      constructor(init?: number[] | string) {
+        if (Array.isArray(init) && init.length >= 6) {
+          ;[this.a, this.b, this.c, this.d, this.e, this.f] = init
+        }
+      }
+    }
+  }
+  if (typeof g.ImageData === 'undefined') {
+    g.ImageData = class ImageData {
+      width: number; height: number; data: Uint8ClampedArray
+      constructor(w: number, h: number) { this.width = w; this.height = h; this.data = new Uint8ClampedArray(w * h * 4) }
+    }
+  }
+  if (typeof g.Path2D === 'undefined') {
+    g.Path2D = class Path2D { addPath() {} moveTo() {} lineTo() {} bezierCurveTo() {} closePath() {} rect() {} }
+  }
+}
+
 async function withPdfJs(buf: Buffer): Promise<string> {
+  stubCanvasGlobals()
   // pdf.js resolves its worker (pdf.worker.mjs) relative to its own module.
   // next.config outputFileTracingIncludes force-includes that file into the
   // Vercel function bundle so the default resolution succeeds in the lambda.
