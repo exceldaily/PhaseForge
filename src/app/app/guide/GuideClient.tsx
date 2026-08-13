@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   BadgeDollarSign, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList, Contact, FolderKanban,
-  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Play, Radio, Search,
+  GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Map, Play, Radio, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour'
@@ -128,6 +128,22 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Completing an item', text: 'Completion requires BOTH a completion photo and a completion description — the item cannot be closed without them. Once saved, the item records who completed it and when, and moves to Completed.' },
       { heading: 'Quick access from the board', text: 'Each project can show a Punch List button right on its board card (with open / done counts) for one-tap access. Toggle it per project in the Details section of the project form. Punch lists are a construction/QA tool, so the option is hidden on General Tasks boards.' },
       { heading: 'Printable report', text: 'Use Export to generate a professional field report: the full punch list, open items only, or completed items only. Each item prints with its number, issue photo, completion photo, descriptions, assignee, status, and sign-off. Use your browser\'s Save as PDF to keep one combined file. (Export follows your plan\'s reporting access.)' },
+    ],
+  },
+  {
+    id: 'plans',
+    icon: Map,
+    title: 'Plans (Construction Drawings)',
+    summary: 'A full drawing management system inside every project: upload a whole PDF plan set, navigate sheets instantly, and never build from a superseded drawing.',
+    items: [
+      { heading: 'Where to find it', text: 'Open any project and select the Plans tab. It opens a dedicated plans area with grid, list, and sheet-navigator views (your choice is remembered).' },
+      { heading: 'Uploading a plan set', text: 'Managers and admins can drag one PDF containing the whole drawing package into Upload. PhaseForge splits it into individual sheets and reads each title block to detect the sheet number (A1.01), title, discipline, and revision. You review and correct everything on one screen before it saves — no typing 40 sheets by hand. Uploading a sheet number that already exists is automatically offered as a new revision.' },
+      { heading: 'Finding a drawing fast', text: 'Press / to search. Type a sheet number ("M1.01"), a word from the title ("roof"), a discipline ("electrical"), or even text that appears ON the drawing ("RTU-3") and press Enter to open the first match. Quick filter chips cover disciplines, favorites, recently updated, and revised sheets.' },
+      { heading: 'The viewer', text: 'Purpose-built for drawings: pinch or scroll to zoom, drag to pan, double-tap to zoom into a detail, arrow keys or on-screen arrows for previous/next sheet (the neighbors preload so switching is instant). The sidebar groups sheets by discipline; on a phone it becomes a swipe-up drawer and a tap on the drawing hides all controls. PhaseForge remembers roughly where you were looking on each sheet.' },
+      { heading: 'Revisions', text: 'Each sheet keeps its full history. The newest upload becomes CURRENT and older ones are marked SUPERSEDED — opening an old revision shows an unmissable orange banner with one tap back to current. Compare any two revisions side by side or as an overlay with an opacity slider to spot what changed. Old revisions are never deleted automatically.' },
+      { heading: 'Markups, pins & measure', text: 'Anyone can add personal markups (arrow, cloud, highlight, text, freehand and more); managers can publish shared project markups. Markups are a separate layer — the original PDF is never altered, and you can hide the layer any time. Drop a pin to start a located comment thread with resolve/reopen status. Calibrate a sheet with two points and a known distance to take real measurements.' },
+      { heading: 'Downloads & printing', text: 'Select sheets (or just filter) and download as one combined PDF or a ZIP of individual sheets — always the full-quality vector drawings, never screenshots. Create Plan Package builds a professional PDF with a cover sheet and drawing index for emailing or printing. Print opens the crisp PDF in a new tab where your browser handles paper size and orientation.' },
+      { heading: 'Field use', text: 'Star your go-to sheets as favorites, use the Recently Viewed rail, and mark critical sheets Available Offline so they still open when jobsite signal drops. A "since your last visit" banner lists new and revised drawings so nobody misses an update.' },
     ],
   },
   {
