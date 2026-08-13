@@ -11,11 +11,13 @@ import {
   ExternalLink,
   GanttChartSquare,
   GripVertical,
+  Layers,
   MapPin,
   MoreHorizontal,
   Paperclip,
   Trash2,
 } from 'lucide-react'
+import { TransferToBoardModal } from '@/components/projects/TransferToBoardModal'
 import { type DraggableAttributes, type DraggableSyntheticListeners } from '@dnd-kit/core'
 import { Badge } from '@/components/ui/Badge'
 import {
@@ -106,6 +108,7 @@ export function ProjectBoardCard({
   const searchParams = useSearchParams()
   const [showMenu, setShowMenu] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showAddToBoard, setShowAddToBoard] = useState(false)
 
   const pmName = project.project_manager
     ? memberMap[project.project_manager] || project.project_manager
@@ -248,6 +251,19 @@ export function ProjectBoardCard({
                       >
                         <GanttChartSquare size={13} /> View Gantt
                       </Link>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setShowMenu(false)
+                            setShowAddToBoard(true)
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <Layers size={13} /> Add to Board
+                        </button>
+                      )}
                       {onDelete && (
                         <>
                           <div className="my-1 border-t border-slate-100" />
@@ -434,6 +450,17 @@ export function ProjectBoardCard({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showAddToBoard && (
+        <div data-card-action="true" onClick={(event) => event.stopPropagation()}>
+          <TransferToBoardModal
+            projectId={project.id}
+            projectName={project.name}
+            currentBoardId={project.board_id ?? null}
+            onClose={() => setShowAddToBoard(false)}
+          />
         </div>
       )}
     </div>

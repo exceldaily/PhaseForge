@@ -115,7 +115,7 @@ export function ProjectDetailShell({
                       <button
                         className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                         onClick={() => { setShowMenu(false); setShowTransfer(true) }}>
-                        <Layers size={14} /> Transfer to Board
+                        <Layers size={14} /> Add to Board
                       </button>
                       <div className="my-1 border-t border-slate-100" />
                       <div className="px-3 py-2">

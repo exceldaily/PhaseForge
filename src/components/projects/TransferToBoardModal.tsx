@@ -1,6 +1,8 @@
 'use client'
 
-// Transfer a project onto any board (or move/remove it) at any time.
+// Add a project to any board (or move/remove it) at any time. This LINKS the
+// project — it stays on the Projects page untouched and appears on the board
+// as a card; nothing is moved or deleted, and both views stay in sync.
 // Boards + their columns are fetched with the caller's own session, so board
 // privacy rules apply automatically; the board's card then shows whatever
 // fields that board is configured to display — no extra mapping needed.
@@ -92,7 +94,7 @@ export function TransferToBoardModal({
           <div className="flex items-center gap-2 min-w-0">
             <Layers size={16} className="text-indigo-500 shrink-0" />
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-slate-900">Transfer to board</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Add to board</h2>
               <p className="text-[11px] text-slate-500 truncate">{projectName}</p>
             </div>
           </div>
@@ -160,7 +162,9 @@ export function TransferToBoardModal({
               )}
 
               <p className="text-[11px] text-slate-400">
-                The project keeps all of its data. The board card shows the fields that board is configured to display.
+                This links the project — it stays right where it is on the Projects page and
+                also appears on the board, always in sync. The board card shows the fields
+                that board is configured to display.
               </p>
             </>
           )}
@@ -178,7 +182,7 @@ export function TransferToBoardModal({
           <div className="ml-auto flex gap-2">
             <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button variant="primary" size="sm" onClick={transfer} loading={saving} disabled={!selected || saving}>
-              <ArrowRight size={13} /> {selected?.id === currentBoardId ? 'Move stage' : 'Transfer'}
+              <ArrowRight size={13} /> {selected?.id === currentBoardId ? 'Move stage' : 'Add to board'}
             </Button>
           </div>
         </div>
