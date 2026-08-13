@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkBoardLimit } from '@/lib/planLimits'
-import { BOARD_COLUMN_MIN, BOARD_COLUMN_MAX, DEFAULT_BOARD_COLUMNS } from '@/lib/constants'
+import { BOARD_COLUMN_MIN, BOARD_COLUMN_MAX, DEFAULT_BOARD_COLUMNS, KANBAN_COLUMNS } from '@/lib/constants'
 import { validateHexColor } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 
@@ -89,14 +89,35 @@ export async function createBoard(formData: FormData) {
       .single()
     if (boardError) throw boardError
 
-    // Seed with default columns
-    const cols = DEFAULT_BOARD_COLUMNS.map((c, i) => ({
-      board_id: board.id,
-      name: c.name,
-      color: c.color,
-      sort_order: i,
-      is_done: c.is_done,
-    }))
+    // Seed columns from the user's chosen stages (this is what the template /
+    // stage editor in the create dialog configures — previously they were
+    // stored but the board still got the 4 generic defaults). Known stage keys
+    // reuse the construction labels/colors; custom stages get prettified names
+    // and a palette color. The last stage counts as the "done" column.
+    const stageList = (Array.isArray(customStages) ? customStages : [])
+      .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+      .slice(0, BOARD_COLUMN_MAX)
+    const knownStages = new Map(KANBAN_COLUMNS.map((c) => [c.status as string, c]))
+    const palette = ['#94a3b8', '#f43f5e', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#14b8a6', '#10b981', '#6366f1', '#8b5cf6', '#ec4899', '#0ea5e9', '#a855f7', '#22c55e', '#64748b']
+    const prettify = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase())
+    const cols = stageList.length >= BOARD_COLUMN_MIN
+      ? stageList.map((s, i) => {
+          const known = knownStages.get(s)
+          return {
+            board_id: board.id,
+            name: known?.label ?? prettify(s),
+            color: known?.color ?? palette[i % palette.length],
+            sort_order: i,
+            is_done: i === stageList.length - 1,
+          }
+        })
+      : DEFAULT_BOARD_COLUMNS.map((c, i) => ({
+          board_id: board.id,
+          name: c.name,
+          color: c.color,
+          sort_order: i,
+          is_done: c.is_done,
+        }))
     const { error: colError } = await admin.from('board_columns').insert(cols)
     if (colError) throw colError
 

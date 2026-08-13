@@ -5,8 +5,9 @@ import Link from 'next/link'
 import {
   ArrowLeft, GanttChartSquare, CheckSquare,
   Activity, Paperclip, Edit, MoreHorizontal,
-  MapPin, Calendar, User, Flag, ClipboardList, Map,
+  MapPin, Calendar, User, Flag, ClipboardList, Map, Layers,
 } from 'lucide-react'
+import { TransferToBoardModal } from '@/components/projects/TransferToBoardModal'
 import { GanttChart } from '@/components/gantt/GanttChart'
 import { ProjectCalendarSyncBar } from '@/components/gantt/ProjectCalendarSyncBar'
 import { PhaseList } from '@/components/phases/PhaseList'
@@ -51,6 +52,7 @@ export function ProjectDetailShell({
 }: ProjectDetailShellProps) {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [showMenu, setShowMenu] = useState(false)
+  const [showTransfer, setShowTransfer] = useState(false)
 
   const isGantt = activeTab === 'gantt'
   const memberMap = Object.fromEntries(members.map(m => [m.id, m.full_name]))
@@ -110,6 +112,11 @@ export function ProjectDetailShell({
                         onClick={() => setShowMenu(false)}>
                         <Edit size={14} /> Edit Project
                       </Link>
+                      <button
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        onClick={() => { setShowMenu(false); setShowTransfer(true) }}>
+                        <Layers size={14} /> Transfer to Board
+                      </button>
                       <div className="my-1 border-t border-slate-100" />
                       <div className="px-3 py-2">
                         <DeleteProjectButton projectId={project.id} projectName={project.name} />
@@ -259,6 +266,15 @@ export function ProjectDetailShell({
             />
           </div>
         </div>
+      )}
+
+      {showTransfer && (
+        <TransferToBoardModal
+          projectId={project.id}
+          projectName={project.name}
+          currentBoardId={project.board_id ?? null}
+          onClose={() => setShowTransfer(false)}
+        />
       )}
     </div>
   )

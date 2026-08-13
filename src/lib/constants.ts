@@ -171,7 +171,7 @@ export function canUseCalendarSync(plan: string | null | undefined): boolean {
 
 /** Board column constraints */
 export const BOARD_COLUMN_MIN = 3
-export const BOARD_COLUMN_MAX = 10
+export const BOARD_COLUMN_MAX = 15
 
 /** Default columns created for every new board */
 export const DEFAULT_BOARD_COLUMNS = [
