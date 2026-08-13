@@ -57,6 +57,7 @@ export default async function PlanSheetPage({
       currentUserId={data.userId}
       canManage={data.canManage}
       canMarkup={true}
+      isAdmin={['owner', 'admin'].includes(data.role)}
     />
   )
 }

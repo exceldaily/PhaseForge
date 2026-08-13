@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { cn } from '@/lib/utils'
 import { loadPdf, extractPageText, renderThumbnail, renderPageToJpeg } from '@/lib/plans/pdf'
-import { detectSheetInfo, disciplineFromSheetNumber } from '@/lib/plans/detect'
+import { detectSheetInfo, disciplineFromSheetNumber, filenameSheetNumber, filenameTitle } from '@/lib/plans/detect'
 import { loadForSplitting, extractPage, pageFromJpeg } from '@/lib/plans/assembly'
 import { uploadPlanFile, revisionPdfPath, revisionThumbPath } from '@/lib/plans/storage'
 import { STANDARD_DISCIPLINES, SET_TYPES } from '@/lib/plans/constants'
@@ -21,6 +21,8 @@ import { commitPlanImport, type ImportSheetInput } from './actions'
 import type { PlanSet, PlanSetType, SheetWithRevision } from '@/types/plans'
 
 interface ReviewRow {
+  /** Which dropped file this page came from (multi-file uploads). */
+  fileIndex: number
   pageNumber: number
   include: boolean
   sheetNumber: string
@@ -58,7 +60,7 @@ export function UploadWizard({
   const [stage, setStage] = useState<Stage>({ kind: 'pick' })
   const [rows, setRows] = useState<ReviewRow[]>([])
   const [fileName, setFileName] = useState('')
-  const fileRef = useRef<File | null>(null)
+  const filesRef = useRef<File[]>([])
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -80,67 +82,89 @@ export function UploadWizard({
     return isNaN(n) ? cur : String(n + 1)
   }, [])
 
-  const processFile = useCallback(async (file: File) => {
-    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+  const processFiles = useCallback(async (fileList: File[]) => {
+    const files = fileList.filter((f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf')
+    if (files.length === 0) {
       setStage({ kind: 'error', message: 'Only PDF files are supported. Drop a PDF plan set or individual sheet PDFs.' })
       return
     }
-    fileRef.current = file
-    setFileName(file.name)
-    if (!newSetName) setNewSetName(file.name.replace(/\.pdf$/i, ''))
-    setStage({ kind: 'processing', step: 'Reading PDF…', done: 0, total: 1 })
+    const skipped = fileList.length - files.length
+    filesRef.current = files
+    setFileName(files.length === 1 ? files[0].name : `${files.length} PDF files${skipped ? ` (${skipped} non-PDF skipped)` : ''}`)
+    if (!newSetName) {
+      setNewSetName(files.length === 1
+        ? files[0].name.replace(/\.pdf$/i, '')
+        : `Plan Set ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`)
+    }
+    setStage({ kind: 'processing', step: 'Reading PDFs…', done: 0, total: files.length })
     try {
-      const buffer = await file.arrayBuffer()
-      let pdf
-      try {
-        pdf = await loadPdf(buffer)
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : ''
-        setStage({
-          kind: 'error',
-          message: /password/i.test(msg)
-            ? 'This PDF is password-protected. Remove the password and try again.'
-            : `Could not read this PDF: ${msg || 'the file appears to be corrupted.'}`,
-        })
-        return
-      }
-      const total = pdf.numPages
+      // Count pages across all files first so progress is honest
       const next: ReviewRow[] = []
       const seen = new Map<string, number>()
-      for (let p = 1; p <= total; p++) {
-        setStage({ kind: 'processing', step: 'Detecting sheets…', done: p, total })
-        const page = await pdf.getPage(p)
-        const text = await extractPageText(page)
-        const det = detectSheetInfo(text)
-        setStage({ kind: 'processing', step: 'Generating previews…', done: p, total })
-        const thumbBlob = await renderThumbnail(page, 360)
-        let sheetNumber = det.sheetNumber ?? `SHEET-${String(p).padStart(2, '0')}`
-        // Duplicate numbers inside one import get suffixed rather than colliding
-        const dupCount = seen.get(sheetNumber.toUpperCase()) ?? 0
-        seen.set(sheetNumber.toUpperCase(), dupCount + 1)
-        if (dupCount > 0) sheetNumber = `${sheetNumber} (${dupCount + 1})`
-        const match = sheetByNumber.get(sheetNumber.toUpperCase()) ?? null
-        const vp = page.getViewport({ scale: 1 })
-        next.push({
-          pageNumber: p,
-          include: true,
-          sheetNumber,
-          title: det.title ?? '',
-          discipline: det.discipline ?? disciplineFromSheetNumber(sheetNumber) ?? 'Other',
-          revisionLabel: det.revisionLabel ?? (match ? bumpRevision(match) : '0'),
-          revisionDate: det.revisionDate,
-          confident: det.confident,
-          pageWidth: vp.width,
-          pageHeight: vp.height,
-          extractedText: text.full,
-          thumbUrl: URL.createObjectURL(thumbBlob),
-          thumbBlob,
-          matchesSheetId: match?.id ?? null,
-          matchesRevisionLabel: match?.current?.revision_label ?? null,
-        })
-        page.cleanup()
+      let pagesDone = 0
+      let totalPages = 0
+      const docs: Awaited<ReturnType<typeof loadPdf>>[] = []
+      for (let fi = 0; fi < files.length; fi++) {
+        try {
+          const pdf = await loadPdf(await files[fi].arrayBuffer())
+          docs.push(pdf)
+          totalPages += pdf.numPages
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : ''
+          for (const d of docs) d.loadingTask.destroy()
+          setStage({
+            kind: 'error',
+            message: /password/i.test(msg)
+              ? `"${files[fi].name}" is password-protected. Remove the password and try again.`
+              : `Could not read "${files[fi].name}": ${msg || 'the file appears to be corrupted.'}`,
+          })
+          return
+        }
       }
-      await pdf.loadingTask.destroy()
+
+      for (let fi = 0; fi < files.length; fi++) {
+        const pdf = docs[fi]
+        for (let p = 1; p <= pdf.numPages; p++) {
+          pagesDone++
+          setStage({ kind: 'processing', step: files.length > 1 ? `Detecting sheets… (${files[fi].name})` : 'Detecting sheets…', done: pagesDone, total: totalPages })
+          const page = await pdf.getPage(p)
+          const text = await extractPageText(page)
+          const det = detectSheetInfo(text)
+          setStage({ kind: 'processing', step: 'Generating previews…', done: pagesDone, total: totalPages })
+          const thumbBlob = await renderThumbnail(page, 360)
+          // Single-page files with no detectable number fall back to the
+          // FILENAME (people name sheet PDFs "A1.01 First Floor.pdf")
+          let sheetNumber = det.sheetNumber
+            ?? (pdf.numPages === 1 ? filenameSheetNumber(files[fi].name) : null)
+            ?? (files.length > 1 ? `SHEET-${String(fi + 1).padStart(2, '0')}` : `SHEET-${String(p).padStart(2, '0')}`)
+          // Duplicate numbers inside one import get suffixed rather than colliding
+          const dupCount = seen.get(sheetNumber.toUpperCase()) ?? 0
+          seen.set(sheetNumber.toUpperCase(), dupCount + 1)
+          if (dupCount > 0) sheetNumber = `${sheetNumber} (${dupCount + 1})`
+          const match = sheetByNumber.get(sheetNumber.toUpperCase()) ?? null
+          const vp = page.getViewport({ scale: 1 })
+          next.push({
+            fileIndex: fi,
+            pageNumber: p,
+            include: true,
+            sheetNumber,
+            title: det.title ?? (pdf.numPages === 1 ? filenameTitle(files[fi].name) : ''),
+            discipline: det.discipline ?? disciplineFromSheetNumber(sheetNumber) ?? 'Other',
+            revisionLabel: det.revisionLabel ?? (match ? bumpRevision(match) : '0'),
+            revisionDate: det.revisionDate,
+            confident: det.confident,
+            pageWidth: vp.width,
+            pageHeight: vp.height,
+            extractedText: text.full,
+            thumbUrl: URL.createObjectURL(thumbBlob),
+            thumbBlob,
+            matchesSheetId: match?.id ?? null,
+            matchesRevisionLabel: match?.current?.revision_label ?? null,
+          })
+          page.cleanup()
+        }
+        await pdf.loadingTask.destroy()
+      }
       setRows(next)
       setStage({ kind: 'review' })
     } catch (e) {
@@ -149,8 +173,8 @@ export function UploadWizard({
   }, [sheetByNumber, newSetName, bumpRevision])
 
   const startUpload = useCallback(async () => {
-    const file = fileRef.current
-    if (!file) return
+    const files = filesRef.current
+    if (files.length === 0) return
     const included = rows.filter((r) => r.include)
     if (included.length === 0) {
       setStage({ kind: 'error', message: 'No sheets selected to import.' })
@@ -167,10 +191,21 @@ export function UploadWizard({
 
     try {
       setStage({ kind: 'uploading', step: 'Preparing sheets…', done: 0, total: included.length })
-      const buffer = await file.arrayBuffer()
-      const doc = await loadForSplitting(buffer)
-      // Lazily-opened second handle (pdfjs) for the raster fallback below.
-      let renderDoc: Awaited<ReturnType<typeof loadPdf>> | null = null
+      // Per-file document handles, opened lazily and cached (multi-file drops
+      // can be 20+ separate sheet PDFs).
+      const buffers = new Map<number, ArrayBuffer>()
+      const splitDocs = new Map<number, Awaited<ReturnType<typeof loadForSplitting>>>()
+      const renderDocs = new Map<number, Awaited<ReturnType<typeof loadPdf>>>()
+      const bufferFor = async (fi: number) => {
+        let b = buffers.get(fi)
+        if (!b) { b = await files[fi].arrayBuffer(); buffers.set(fi, b) }
+        return b
+      }
+      const splitDocFor = async (fi: number) => {
+        let d = splitDocs.get(fi)
+        if (!d) { d = await loadForSplitting(await bufferFor(fi)); splitDocs.set(fi, d) }
+        return d
+      }
 
       // Storage enforces a per-file limit (50MB on the current plan). Scanned
       // sets and PDFs with shared resource trees can make ONE losslessly
@@ -179,8 +214,9 @@ export function UploadWizard({
       // scanned sheet that is what the source page is anyway.
       const SIZE_LIMIT = 45 * 1024 * 1024
       const rasterFallback = async (r: ReviewRow): Promise<Uint8Array> => {
-        if (!renderDoc) renderDoc = await loadPdf(buffer)
-        const page = await renderDoc.getPage(r.pageNumber)
+        let rd = renderDocs.get(r.fileIndex)
+        if (!rd) { rd = await loadPdf(await bufferFor(r.fileIndex)); renderDocs.set(r.fileIndex, rd) }
+        const page = await rd.getPage(r.pageNumber)
         const jpeg = await renderPageToJpeg(page)
         page.cleanup()
         return pageFromJpeg(await jpeg.arrayBuffer(), r.pageWidth, r.pageHeight)
@@ -192,6 +228,7 @@ export function UploadWizard({
       for (let i = 0; i < included.length; i++) {
         const r = included[i]
         setStage({ kind: 'uploading', step: `Uploading ${r.sheetNumber}…`, done: i, total: included.length })
+        const doc = await splitDocFor(r.fileIndex)
         let pageBytes = await extractPage(doc, r.pageNumber - 1)
         if (pageBytes.byteLength > SIZE_LIMIT) {
           setStage({ kind: 'uploading', step: `Optimizing ${r.sheetNumber} (large page)…`, done: i, total: included.length })
@@ -224,7 +261,7 @@ export function UploadWizard({
           pageHeight: r.pageHeight,
           fileSize: pageBytes.byteLength,
           extractedText: r.extractedText,
-          sourceFileName: file.name,
+          sourceFileName: files[r.fileIndex]?.name ?? files[0].name,
           sourcePageNumber: r.pageNumber,
           sheetId,
           revisionId,
@@ -232,13 +269,13 @@ export function UploadWizard({
         })
       }
 
-      if (renderDoc) await (renderDoc as Awaited<ReturnType<typeof loadPdf>>).loadingTask.destroy()
+      for (const rd of renderDocs.values()) await rd.loadingTask.destroy()
 
       setStage({ kind: 'uploading', step: 'Organizing drawings…', done: included.length, total: included.length })
       const chosenSet = existingSets.find((s) => s.id === setChoice)
       const result = await commitPlanImport(projectId, {
         existingSetId: chosenSet?.id ?? null,
-        name: chosenSet?.name ?? (newSetName.trim() || file.name.replace(/\.pdf$/i, '')),
+        name: chosenSet?.name ?? (newSetName.trim() || files[0].name.replace(/\.pdf$/i, '')),
         setType: chosenSet?.set_type ?? newSetType,
         issueDate: chosenSet ? chosenSet.issue_date : (newSetDate || null),
       }, inputs)
@@ -280,21 +317,22 @@ export function UploadWizard({
               onDragLeave={() => setDragOver(false)}
               onDrop={(e) => {
                 e.preventDefault(); setDragOver(false)
-                const f = e.dataTransfer.files?.[0]
-                if (f) processFile(f)
+                const fs = Array.from(e.dataTransfer.files ?? [])
+                if (fs.length) processFiles(fs)
               }}
               onClick={() => inputRef.current?.click()}
             >
               <FileUp className="mx-auto text-indigo-500" size={36} />
-              <p className="mt-4 text-sm font-medium text-slate-900">Drag a PDF plan set here</p>
+              <p className="mt-4 text-sm font-medium text-slate-900">Drag PDF plans here — one big set or many individual sheets</p>
               <p className="mt-1 text-xs text-slate-500">
-                Multi-sheet sets are split into individual drawings automatically.
-                Sheet numbers, titles and disciplines are detected from the title blocks —
+                Multi-sheet sets are split into individual drawings automatically, and you can
+                drop any number of separate sheet PDFs at once. Sheet numbers, titles and
+                disciplines are detected from the title blocks (or the file name) —
                 you review everything before it saves.
               </p>
-              <Button variant="primary" size="sm" className="mt-5">Choose PDF</Button>
-              <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f) }} />
+              <Button variant="primary" size="sm" className="mt-5">Choose PDFs</Button>
+              <input ref={inputRef} type="file" accept="application/pdf,.pdf" multiple className="hidden"
+                onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) processFiles(fs) }} />
             </div>
           </div>
         )}
@@ -417,7 +455,7 @@ export function UploadWizard({
                 {additions + revisions === 0 && 'Nothing selected'}
               </p>
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => { setRows([]); setStage({ kind: 'pick' }) }}>Back</Button>
+                <Button variant="secondary" size="sm" onClick={() => { setRows([]); filesRef.current = []; setFileName(''); setStage({ kind: 'pick' }) }}>Back</Button>
                 <Button variant="primary" size="sm" onClick={startUpload} disabled={additions + revisions === 0}>
                   Import {additions + revisions} sheet{additions + revisions === 1 ? '' : 's'}
                 </Button>

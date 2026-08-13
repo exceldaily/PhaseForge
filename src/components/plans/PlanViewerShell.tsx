@@ -25,7 +25,7 @@ import { preloadPlanFile, downloadPlanFile, saveOffline, isOffline, removeOfflin
 import { compareSheetNumbers, disciplineRank, MARKUP_COLORS } from '@/lib/plans/constants'
 import { formatDate } from '@/lib/dates'
 import {
-  saveMarkup, createPin, addPinComment, setPinStatus, deletePin, setCurrentRevision, saveCalibration,
+  saveMarkup, createPin, addPinComment, setPinStatus, deletePin, setCurrentRevision, saveCalibration, deleteSheets,
 } from '@/app/app/projects/[id]/plans/actions'
 import type {
   SheetWithRevision, PlanRevision, PlanPin, PlanPinComment, MarkupElement, MarkupTool, PlanViewState,
@@ -45,12 +45,13 @@ interface Props {
   currentUserId: string
   canManage: boolean
   canMarkup: boolean
+  isAdmin?: boolean
 }
 
 export function PlanViewerShell({
   projectId, projectName, sheets: initialSheets, initialSheetId,
   initialRevisionId, initialCompareRevisionId, initialView,
-  members, currentUserId, canManage, canMarkup,
+  members, currentUserId, canManage, canMarkup, isAdmin = false,
 }: Props) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -710,6 +711,14 @@ export function PlanViewerShell({
               showResolvedPins={showResolvedPins} onToggleResolvedPins={() => setShowResolvedPins((s) => !s)}
               offline={offline} onToggleOffline={toggleOffline}
               onClose={() => setInfoOpen(false)}
+              onDeleteSheet={isAdmin ? async () => {
+                if (!window.confirm(`Permanently delete ${sheet.sheet_number} and all of its revisions? This cannot be undone.`)) return
+                const res = await deleteSheets(projectId, [sheet.id])
+                if (res.success) {
+                  persistView(sheetId)
+                  router.push(`/app/projects/${projectId}/plans`)
+                } else notify(res.error)
+              } : undefined}
             />
           </aside>
         )}
@@ -832,7 +841,7 @@ function MobileTab({ icon, label, onClick, active }: { icon: React.ReactNode; la
 function InfoPanel({
   sheet, revision, revisions, viewRevisionId, isSuperseded,
   onViewRevision, onCompare, onMakeCurrent, pins, onOpenPin,
-  showResolvedPins, onToggleResolvedPins, offline, onToggleOffline, onClose,
+  showResolvedPins, onToggleResolvedPins, offline, onToggleOffline, onClose, onDeleteSheet,
 }: {
   sheet: SheetWithRevision
   revision: PlanRevision | null
@@ -849,6 +858,7 @@ function InfoPanel({
   offline: boolean
   onToggleOffline: () => void
   onClose: () => void
+  onDeleteSheet?: () => void
 }) {
   const openPins = pins.filter((p) => p.status === 'open')
   return (
@@ -944,6 +954,15 @@ function InfoPanel({
           ))}
         </div>
       </section>
+
+      {onDeleteSheet && (
+        <section className="pt-2 border-t border-slate-100 dark:border-slate-800">
+          <button onClick={onDeleteSheet}
+            className="w-full rounded-lg border border-rose-200 text-rose-600 px-3 py-2 text-xs font-medium hover:bg-rose-50">
+            Delete sheet & all revisions
+          </button>
+        </section>
+      )}
     </div>
   )
 }

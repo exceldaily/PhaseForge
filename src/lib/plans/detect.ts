@@ -114,6 +114,27 @@ export function detectSheetInfo(text: PageText): DetectionResult {
   }
 }
 
+/**
+ * Sheet number from a FILENAME — individual sheet PDFs are usually named
+ * things like "A1.01 First Floor Plan.pdf" or "M-101_Mechanical.pdf".
+ */
+export function filenameSheetNumber(name: string): string | null {
+  const base = name.replace(/\.pdf$/i, '').trim()
+  const m = base.match(/^([A-Za-z]{1,3}[-.]?\d{1,3}(?:\.\d{1,3})?[A-Za-z]?)(?=[\s_\-.]|$)/)
+  if (!m) return null
+  const token = m[1].toUpperCase()
+  return SHEET_NUMBER_BLACKLIST.test(token) ? null : token
+}
+
+/** Human title from a filename once the sheet number is stripped. */
+export function filenameTitle(name: string): string {
+  let base = name.replace(/\.pdf$/i, '').trim()
+  const num = filenameSheetNumber(name)
+  if (num) base = base.slice(num.length)
+  base = base.replace(/[_]+/g, ' ').replace(/^[\s\-–—.]+/, '').replace(/\s{2,}/g, ' ').trim()
+  return base ? toTitleCase(base) : ''
+}
+
 function normalizeDate(raw: string): string | null {
   const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/)
   if (!m) return null
