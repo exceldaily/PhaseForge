@@ -7,7 +7,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { canUseTickets } from '@/lib/constants'
-import { parseQuoteForm, buildVendorQuoteEmail, type QuoteFormData } from '@/lib/quotes/quoteForm'
+import { parseQuoteForm, parseQuoteFormLoose, buildVendorQuoteEmail, type QuoteFormData } from '@/lib/quotes/quoteForm'
 import { getUserGmail, gmailSendMessage, gmailGetSignature, gmailThreadReplyAt } from '@/lib/quotes/gmail'
 
 const PATH = '/app/quotes'
@@ -123,15 +123,23 @@ export async function createQuoteFromPdf(formData: FormData) {
     const detail = e instanceof Error ? ` (${e.message.slice(0, 120)})` : ''
     return { ok: false, error: `Could not read that PDF${detail}. If it is a scan without text, paste the form text instead.` }
   }
-  const form = parseQuoteForm(text)
-  if (!form) return { ok: false, error: 'That PDF does not look like one of your quote forms. If it is a scanned image, paste the text instead.' }
+  // Genuinely no text = a scanned image. Nothing to parse, so say so plainly.
+  if (text.replace(/\s+/g, ' ').trim().length < 20) {
+    return { ok: false, error: 'That PDF has no readable text — it looks like a scan or photo. Paste the form text instead (or run OCR on it first).' }
+  }
+  // Strict template first (best field detection), then a tolerant pass so a
+  // different form layout still produces an editable quote rather than a wall.
+  const form = parseQuoteForm(text) ?? parseQuoteFormLoose(text)
   return insertQuote(form)
 }
 
 /** Fallback intake: paste the form text (from the email or the PDF). */
 export async function createQuoteFromText(input: { text: string }) {
-  const form = parseQuoteForm(input.text ?? '')
-  if (!form) return { ok: false, error: 'That text does not look like one of your quote forms. Check the paste and try again.' }
+  const raw = input.text ?? ''
+  if (raw.replace(/\s+/g, ' ').trim().length < 20) {
+    return { ok: false, error: 'Paste a bit more of the form text — there is not enough here to read.' }
+  }
+  const form = parseQuoteForm(raw) ?? parseQuoteFormLoose(raw)
   return insertQuote(form)
 }
 

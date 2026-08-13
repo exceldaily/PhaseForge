@@ -62,6 +62,44 @@ export function parseQuoteForm(text: string): QuoteFormData | null {
   return out
 }
 
+/**
+ * Tolerant fallback for forms that are NOT the exact Google Form the strict
+ * parser targets — a different template, a vendor's own RFQ sheet, or a form
+ * whose wording changed. Looks for loose "PO 12345" / "Job #: 4471" style
+ * labels anywhere in the text and keeps the whole document as the items text
+ * so nothing is lost. Never returns null for real text: a quote the user
+ * corrects beats an upload the app refuses outright.
+ */
+export function parseQuoteFormLoose(text: string): QuoteFormData {
+  const flat = collapse(text)
+  // Whitespace is collapsed, so a free-text capture like Trade runs straight
+  // into the NEXT field's label ("Refrigeration Technician: …"). Cut the value
+  // at the first label-looking word.
+  const NEXT_LABEL = /\b(?:tech(?:nician)?|requested\s*by|submitted\s*by|your\s*name|store|job|p\.?\s?o\.?|order\s*type|item|items|notes?|date|qty|quantity|description|address|phone|email)\b/i
+  const stopAtLabel = (v: string): string => {
+    const m = v.match(NEXT_LABEL)
+    return (m && m.index !== undefined ? v.slice(0, m.index) : v)
+      .replace(/[\s:;,\-]+$/, '')
+      .trim()
+  }
+  const grab = (re: RegExp, freeText = false): string | null => {
+    const m = flat.match(re)
+    let v = m?.[1]?.trim()
+    if (v && freeText) v = stopAtLabel(v)
+    return v && v.length > 0 && v.length <= 60 ? v : null
+  }
+  return {
+    poNumber: grab(/\bP\.?\s?O\.?\s*(?:#|no\.?|number)?\s*[:\-]?\s*([A-Za-z0-9][\w\-/]{1,24})\b/i),
+    orderType: grab(/\bOrder\s*Type\s*[:\-]?\s*([A-Za-z][\w &/-]{2,38})/i, true),
+    trade: grab(/\bTrade\s*(?:Type)?\s*[:\-]?\s*([A-Za-z][A-Za-z &/-]{2,30})/i, true),
+    techName: grab(/\b(?:Tech(?:nician)?|Requested\s*By|Your\s*Name|Submitted\s*By)\s*[:\-]?\s*([A-Za-z][A-Za-z.'\- ]{2,40})/i, true),
+    jobNumber: grab(/\bJob\s*(?:#|no\.?|number)?\s*[:\-]?\s*([A-Za-z0-9][\w\-/]{1,24})\b/i),
+    storeNumber: grab(/\bStore\s*(?:#|no\.?|number)?\s*[:\-]?\s*([A-Za-z0-9][\w\-/]{1,24})\b/i),
+    requestType: null,
+    itemsText: flat,
+  }
+}
+
 export function quoteSubject(form: QuoteFormData): string {
   // Only the tracking (job) number goes in the subject — it is a bare reference
   // code. The store/location, PO and trade stay internal (never shown to
