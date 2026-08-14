@@ -168,47 +168,34 @@ export function SchedulesClient({
         ...[...weekNames].filter((n) => !teamRoster.includes(n)),
       ]
       const techCols = columns.length
-      const gridCols = 1 + techCols // day label + one column per tech
-      // Small crews (1–2 techs) made the table too narrow for the title bar, so
-      // a long store name wrapped into 3 ugly lines. Enforce a minimum table
-      // width by widening the tech columns until the bar has room to sit on one
-      // line — the "universal top bar" fit.
-      const MIN_TABLE_W = 360
-      const rawW = DAY_COL_PX + techCols * nameColPx
-      const nameW = rawW >= MIN_TABLE_W ? nameColPx : Math.ceil((MIN_TABLE_W - DAY_COL_PX) / Math.max(1, techCols))
-      const tableW = DAY_COL_PX + techCols * nameW
+      const tableW = DAY_COL_PX + techCols * nameColPx
 
       const rows = visibleDays.map((d, i) => {
         const grey = i % 2 === 0
         const onDay = new Set(j.days[d] ?? [])
         const techCells = columns.map((n) =>
-          `<td width="${nameW}" style="${cell}width:${nameW}px;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
+          `<td width="${nameColPx}" style="${cell}width:${nameColPx}px;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
         ).join('')
         return `<tr><td width="${DAY_COL_PX}" style="${cell}width:${DAY_COL_PX}px;font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
-
-      // Use the exact same compact header in every table: location, Job#, then
-      // the yellow shift.  It deliberately has no week date, since dates are
-      // already present and more useful in each weekday row.
-      const barInner = `<table cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;"><tr>` +
-        `<td style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;white-space:nowrap;">${esc(j.title)}</td>` +
-        `${jobCell ? `<td style="font-family:Arial,sans-serif;font-size:11px;white-space:nowrap;padding-left:12px;">${jobCell}</td>` : ''}` +
-        `${j.shift_label ? `<td style="background:#ffff00;border:1px solid #000;padding:1px 7px;font-family:Arial,sans-serif;font-size:11px;font-weight:bold;white-space:nowrap;">${esc(j.shift_label)}</td>` : ''}` +
-        `</tr></table>`
-      const bar = `<tr><td colspan="${gridCols}" style="${cell}padding:4px 8px;">${barInner}</td></tr>`
-      // With fixed table layout, Gmail bases column widths on the first
-      // non-spanning row. This invisible sizing row must come before the title
-      // bar (which spans the table), otherwise Gmail makes every grid column
-      // the same width and the longer weekday labels run into a border.
+      // Gmail equalizes fixed-layout columns off the first non-spanning row, so
+      // an invisible sizing row pins the day column and each tech column.
       const sizingRow = `<tr><td width="${DAY_COL_PX}" style="width:${DAY_COL_PX}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>` +
-        Array.from({ length: techCols }, () => `<td width="${nameW}" style="width:${nameW}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>`).join('') +
+        Array.from({ length: techCols }, () => `<td width="${nameColPx}" style="width:${nameColPx}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>`).join('') +
         `</tr>`
+      const grid = `<table cellspacing="0" cellpadding="0" border="0" width="${tableW}" style="border-collapse:collapse;table-layout:fixed;width:${tableW}px;">${sizingRow}${rows}</table>`
 
-      return `<table cellspacing="0" cellpadding="0" border="0" width="${tableW}" style="border-collapse:collapse;table-layout:fixed;width:${tableW}px;margin-bottom:18px;">
-        ${sizingRow}
-        ${bar}
-        ${rows}
-      </table>`
+      // The title box is now its OWN one-line bordered box ABOVE the grid, not a
+      // colspan row inside it — so a 1-person job no longer squeezes the store
+      // name into 3 wrapped lines. It sizes to its content on one line and does
+      // not need to match the grid width below it.
+      const titleBox = `<table cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-bottom:2px;"><tr>` +
+        `<td style="border:1px solid #000;padding:5px 9px;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;white-space:nowrap;">${esc(j.title)}</td>` +
+        `${jobCell ? `<td style="border:1px solid #000;border-left:0;padding:5px 9px;font-family:Arial,sans-serif;font-size:11px;white-space:nowrap;">${jobCell}</td>` : ''}` +
+        `${j.shift_label ? `<td style="border:1px solid #000;border-left:0;background:#ffff00;padding:5px 9px;font-family:Arial,sans-serif;font-size:11px;font-weight:bold;white-space:nowrap;">${esc(j.shift_label)}</td>` : ''}` +
+        `</tr></table>`
+
+      return `<div style="margin-bottom:18px;">${titleBox}${grid}</div>`
     }).join('')
     const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)} — ${esc(teamName)} Team</p>${blocks}</div>`
 
