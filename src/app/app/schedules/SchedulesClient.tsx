@@ -56,6 +56,7 @@ export function SchedulesClient({
   const [dirTitle, setDirTitle] = useState('')
   const [dirJob, setDirJob] = useState('')
   const [dirDivision, setDirDivision] = useState(division)
+  const [peekDivision, setPeekDivision] = useState(division)
   const [prevDivision, setPrevDivision] = useState(division)
   const weekEnd = shiftDate(weekStart, 6)
   const team = teams.find((t) => t.id === teamId) ?? null
@@ -67,11 +68,20 @@ export function SchedulesClient({
   if (prevDivision !== division) {
     setPrevDivision(division)
     setDirDivision(division)
+    setPeekDivision(division)
   }
 
   const divLabel = (d: string) => d || 'General'
-  // Projects belong to a department (job numbers are per-department).
-  const dirEntries = directory.filter((p) => (p.division ?? '') === division)
+  // The sidebar can "peek" at another department's project list without leaving
+  // the current team's week (cycle button), so job#s from any division are one
+  // tap away — e.g. a crew team pulling a job that now lives under Startup.
+  const dirEntries = directory.filter((p) => (p.division ?? '') === peekDivision)
+  const cyclePeek = (dir: 1 | -1) => {
+    if (divisions.length < 2) return
+    const i = divisions.indexOf(peekDivision)
+    const next = divisions[((i < 0 ? 0 : i) + dir + divisions.length) % divisions.length]
+    setPeekDivision(next)
+  }
 
   // Live mirror of each job block's local edits so Copy for email always
   // matches the screen (saves no longer invalidate the route cache, so the
@@ -159,13 +169,20 @@ export function SchedulesClient({
       ]
       const techCols = columns.length
       const gridCols = 1 + techCols // day label + one column per tech
-      const tableW = DAY_COL_PX + techCols * nameColPx
+      // Small crews (1–2 techs) made the table too narrow for the title bar, so
+      // a long store name wrapped into 3 ugly lines. Enforce a minimum table
+      // width by widening the tech columns until the bar has room to sit on one
+      // line — the "universal top bar" fit.
+      const MIN_TABLE_W = 360
+      const rawW = DAY_COL_PX + techCols * nameColPx
+      const nameW = rawW >= MIN_TABLE_W ? nameColPx : Math.ceil((MIN_TABLE_W - DAY_COL_PX) / Math.max(1, techCols))
+      const tableW = DAY_COL_PX + techCols * nameW
 
       const rows = visibleDays.map((d, i) => {
         const grey = i % 2 === 0
         const onDay = new Set(j.days[d] ?? [])
         const techCells = columns.map((n) =>
-          `<td width="${nameColPx}" style="${cell}width:${nameColPx}px;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
+          `<td width="${nameW}" style="${cell}width:${nameW}px;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
         ).join('')
         return `<tr><td width="${DAY_COL_PX}" style="${cell}width:${DAY_COL_PX}px;font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
@@ -174,7 +191,7 @@ export function SchedulesClient({
       // the yellow shift.  It deliberately has no week date, since dates are
       // already present and more useful in each weekday row.
       const barInner = `<table cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;"><tr>` +
-        `<td style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${esc(j.title)}</td>` +
+        `<td style="font-family:Arial,sans-serif;font-size:15px;font-weight:bold;white-space:nowrap;">${esc(j.title)}</td>` +
         `${jobCell ? `<td style="font-family:Arial,sans-serif;font-size:11px;white-space:nowrap;padding-left:12px;">${jobCell}</td>` : ''}` +
         `${j.shift_label ? `<td style="background:#ffff00;border:1px solid #000;padding:1px 7px;font-family:Arial,sans-serif;font-size:11px;font-weight:bold;white-space:nowrap;">${esc(j.shift_label)}</td>` : ''}` +
         `</tr></table>`
@@ -184,7 +201,7 @@ export function SchedulesClient({
       // bar (which spans the table), otherwise Gmail makes every grid column
       // the same width and the longer weekday labels run into a border.
       const sizingRow = `<tr><td width="${DAY_COL_PX}" style="width:${DAY_COL_PX}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>` +
-        Array.from({ length: techCols }, () => `<td width="${nameColPx}" style="width:${nameColPx}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>`).join('') +
+        Array.from({ length: techCols }, () => `<td width="${nameW}" style="width:${nameW}px;border:0;padding:0;font-size:0;line-height:0;height:0;"></td>`).join('') +
         `</tr>`
 
       return `<table cellspacing="0" cellpadding="0" border="0" width="${tableW}" style="border-collapse:collapse;table-layout:fixed;width:${tableW}px;margin-bottom:18px;">
@@ -423,9 +440,20 @@ export function SchedulesClient({
       <div className="flex min-h-0 flex-1">
         {/* ── Project directory (persistent job list / history) ── */}
         <aside className="hidden w-64 flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-3 lg:block print:hidden dark:border-slate-800 dark:bg-slate-900">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-            {divLabel(division)} Projects
-          </p>
+          <div className="mb-2 flex items-center gap-1">
+            {divisions.length > 1 && (
+              <button onClick={() => cyclePeek(-1)} title="Previous department's projects"
+                className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800"><ChevronLeft size={13} /></button>
+            )}
+            <p className="flex-1 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+              {divLabel(peekDivision)} Projects
+              {peekDivision !== division && <span className="ml-1 normal-case text-indigo-400">(peeking)</span>}
+            </p>
+            {divisions.length > 1 && (
+              <button onClick={() => cyclePeek(1)} title="Next department's projects"
+                className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800"><ChevronRight size={13} /></button>
+            )}
+          </div>
           {canEdit && (
             <div className="mb-3 space-y-1.5">
               <input value={dirTitle} onChange={(e) => setDirTitle(e.target.value)} placeholder="Project name"
@@ -450,7 +478,7 @@ export function SchedulesClient({
             </div>
           )}
           {dirEntries.length === 0 ? (
-            <p className="text-xs text-slate-400">No {divLabel(division)} projects yet — add name + Job#. Click one to drop it onto the current week.</p>
+            <p className="text-xs text-slate-400">No {divLabel(peekDivision)} projects yet — add name + Job#. Click one to drop it onto the current week.</p>
           ) : (
             <div className="space-y-0.5">
               {dirEntries.map((p) => (
