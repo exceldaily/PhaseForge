@@ -124,19 +124,17 @@ export function SchedulesClient({
   // wrap within a capped cell, but are never hidden or ellipsized.
   const measureCols = (allJobs: Job[]) => {
     const DAY_COL_PX = 132
-    const MAX_TABLE_PX = 760
-    const CHAR_PX = 6.1
-    const CELL_PADDING_PX = 14
+    // Every name column is sized to fit the LONGEST name so nothing wraps
+    // mid-word ("Abraha m"). Gmail's compose area scrolls horizontally, so a
+    // wide table for a big crew is fine — legibility beats compactness.
+    const CHAR_PX = 7.8              // Arial 11px upper-bound per char
+    const CELL_PADDING_PX = 20       // cell padding + breathing room
     let longestName = 4
-    let mostTechs = 1
     for (const j of allJobs) {
-      const names = new Set(Object.values(j.days).flat())
-      mostTechs = Math.max(mostTechs, names.size)
-      for (const n of names) longestName = Math.max(longestName, n.length)
+      for (const n of new Set(Object.values(j.days).flat())) longestName = Math.max(longestName, n.length)
     }
-    const naturalNameColPx = Math.min(112, Math.max(58, Math.ceil(longestName * CHAR_PX + CELL_PADDING_PX)))
-    const fittedNameColPx = Math.max(52, Math.floor((MAX_TABLE_PX - DAY_COL_PX) / mostTechs))
-    return { nameColPx: Math.min(naturalNameColPx, fittedNameColPx), dayColPx: DAY_COL_PX }
+    const nameColPx = Math.min(180, Math.max(56, Math.ceil(longestName * CHAR_PX + CELL_PADDING_PX)))
+    return { nameColPx, dayColPx: DAY_COL_PX }
   }
 
   const buildTeamCopy = (
@@ -174,7 +172,7 @@ export function SchedulesClient({
         const grey = i % 2 === 0
         const onDay = new Set(j.days[d] ?? [])
         const techCells = columns.map((n) =>
-          `<td width="${nameColPx}" style="${cell}width:${nameColPx}px;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
+          `<td width="${nameColPx}" style="${cell}width:${nameColPx}px;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${onDay.has(n) ? esc(n) : '&nbsp;'}</td>`,
         ).join('')
         return `<tr><td width="${DAY_COL_PX}" style="${cell}width:${DAY_COL_PX}px;font-weight:bold;text-align:center;white-space:nowrap;${grey ? 'background:#d9d9d9;' : ''}">${DAY_FULL[d]} ${mmdd(shiftDate(weekStart, d))}</td>${techCells}</tr>`
       }).join('')
