@@ -6,11 +6,14 @@ import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, C
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, updateScheduleJob,
+  setDepartmentStyle, type ScheduleStyle,
 } from './actions'
+import { GridSchedule, buildGridCopy, type GridCell } from './GridSchedule'
 
 interface Job {
   id: string; title: string; job_number: string | null; shift_label: string | null
   sort_order: number; days: Record<number, string[]>
+  cells?: Record<number, GridCell[]>
 }
 interface Team { id: string; name: string; roster: string[]; division: string | null }
 interface DirEntry { id: string; title: string; job_number: string | null; division: string | null }
@@ -34,11 +37,13 @@ interface WeekTeam { id: string; name: string; division: string | null; roster: 
 export function SchedulesClient({
   teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
   division = '', divisions = [], hasAnyTeams = true, allWeek = [],
+  scheduleStyle = 'crew', shiftOptions = ['Days', 'Nights', 'Travel Day', 'As needed'],
 }: {
   teams: Team[]; teamId: string | null; weekStart: string; jobs: Job[]; canEdit: boolean
   jobUrlTemplate?: string | null; directory?: DirEntry[]
   division?: string; divisions?: string[]; hasAnyTeams?: boolean
   allWeek?: WeekTeam[]
+  scheduleStyle?: ScheduleStyle; shiftOptions?: string[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -220,6 +225,11 @@ export function SchedulesClient({
 
   const copyForEmail = async () => {
     const jobsNow = liveJobs()
+    if (scheduleStyle === 'grid') {
+      const { html, plain } = buildGridCopy(team?.name ?? 'Team', jobsNow, weekStart, jobUrlTemplate)
+      await writeClipboard(html, plain)
+      return
+    }
     const { html, plain } = buildTeamCopy(team?.name ?? 'Team', jobsNow, roster, measureCols(jobsNow))
     await writeClipboard(html, plain)
   }
@@ -228,6 +238,21 @@ export function SchedulesClient({
   // on-screen team uses its live (possibly unsaved) edits; others use saved
   // data. Column widths are measured across ALL teams so every table lines up.
   const copyAllForEmail = async () => {
+    // Grid departments copy their own teams in the grid layout; crew departments
+    // keep the all-teams crew copy. (Styles differ per department, so a single
+    // "everything" copy across mixed styles would be inconsistent — grid scopes
+    // to the current department.)
+    if (scheduleStyle === 'grid') {
+      const gridTeams = allWeek.filter((t) => (t.division ?? '') === division)
+        .map((t) => ({ ...t, jobsNow: t.id === teamId ? liveJobs() : t.jobs }))
+      if (gridTeams.length === 0) { setMsg('No schedules on this week yet.'); return }
+      const sections = gridTeams.map((t) => buildGridCopy(t.name, t.jobsNow, weekStart, jobUrlTemplate))
+      await writeClipboard(
+        sections.map((s) => s.html).join('<br>'),
+        sections.map((s) => s.plain).join('\n\n' + '='.repeat(40) + '\n\n'),
+      )
+      return
+    }
     const perTeam = allWeek.map((t) => ({ ...t, jobsNow: t.id === teamId ? liveJobs() : t.jobs }))
     // Each team sizes its own name columns (so one long name elsewhere can't
     // widen everyone); the constant day column keeps them aligned.
@@ -270,6 +295,24 @@ export function SchedulesClient({
                 className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               >
                 {divisions.map((d) => <option key={d} value={d}>{divLabel(d)}</option>)}
+              </select>
+            )}
+            {canEdit && (
+              <select
+                value={scheduleStyle}
+                title={`Schedule style for the ${divLabel(division)} department`}
+                onChange={(e) => {
+                  const style = e.target.value as ScheduleStyle
+                  startTransition(async () => {
+                    const res = await setDepartmentStyle({ division, style, shiftOptions })
+                    if ('error' in res && res.error) setError(res.error)
+                    else router.refresh()
+                  })
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-500 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                <option value="crew">Crew grid</option>
+                <option value="grid">Startup grid</option>
               </select>
             )}
             {teams.map((t) => (
@@ -440,6 +483,14 @@ export function SchedulesClient({
           )}
         </aside>
 
+        {scheduleStyle === 'grid' && team ? (
+          <GridSchedule
+            teamName={team.name} weekStart={weekStart} jobs={jobs} roster={roster}
+            shiftOptions={shiftOptions} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate}
+            onChanged={() => router.refresh()}
+            reportCells={(jobId, cells) => report(jobId, { cells })}
+          />
+        ) : (
         <div className="schedule-print-root flex-1 overflow-y-auto bg-slate-100 p-4 dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
         {/* Wide cap: big rosters (12+ names) need room so day rows keep chips on
             one line. Print is unaffected — the print root is forced to 7.5in. */}
@@ -461,6 +512,7 @@ export function SchedulesClient({
           ))}
         </div>
         </div>
+        )}
       </div>
 
       <style>{`

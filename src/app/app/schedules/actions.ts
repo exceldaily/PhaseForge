@@ -91,6 +91,52 @@ export async function setDayTechs(scheduleJobId: string, day: number, techs: str
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// ── Per-department schedule style (crew grid vs Startup jobs×days grid) ──────
+
+export type ScheduleStyle = 'crew' | 'grid'
+export interface GridCellEntry { name: string; shift: string }
+
+export async function setDepartmentStyle(input: {
+  division: string; style: ScheduleStyle; shiftOptions?: string[]
+}) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const shift = (input.shiftOptions ?? ['Days', 'Nights', 'Travel Day', 'As needed'])
+      .map((s) => s.trim()).filter(Boolean)
+    const { error } = await supabase.from('schedule_department_settings').upsert({
+      company_id: companyId,
+      division: input.division ?? '',
+      style: input.style === 'grid' ? 'grid' : 'crew',
+      shift_options: shift.length ? shift : ['Days', 'Nights', 'Travel Day', 'As needed'],
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'company_id,division' })
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Replace the person+shift entries of ONE grid cell (job × weekday).
+export async function setGridCell(scheduleJobId: string, day: number, entries: GridCellEntry[]) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const clean = (entries ?? [])
+      .map((e) => ({ name: String(e.name ?? '').trim(), shift: String(e.shift ?? '').trim() }))
+      .filter((e) => e.name)
+    const { error } = await supabase.from('schedule_assignments').upsert({
+      company_id: companyId,
+      schedule_job_id: scheduleJobId,
+      day,
+      techs: [],                 // crew column unused for grid cells
+      cell_entries: clean,
+    }, { onConflict: 'schedule_job_id,day' })
+    if (error) return { error: error.message }
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // ── Project directory (persistent job list beside the schedules) ────────────
 
 export async function addDirectoryProject(title: string, jobNumber?: string, division?: string) {
@@ -214,10 +260,11 @@ export async function copyWeek(superintendentId: string, fromWeekStart: string, 
       }).select('id').single()
       if (error || !newJob) continue
       const { data: assigns } = await supabase.from('schedule_assignments')
-        .select('day, techs').eq('schedule_job_id', j.id)
+        .select('day, techs, cell_entries').eq('schedule_job_id', j.id)
       for (const a of assigns ?? []) {
         await supabase.from('schedule_assignments').insert({
-          company_id: companyId, schedule_job_id: newJob.id, day: a.day, techs: a.techs,
+          company_id: companyId, schedule_job_id: newJob.id, day: a.day,
+          techs: a.techs, cell_entries: a.cell_entries ?? [],
         })
       }
       copied++

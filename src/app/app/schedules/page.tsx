@@ -27,12 +27,14 @@ export default async function SchedulesPage({ searchParams }: {
   const canEdit = ['owner', 'admin', 'manager', 'dispatcher'].includes(profile.ops_role ?? '') ||
     ['owner', 'admin'].includes(profile.role ?? '')
 
-  const [{ data: sups }, { data: company }, { data: directory }] = await Promise.all([
+  const [{ data: sups }, { data: company }, { data: directory }, { data: deptSettings }] = await Promise.all([
     supabase.from('superintendents').select('id, name, roster, division')
       .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
     supabase.from('companies').select('schedule_job_url_template, plan').eq('id', profile.company_id).single(),
     supabase.from('schedule_directory').select('id, title, job_number, division')
       .eq('company_id', profile.company_id).order('title'),
+    supabase.from('schedule_department_settings').select('division, style, shift_options')
+      .eq('company_id', profile.company_id),
   ])
 
   if (!canUseSchedules(company?.plan)) {
@@ -49,6 +51,15 @@ export default async function SchedulesPage({ searchParams }: {
     division: (s.division as string | null) ?? null,
   }))
   const jobUrlTemplate = (company?.schedule_job_url_template as string | null) ?? null
+  // Per-department style + shift options ('' = the default department).
+  const DEFAULT_SHIFTS = ['Days', 'Nights', 'Travel Day', 'As needed']
+  const styleByDivision = new Map<string, { style: 'crew' | 'grid'; shiftOptions: string[] }>()
+  for (const d of deptSettings ?? []) {
+    styleByDivision.set((d.division as string | null) ?? '', {
+      style: (d.style as string) === 'grid' ? 'grid' : 'crew',
+      shiftOptions: ((d.shift_options as string[] | null) ?? DEFAULT_SHIFTS),
+    })
+  }
 
   // Departments come from both teams and directory projects (a department can
   // hold projects before its first team exists). '' = no department.
@@ -74,12 +85,16 @@ export default async function SchedulesPage({ searchParams }: {
     .order('sort_order')
   const ids = (jobRows ?? []).map((j) => j.id)
   const { data: assignRows } = ids.length
-    ? await supabase.from('schedule_assignments').select('schedule_job_id, day, techs').in('schedule_job_id', ids)
+    ? await supabase.from('schedule_assignments').select('schedule_job_id, day, techs, cell_entries').in('schedule_job_id', ids)
     : { data: [] }
   const withDays = (jobRows ?? []).map((j) => ({
     ...j,
     days: Object.fromEntries(
       (assignRows ?? []).filter((a) => a.schedule_job_id === j.id).map((a) => [a.day, a.techs as string[]]),
+    ),
+    cells: Object.fromEntries(
+      (assignRows ?? []).filter((a) => a.schedule_job_id === j.id)
+        .map((a) => [a.day, (a.cell_entries as { name: string; shift: string }[] | null) ?? []]),
     ),
   }))
 
@@ -105,6 +120,8 @@ export default async function SchedulesPage({ searchParams }: {
       divisions={divisions}
       hasAnyTeams={allTeams.length > 0}
       allWeek={allWeek}
+      scheduleStyle={styleByDivision.get(division)?.style ?? 'crew'}
+      shiftOptions={styleByDivision.get(division)?.shiftOptions ?? DEFAULT_SHIFTS}
     />
   )
 }
