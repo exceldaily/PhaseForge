@@ -1,10 +1,10 @@
 'use client'
 
 // Startup-style schedule: rows = jobs, columns = Sun–Sat, each cell holds one
-// or more person+shift assignments (e.g. "Max Johnson (Nights)"). This is the
-// alternate layout to the crew roster-chip grid, chosen per department in
-// Settings. Person is picked from the team roster (or typed); shift comes from
-// the department's shift options.
+// or more person+shift assignments (e.g. "Max Johnson (Nights)"). Cell state is
+// held centrally here (not per-row) so drag-to-fill can copy one cell across a
+// row or column. The person picker renders in a fixed-position layer so it is
+// never clipped by the scroll container.
 
 import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2, X, ChevronDown } from 'lucide-react'
@@ -16,6 +16,7 @@ interface GridJob {
   id: string; title: string; job_number: string | null; shift_label: string | null
   sort_order: number; cells?: Record<number, GridCell[]>
 }
+type CellMap = Record<string, Record<number, GridCell[]>>
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -29,8 +30,6 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
   if (!template || !jobNumber?.trim()) return null
   return template.replace('{job}', encodeURIComponent(jobNumber.trim()))
 }
-
-// Travel days read red; everything else green-ish — matches the reference sheet.
 function shiftColor(shift: string): string {
   const s = shift.toLowerCase()
   if (s.includes('travel')) return '#c0392b'
@@ -53,19 +52,72 @@ export function GridSchedule({
   onChanged: () => void
   reportCells: (jobId: string, cells: Record<number, GridCell[]>) => void
 }) {
+  // Central cell state: jobId → day → entries. Re-seeded when the job set
+  // changes (add/delete job, week change) via the key on each job id list.
+  const seed = (): CellMap => Object.fromEntries(
+    jobs.map((j) => [j.id, Object.fromEntries(Array.from({ length: 7 }, (_, d) => [d, j.cells?.[d] ?? []]))]),
+  )
+  const [cells, setCells] = useState<CellMap>(seed)
+  // Re-seed when the job set changes (add/delete job, week nav) — the render-
+  // time state adjustment React sanctions instead of a ref read in render.
+  const jobKey = jobs.map((j) => j.id).join(',')
+  const [prevKey, setPrevKey] = useState(jobKey)
+  if (prevKey !== jobKey) { setPrevKey(jobKey); setCells(seed()) }
+
+  const [editor, setEditor] = useState<{ jobId: string; day: number; top: number; left: number; up: boolean } | null>(null)
+  // Drag-to-fill: press a cell and drag across others to copy its entries.
+  const drag = useRef<{ src: GridCell[]; from: string; moved: boolean } | null>(null)
+
+  const persist = (jobId: string, day: number, entries: GridCell[]) => {
+    setCells((cur) => {
+      const forJob = { ...(cur[jobId] ?? {}), [day]: entries }
+      const next = { ...cur, [jobId]: forJob }
+      reportCells(jobId, forJob)
+      return next
+    })
+    void setGridCell(jobId, day, entries)
+  }
+
+  useEffect(() => {
+    const up = () => { drag.current = null }
+    window.addEventListener('pointerup', up)
+    return () => window.removeEventListener('pointerup', up)
+  }, [])
+
+  const onCellDown = (jobId: string, day: number) => {
+    if (!canEdit) return
+    drag.current = { src: cells[jobId]?.[day] ?? [], from: `${jobId}:${day}`, moved: false }
+  }
+  const onCellEnter = (jobId: string, day: number) => {
+    const d = drag.current
+    if (!d) return
+    if (`${jobId}:${day}` === d.from && !d.moved) return
+    d.moved = true
+    persist(jobId, day, d.src.map((e) => ({ ...e })))
+  }
+
+  const openEditor = (jobId: string, day: number, el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    const up = r.bottom + 210 > window.innerHeight
+    setEditor({ jobId, day, top: up ? r.top : r.bottom, left: Math.min(r.left, window.innerWidth - 230), up })
+  }
+
   return (
     <div className="schedule-print-root flex-1 overflow-auto bg-slate-100 p-4 dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
       <div className="hidden text-center print:block">
         <h1 className="text-lg font-bold">STARTUP SCHEDULE {mmdd(weekStart)}–{mmdd(shiftDate(weekStart, 6))}</h1>
         <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{teamName}</p>
       </div>
-      <div className="min-w-[900px] overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 print:rounded-none print:border-black print:shadow-none">
+      {canEdit && (
+        <p className="mb-2 text-[11px] text-slate-400 print:hidden">Tip: tap &ldquo;add&rdquo; to place a person, or press a cell and drag across the row/column to copy it.</p>
+      )}
+      <div className="min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:rounded-none print:border-black print:shadow-none">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-slate-800 text-white print:bg-slate-200 print:text-black">
-              <th className="w-56 border border-slate-600 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide print:border-black">Job</th>
+              <th className="w-56 border-2 border-slate-600 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide print:border-black">Job</th>
               {DAY_NAMES.map((dn, d) => (
-                <th key={d} className="border border-slate-600 px-2 py-2 text-center text-[11px] font-bold uppercase print:border-black">
+                <th key={d} className="border-2 border-slate-600 px-2 py-2 text-center text-[11px] font-bold uppercase print:border-black">
                   {dn}<br /><span className="font-medium opacity-80">{mmdd(shiftDate(weekStart, d))}</span>
                 </th>
               ))}
@@ -77,51 +129,48 @@ export function GridSchedule({
                 No jobs on {teamName}&apos;s week yet — use &ldquo;Add job&rdquo;.
               </td></tr>
             ) : jobs.map((job) => (
-              <GridRow key={`${job.id}-${weekStart}`} job={job} roster={roster}
-                shiftOptions={shiftOptions} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate}
-                onChanged={onChanged} reportCells={reportCells} />
+              <GridRow key={job.id} job={job} cells={cells[job.id] ?? {}} canEdit={canEdit}
+                jobUrlTemplate={jobUrlTemplate} onChanged={onChanged}
+                onRemove={(day, idx) => persist(job.id, day, (cells[job.id]?.[day] ?? []).filter((_, i) => i !== idx))}
+                onOpenEditor={(day, el) => openEditor(job.id, day, el)}
+                onCellDown={(day) => onCellDown(job.id, day)}
+                onCellEnter={(day) => onCellEnter(job.id, day)} />
             ))}
           </tbody>
         </table>
       </div>
+
+      {editor && canEdit && (
+        <CellEditor roster={roster} shiftOptions={shiftOptions} top={editor.top} left={editor.left} up={editor.up}
+          onAdd={(entry) => { persist(editor.jobId, editor.day, [...(cells[editor.jobId]?.[editor.day] ?? []), entry]); setEditor(null) }}
+          onClose={() => setEditor(null)} />
+      )}
     </div>
   )
 }
 
 function GridRow({
-  job, roster, shiftOptions, canEdit, jobUrlTemplate, onChanged, reportCells,
+  job, cells, canEdit, jobUrlTemplate, onChanged, onRemove, onOpenEditor, onCellDown, onCellEnter,
 }: {
-  job: GridJob; roster: string[]; shiftOptions: string[]
-  canEdit: boolean; jobUrlTemplate: string | null; onChanged: () => void
-  reportCells: (jobId: string, cells: Record<number, GridCell[]>) => void
+  job: GridJob; cells: Record<number, GridCell[]>; canEdit: boolean
+  jobUrlTemplate: string | null; onChanged: () => void
+  onRemove: (day: number, idx: number) => void
+  onOpenEditor: (day: number, el: HTMLElement) => void
+  onCellDown: (day: number) => void
+  onCellEnter: (day: number) => void
 }) {
   const [title, setTitle] = useState(job.title)
   const [jobNumber, setJobNumber] = useState(job.job_number ?? '')
-  const [cells, setCells] = useState<Record<number, GridCell[]>>(
-    Object.fromEntries(Array.from({ length: 7 }, (_, d) => [d, job.cells?.[d] ?? []])),
-  )
-  const [openCell, setOpenCell] = useState<number | null>(null)
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const debounced = (key: string, fn: () => void) => {
     if (timers.current[key]) clearTimeout(timers.current[key])
     timers.current[key] = setTimeout(fn, 700)
   }
-
   const url = jobUrl(jobUrlTemplate, jobNumber)
 
-  const saveCell = (d: number, next: GridCell[]) => {
-    setCells((cur) => {
-      const all = { ...cur, [d]: next }
-      reportCells(job.id, all)
-      return all
-    })
-    void setGridCell(job.id, d, next)
-  }
-
   return (
-    <tr className="border-b border-slate-200 last:border-0 odd:bg-white even:bg-slate-50 dark:border-slate-700 dark:odd:bg-slate-900 dark:even:bg-slate-800/40">
-      {/* Job column */}
-      <td className="w-56 border-r border-slate-200 px-2 py-1.5 align-top dark:border-slate-700">
+    <tr className="border-b-2 border-slate-300 odd:bg-white even:bg-slate-100 dark:border-slate-600 dark:odd:bg-slate-900 dark:even:bg-slate-800/60">
+      <td className="w-56 border-r-2 border-slate-300 px-2 py-1.5 align-top dark:border-slate-600">
         <input value={title} readOnly={!canEdit}
           onChange={(e) => { setTitle(e.target.value); debounced('title', () => void updateScheduleJob(job.id, { title: e.target.value })) }}
           className="w-full bg-transparent text-[13px] font-bold text-slate-900 outline-none dark:text-slate-100" />
@@ -138,34 +187,32 @@ function GridRow({
         </div>
       </td>
 
-      {/* Day cells */}
       {Array.from({ length: 7 }, (_, d) => {
         const entries = cells[d] ?? []
         return (
-          <td key={d} className="relative border-r border-slate-200 px-1.5 py-1 align-top last:border-r-0 dark:border-slate-700">
+          <td key={d}
+            onPointerDown={() => onCellDown(d)}
+            onPointerEnter={() => onCellEnter(d)}
+            className="border-r-2 border-slate-300 px-1.5 py-1 align-top last:border-r-0 dark:border-slate-600"
+            style={{ touchAction: 'none' }}>
             <div className="flex flex-col gap-0.5">
               {entries.map((e, i) => (
                 <span key={i} className="group inline-flex items-center gap-1 text-[12px] font-semibold leading-tight"
                   style={{ color: shiftColor(e.shift) }}>
                   <span>{e.name}{e.shift ? ` (${e.shift})` : ''}</span>
                   {canEdit && (
-                    <button onClick={() => saveCell(d, entries.filter((_, j) => j !== i))}
+                    <button onPointerDown={(ev) => ev.stopPropagation()} onClick={() => onRemove(d, i)}
                       className="text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-rose-500 print:hidden"><X size={11} /></button>
                   )}
                 </span>
               ))}
               {canEdit && (
-                <button onClick={() => setOpenCell(openCell === d ? null : d)}
-                  className="mt-0.5 inline-flex w-fit items-center gap-0.5 rounded px-1 text-[10px] font-medium text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 print:hidden">
+                <button onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => onOpenEditor(d, ev.currentTarget)}
+                  className="mt-0.5 inline-flex w-fit items-center gap-0.5 rounded px-1 text-[10px] font-medium text-slate-400 hover:bg-slate-200 hover:text-indigo-600 dark:hover:bg-slate-800 print:hidden">
                   <Plus size={10} /> add
                 </button>
               )}
             </div>
-            {openCell === d && canEdit && (
-              <CellEditor roster={roster} shiftOptions={shiftOptions}
-                onAdd={(entry) => { saveCell(d, [...entries, entry]); setOpenCell(null) }}
-                onClose={() => setOpenCell(null)} />
-            )}
           </td>
         )
       })}
@@ -173,8 +220,8 @@ function GridRow({
   )
 }
 
-function CellEditor({ roster, shiftOptions, onAdd, onClose }: {
-  roster: string[]; shiftOptions: string[]
+function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose }: {
+  roster: string[]; shiftOptions: string[]; top: number; left: number; up: boolean
   onAdd: (e: GridCell) => void; onClose: () => void
 }) {
   const [name, setName] = useState('')
@@ -186,8 +233,13 @@ function CellEditor({ roster, shiftOptions, onAdd, onClose }: {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [onClose])
   const add = () => { if (name.trim()) onAdd({ name: name.trim(), shift }) }
+  // Fixed layer so the scroll container can never clip it; flips above the cell
+  // when there isn't room below.
+  const style: React.CSSProperties = up
+    ? { position: 'fixed', left, bottom: window.innerHeight - top + 4, zIndex: 60 }
+    : { position: 'fixed', left, top: top + 4, zIndex: 60 }
   return (
-    <div ref={ref} className="absolute left-1 top-full z-30 mt-1 w-52 rounded-lg border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+    <div ref={ref} style={style} className="w-52 rounded-lg border border-slate-300 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
       <input autoFocus value={name} onChange={(e) => setName(e.target.value)} list="grid-roster-names"
         onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') onClose() }}
         placeholder="Person's name" className="mb-1.5 w-full rounded border border-slate-300 px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
