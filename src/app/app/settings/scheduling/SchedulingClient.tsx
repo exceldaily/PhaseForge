@@ -10,8 +10,9 @@ import { GOOGLE_EVENT_COLORS, nearestGoogleColorId } from '@/lib/scheduling/cale
 import { timeAgo } from '@/components/operations/shared'
 import {
   listCalendars, setTargetCalendar, setRoutingMode, disconnectGoogle,
-  saveSuperintendent, saveScheduleLabel, resolvePendingChange,
+  saveSuperintendent, saveScheduleLabel, resolvePendingChange, setScheduleJobUrlTemplate,
 } from './actions'
+import { Link2 } from 'lucide-react'
 
 interface Connection {
   id: string; account_email: string | null
@@ -39,12 +40,13 @@ interface PendingChange {
   projectName: string | null
 }
 
-export function SchedulingClient({ configured, connection, superintendents, labels, pendingChanges = [] }: {
+export function SchedulingClient({ configured, connection, superintendents, labels, pendingChanges = [], jobUrlTemplate = null }: {
   configured: boolean
   connection: Connection | null
   superintendents: Superintendent[]
   labels: SchLabel[]
   pendingChanges?: PendingChange[]
+  jobUrlTemplate?: string | null
 }) {
   const router = useRouter()
   const params = useSearchParams()
@@ -54,6 +56,9 @@ export function SchedulingClient({ configured, connection, superintendents, labe
   const [editSup, setEditSup] = useState<Superintendent | 'new' | null>(null)
   const [editLabel, setEditLabel] = useState<SchLabel | 'new' | null>(null)
   const [showIntro, setShowIntro] = useState(false)
+  const [jobUrlDraft, setJobUrlDraft] = useState(jobUrlTemplate ?? '')
+  const [jobUrlSaving, setJobUrlSaving] = useState(false)
+  const [jobUrlMsg, setJobUrlMsg] = useState<string | null>(null)
 
   const connected = Boolean(connection?.is_active)
 
@@ -292,6 +297,36 @@ export function SchedulingClient({ configured, connection, superintendents, labe
           </div>
         </section>
       )}
+
+      {/* ── Crew-schedule job link ── */}
+      <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+        <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+          <Link2 size={16} className="text-indigo-500" /> Job link on the weekly schedule
+        </h2>
+        <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+          Paste your job-tracker URL with <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{'{job}'}</code> where the job
+          number goes. Then every Job# on the Schedules page — and in the copied-for-email table — becomes a clickable link.
+          Leave blank for plain numbers.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input value={jobUrlDraft} onChange={(e) => setJobUrlDraft(e.target.value)}
+            placeholder="https://sso.servicechannel.com/…?workorder={job}" className="flex-1 font-mono text-xs" />
+          <Button size="sm" disabled={jobUrlSaving || jobUrlDraft === (jobUrlTemplate ?? '')}
+            onClick={() => startTransition(async () => {
+              setJobUrlSaving(true); setJobUrlMsg(null); setError(null)
+              const res = await setScheduleJobUrlTemplate(jobUrlDraft)
+              setJobUrlSaving(false)
+              if ('error' in res && res.error) setError(res.error)
+              else { setJobUrlMsg('Saved — Job# links are live on the schedule.'); router.refresh() }
+            })}>
+            Save link
+          </Button>
+        </div>
+        {jobUrlMsg && <p className="mt-2 text-xs text-emerald-600">{jobUrlMsg}</p>}
+        {jobUrlDraft.trim() && !jobUrlDraft.includes('{job}') && (
+          <p className="mt-2 text-xs text-amber-600">Add {'{job}'} so each row links to its own job number.</p>
+        )}
+      </section>
 
       {/* ── Superintendents ── */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">

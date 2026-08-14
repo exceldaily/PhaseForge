@@ -594,23 +594,30 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
       </div>
 
       {/* "This week" quick-assign row */}
-      {canEdit && roster.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 bg-indigo-50/50 px-3 py-2 dark:border-slate-700 dark:bg-indigo-950/20 print:hidden">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-indigo-400">This week:</span>
-          {roster.map((name) => (
-            <Chip key={name} name={name} on={onAllDays(name)} onClick={() => toggleWeek(name)} />
-          ))}
-        </div>
-      )}
-
-      {/* Day grid */}
+      {/* Day grid — "This week" is the FIRST table row (not a separate flex
+          block) so its name column starts at the same x as every weekday row;
+          otherwise the header names sit left of the day names and look ragged. */}
       <table className="w-full border-collapse text-sm">
         <tbody>
+          {canEdit && roster.length > 0 && (
+            <tr className="border-b border-slate-200 bg-indigo-50/50 dark:border-slate-700 dark:bg-indigo-950/20 print:hidden">
+              <td className="w-32 border-r border-slate-200 px-3 py-2 align-top text-[11px] font-semibold uppercase tracking-wide text-indigo-400 dark:border-slate-700">
+                This week
+              </td>
+              <td className="px-2 py-2">
+                <div className="flex flex-wrap gap-1">
+                  {roster.map((name) => (
+                    <Chip key={name} name={name} on={onAllDays(name)} onClick={() => toggleWeek(name)} />
+                  ))}
+                </div>
+              </td>
+            </tr>
+          )}
           {Array.from({ length: 7 }, (_, d) => {
             const assigned = days[d] ?? []
             return (
               <tr key={d} onPointerEnter={() => dragEnterRow(d)} className={`border-b border-slate-200 last:border-0 dark:border-slate-700 ${d % 2 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/40 print:bg-slate-100'}`}>
-                <td className="w-32 border-r border-slate-200 px-3 py-1.5 text-[13px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <td className="w-32 border-r border-slate-200 px-3 py-1.5 align-top text-[13px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">
                   {DAY_NAMES[d]} {mmdd(shiftDate(weekStart, d))}
                 </td>
                 <td className="px-2 py-1">

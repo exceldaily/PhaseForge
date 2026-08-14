@@ -19,7 +19,7 @@ export default async function SchedulingSettingsPage() {
   if (!profile?.company_id || !isAdmin) redirect('/app/settings')
 
   const [{ data: company }, connProbe] = await Promise.all([
-    supabase.from('companies').select('plan').eq('id', profile.company_id).single(),
+    supabase.from('companies').select('plan, schedule_job_url_template').eq('id', profile.company_id).single(),
     supabase.from('gcal_connections').select('id')
       .eq('company_id', profile.company_id).maybeSingle(),
   ])
@@ -65,6 +65,7 @@ export default async function SchedulingSettingsPage() {
       superintendents={supsRes.data ?? []}
       labels={labelsRes.data ?? []}
       pendingChanges={pending}
+      jobUrlTemplate={(company?.schedule_job_url_template as string | null) ?? null}
     />
   )
 }

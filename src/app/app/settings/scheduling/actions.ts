@@ -143,6 +143,31 @@ export async function resolvePendingChange(changeId: string, action: 'keep' | 'd
   }
 }
 
+// ── Crew-schedule job link template ──────────────────────────────────────────
+// A URL pattern with a {job} placeholder (e.g. ServiceChannel / internal job
+// tracker). When set, Job# on the weekly schedule becomes a clickable link
+// both on screen and in the copied-for-email table.
+
+export async function setScheduleJobUrlTemplate(template: string) {
+  try {
+    const { supabase, companyId } = await requireAdmin()
+    const trimmed = template.trim()
+    if (trimmed) {
+      // Must be an http(s) URL that actually contains the {job} placeholder,
+      // otherwise every job links to the same page.
+      if (!/^https?:\/\//i.test(trimmed)) return { error: 'Enter a full URL starting with http:// or https://' }
+      if (!trimmed.includes('{job}')) return { error: 'Include {job} where the job number goes, e.g. https://…/track?wo={job}' }
+    }
+    const { error } = await supabase.from('companies')
+      .update({ schedule_job_url_template: trimmed || null })
+      .eq('id', companyId)
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    revalidatePath('/app/schedules')
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // ── Superintendents ──────────────────────────────────────────────────────────
 
 export async function saveSuperintendent(input: {
