@@ -4,8 +4,8 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, FileSpreadsheet, FileText, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { bulkCreatePunchItems } from '@/app/app/projects/[id]/punch-actions'
-import { parseXlsxClient, compressImage } from '@/lib/punchImportClient'
-import type { PunchImportUploadResult, PunchImportPdfResult } from '@/app/api/punch/import/route'
+import { parseXlsxClient, parsePunchPdfClient, compressImage } from '@/lib/punchImportClient'
+import type { PunchImportUploadResult } from '@/app/api/punch/import/route'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -49,15 +49,24 @@ export function PunchImportModal({ projectId, onClose }: Props) {
 
     try {
       if (ext === 'pdf') {
-        // PDFs are small — send to server for text extraction
-        const fd = new FormData()
-        fd.append('pdf', file)
-        fd.append('projectId', projectId)
-        const res = await fetch('/api/punch/import', { method: 'POST', body: fd })
-        const json = (await res.json()) as PunchImportPdfResult & { error?: string }
-        if (!res.ok || json.error) { setError(json.error ?? 'Parse failed'); setStep('upload'); return }
-        if (!json.items?.length) { setError('No items found in the PDF.'); setStep('upload'); return }
-        setItems(json.items.map(it => ({ ...it, issue_photo_path: null, issue_photo_url: null })))
+        // Parse entirely in the browser: pulls descriptions AND the embedded
+        // photos (canvas is only available client-side), mapping 1–2 photos to
+        // each issue and stitching pairs into one image.
+        const rows = await parsePunchPdfClient(file)
+        if (!rows.length) {
+          setError('No items found. If this is a scanned (image-only) PDF, its text can\'t be read — add items manually or use the Excel import.')
+          setStep('upload')
+          return
+        }
+        const preview: PreviewItem[] = rows.map(r => ({
+          description: r.description,
+          location: r.location,
+          issue_photo_path: null,
+          issue_photo_url: r.imagePreviewUrl,
+          _localBlob: r.imageBlob,
+          _localPreview: r.imagePreviewUrl,
+        }))
+        setItems(preview)
         setStep('preview')
         return
       }
@@ -196,7 +205,7 @@ export function PunchImportModal({ projectId, onClose }: Props) {
                     <FileText size={16} className="text-rose-600" />
                     <span className="text-sm font-semibold text-slate-700">PDF</span>
                   </div>
-                  <p className="text-xs text-slate-500">Most punch layouts — numbered lists or title-block tables. Descriptions extracted; add photos after. If nothing is found, the PDF is likely a scan (image only).</p>
+                  <p className="text-xs text-slate-500">Most punch layouts — numbered lists or title-block tables. Descriptions and any embedded photos (1–2 per issue) are pulled in automatically. Scanned image-only PDFs can&apos;t be read.</p>
                 </div>
               </div>
 
