@@ -196,7 +196,7 @@ export function PunchImportModal({ projectId, onClose }: Props) {
                     <FileText size={16} className="text-rose-600" />
                     <span className="text-sm font-semibold text-slate-700">PDF</span>
                   </div>
-                  <p className="text-xs text-slate-500">Numbered table format. Descriptions extracted; photos must be added manually.</p>
+                  <p className="text-xs text-slate-500">Most punch layouts — numbered lists or title-block tables. Descriptions extracted; add photos after. If nothing is found, the PDF is likely a scan (image only).</p>
                 </div>
               </div>
 

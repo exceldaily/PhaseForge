@@ -19,7 +19,7 @@ export interface PunchImportUploadResult {
 }
 
 export interface PunchImportPdfResult {
-  items: Array<{ description: string; location: null }>
+  items: Array<{ description: string; location: string | null }>
 }
 
 // ── Image upload endpoint ────────────────────────────────────────────────────
@@ -88,34 +88,11 @@ export async function POST(req: NextRequest) {
 
 // ── PDF text parser ─────────────────────────────────────────────────────────
 
-async function parsePdf(buffer: Buffer): Promise<Array<{ description: string; location: null }>> {
-  // Shared damage-tolerant pdf.js extractor (the installed pdf-parse is v2,
-  // whose class API is incompatible with the old callable import used before).
+async function parsePdf(buffer: Buffer): Promise<Array<{ description: string; location: string | null }>> {
+  // Shared damage-tolerant pdf.js extractor + the versatile multi-layout punch
+  // parser (handles numbered lists AND repeating title-block tables).
   const { extractPdfText } = await import('@/lib/quotes/pdfText')
+  const { parsePunchPdfText } = await import('@/lib/punchPdf')
   const text = await extractPdfText(buffer)
-  const items: Array<{ description: string; location: null }> = []
-
-  const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean)
-  let currentDesc: string[] = []
-  let inItem = false
-
-  const ITEM_START = /^#?\d{1,3}[.)]\s+(.+)/
-  const SKIP_LINE = /^(Before Picture|After Picture|Status|Description of Work|Not Completed|Completed)/i
-
-  const flush = () => {
-    const desc = currentDesc.join(' ').trim()
-    if (desc.length > 2) items.push({ description: desc, location: null })
-    currentDesc = []
-    inItem = false
-  }
-
-  for (const line of lines) {
-    if (SKIP_LINE.test(line)) { if (inItem) flush(); continue }
-    const m = ITEM_START.exec(line)
-    if (m) { if (inItem) flush(); inItem = true; currentDesc = [m[1].trim()] }
-    else if (inItem) { if (line.length < 3) flush(); else currentDesc.push(line) }
-  }
-  if (inItem) flush()
-
-  return items
+  return parsePunchPdfText(text)
 }
