@@ -55,7 +55,9 @@ export function SchedulesClient({
   const [newTeamDivision, setNewTeamDivision] = useState('')
   const [dirTitle, setDirTitle] = useState('')
   const [dirJob, setDirJob] = useState('')
-  const [dirDivision, setDirDivision] = useState(division)
+  // New directory projects default to '*' = All departments (visible in every
+  // department's list). Kept across team switches so the default sticks.
+  const [dirDivision, setDirDivision] = useState('*')
   const [peekDivision, setPeekDivision] = useState(division)
   const [prevDivision, setPrevDivision] = useState(division)
   const weekEnd = shiftDate(weekStart, 6)
@@ -67,15 +69,16 @@ export function SchedulesClient({
   // setState-in-effect, which lints as a cascading-render risk.)
   if (prevDivision !== division) {
     setPrevDivision(division)
-    setDirDivision(division)
     setPeekDivision(division)
+    // dirDivision (the "add to" target) deliberately keeps its value — default
+    // '*' (All) — across team switches so All stays the default.
   }
 
-  const divLabel = (d: string) => d || 'General'
+  const divLabel = (d: string) => (d === '*' ? 'All' : d || 'General')
   // The sidebar can "peek" at another department's project list without leaving
-  // the current team's week (cycle button), so job#s from any division are one
-  // tap away — e.g. a crew team pulling a job that now lives under Startup.
-  const dirEntries = directory.filter((p) => (p.division ?? '') === peekDivision)
+  // the current team's week (cycle button). Projects tagged '*' (All) show in
+  // every department's list, so a job can be shared by General, Startup, etc.
+  const dirEntries = directory.filter((p) => (p.division ?? '') === peekDivision || p.division === '*')
   const cyclePeek = (dir: 1 | -1) => {
     if (divisions.length < 2) return
     const i = divisions.indexOf(peekDivision)
@@ -455,9 +458,10 @@ export function SchedulesClient({
               </div>
               {divisions.length > 1 && (
                 <select value={dirDivision} onChange={(e) => setDirDivision(e.target.value)}
-                  title="Department the new project belongs to"
+                  title="Which department(s) can see this project. All = every department."
                   className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-500 outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800">
-                  {divisions.map((d) => <option key={d} value={d}>→ {divLabel(d)}</option>)}
+                  <option value="*">→ All departments</option>
+                  {divisions.map((d) => <option key={d} value={d}>→ {divLabel(d)} only</option>)}
                 </select>
               )}
             </div>
