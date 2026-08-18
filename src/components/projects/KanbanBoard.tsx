@@ -433,7 +433,9 @@ function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          'min-h-[220px] space-y-4 rounded-[28px] border border-slate-200 bg-slate-50/70 p-3 transition-all',
+          // Long stages scroll inside their own column instead of stretching
+          // the page; the column header stays visible above.
+          'min-h-[220px] max-h-[calc(100vh-320px)] overflow-y-auto space-y-4 rounded-[28px] border border-slate-200 bg-slate-50/70 p-3 transition-all print:max-h-none print:overflow-visible',
           isOver && activeProjectId ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-200' : ''
         )}
       >

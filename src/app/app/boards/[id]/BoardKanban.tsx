@@ -564,7 +564,9 @@ function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          'min-h-[220px] space-y-4 rounded-[28px] border border-slate-200 bg-slate-50/70 p-3 transition-all',
+          // Each column scrolls its own cards when the list is long, so a busy
+          // stage doesn't stretch the whole page. Header above stays put.
+          'min-h-[220px] max-h-[calc(100vh-320px)] overflow-y-auto space-y-4 rounded-[28px] border border-slate-200 bg-slate-50/70 p-3 transition-all print:max-h-none print:overflow-visible',
           isOver && activeId ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-200' : ''
         )}
       >
