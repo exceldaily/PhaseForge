@@ -354,6 +354,47 @@ export async function bulkCreatePunchItems(
 
 // ── Delete (owner / admin only) ──────────────────────────────────────────────
 
+export async function bulkDeletePunchItems(punchIds: string[]): Promise<ActionResult> {
+  try {
+    if (punchIds.length === 0) return { success: true }
+    const supabase = await createClient()
+    const admin = createAdminClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: profile } = await supabase
+      .from('profiles').select('company_id, role').eq('id', user.id).single()
+    if (!profile?.company_id) throw new Error('No organization')
+    if (!['owner', 'admin'].includes(profile.role)) {
+      throw new Error('Only owners and admins can delete punch items.')
+    }
+
+    // Only items in the caller's company — a forged id can't reach across orgs.
+    const { data: items } = await supabase
+      .from('punch_items')
+      .select('id, project_id, company_id, issue_photo_path, completion_photo_path')
+      .in('id', punchIds)
+      .eq('company_id', profile.company_id)
+    const rows = items ?? []
+    if (rows.length === 0) throw new Error('No matching punch items found')
+
+    const paths = rows.flatMap((r) => [r.issue_photo_path, r.completion_photo_path]).filter(Boolean) as string[]
+    if (paths.length) {
+      const { error: rmError } = await admin.storage.from(PUNCH_BUCKET).remove(paths)
+      if (rmError) logger.warn('bulkDeletePunchItems: storage cleanup failed', { rmError })
+    }
+
+    const { error } = await admin.from('punch_items').delete().in('id', rows.map((r) => r.id))
+    if (error) throw error
+
+    for (const pid of new Set(rows.map((r) => r.project_id))) revalidatePath(`/app/projects/${pid}`)
+    return { success: true }
+  } catch (err) {
+    logger.error('bulkDeletePunchItems', err)
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to delete punch items' }
+  }
+}
+
 export async function deletePunchItem(punchId: string): Promise<ActionResult> {
   try {
     const supabase = await createClient()

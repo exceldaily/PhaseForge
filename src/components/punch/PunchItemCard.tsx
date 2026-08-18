@@ -1,6 +1,6 @@
 'use client'
 
-import { ImageOff, MapPin, CalendarClock, CheckCircle2 } from 'lucide-react'
+import { ImageOff, MapPin, CalendarClock, CheckCircle2, CheckSquare, Square } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { formatDate } from '@/lib/dates'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
@@ -12,16 +12,27 @@ interface PunchItemCardProps {
   item: PunchItem
   assigneeName: string | null
   onOpen: (item: PunchItem) => void
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
-export function PunchItemCard({ item, assigneeName, onOpen }: PunchItemCardProps) {
+export function PunchItemCard({ item, assigneeName, onOpen, selectMode, selected, onToggleSelect }: PunchItemCardProps) {
   const heading = item.title?.trim() || item.issue_description
 
   return (
     <button
-      onClick={() => onOpen(item)}
-      className="flex w-full gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-slate-300"
+      onClick={() => (selectMode ? onToggleSelect?.(item.id) : onOpen(item))}
+      className={cn(
+        'flex w-full gap-3 rounded-xl border bg-white p-3 text-left transition-colors',
+        selected ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-slate-300',
+      )}
     >
+      {selectMode && (
+        <span className="flex items-center pr-0.5 text-indigo-600">
+          {selected ? <CheckSquare size={18} /> : <Square size={18} className="text-slate-300" />}
+        </span>
+      )}
       {/* Thumbnail */}
       <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
         {item.issue_photo_url ? (

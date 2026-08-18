@@ -129,6 +129,7 @@ const SECTIONS: GuideSection[] = [
       { heading: 'Completing an item', text: 'Completion requires BOTH a completion photo and a completion description — the item cannot be closed without them. Once saved, the item records who completed it and when, and moves to Completed.' },
       { heading: 'Quick access from the board', text: 'Each project can show a Punch List button right on its board card (with open / done counts) for one-tap access. Toggle it per project in the Details section of the project form. Punch lists are a construction/QA tool, so the option is hidden on General Tasks boards.' },
       { heading: 'Printable report', text: 'Use Export to generate a professional field report: the full punch list, open items only, or completed items only. Each item prints with its number, issue photo, completion photo, descriptions, assignee, status, and sign-off. Use your browser\'s Save as PDF to keep one combined file. (Export follows your plan\'s reporting access.)' },
+      { heading: 'Deleting items', text: 'A single item can be deleted from its detail sheet (open it, trash icon). To clear several at once, owners/admins tap Select in the toolbar, check the items (or "Select all" — respects the current status filter), and Delete from the bar at the top. Deletion removes the items and their photos permanently, so it is owner/admin only.' },
     ],
   },
   {

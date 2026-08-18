@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Printer, ClipboardList, Trash2, Loader2, Upload } from 'lucide-react'
+import { Plus, Printer, ClipboardList, Trash2, Loader2, Upload, CheckSquare, X } from 'lucide-react'
 import { PunchItemCard } from './PunchItemCard'
 import { PunchItemForm } from './PunchItemForm'
 import { PunchCompleteForm } from './PunchCompleteForm'
 import { PunchPrintModal, PunchPrintScope } from './PunchPrintModal'
 import { PunchImportModal } from './PunchImportModal'
-import { updatePunchItem, deletePunchItem } from '@/app/app/projects/[id]/punch-actions'
+import { updatePunchItem, deletePunchItem, bulkDeletePunchItems } from '@/app/app/projects/[id]/punch-actions'
 import { PUNCH_STATUS_ORDER, PUNCH_STATUS_LABELS, PUNCH_STATUS_COLOR } from '@/lib/punch'
 import { formatDate } from '@/lib/dates'
 import { PunchItem, PunchStatus, Profile, Project } from '@/types/app'
@@ -34,6 +34,9 @@ export function PunchListTab({ project, items, members, currentUserId, canEdit, 
   const [printScope, setPrintScope] = useState<PunchPrintScope | null>(null)
   const [printMenuOpen, setPrintMenuOpen] = useState(false)
   const [filter, setFilter] = useState<StatusFilter>('all')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
 
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m.full_name])), [members])
 
@@ -45,6 +48,24 @@ export function PunchListTab({ project, items, members, currentUserId, canEdit, 
   }, [items])
 
   const visible = filter === 'all' ? items : items.filter((i) => i.status === filter)
+
+  const toggleSelect = (id: string) => setSelected((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()) }
+  const allVisibleSelected = visible.length > 0 && visible.every((i) => selected.has(i.id))
+  const toggleSelectAll = () => setSelected(allVisibleSelected ? new Set() : new Set(visible.map((i) => i.id)))
+  const bulkDelete = async () => {
+    if (selected.size === 0) return
+    if (!confirm(`Permanently delete ${selected.size} punch item${selected.size === 1 ? '' : 's'}? This cannot be undone.`)) return
+    setDeleting(true)
+    const res = await bulkDeletePunchItems([...selected])
+    setDeleting(false)
+    if (!res.success) { alert(res.error); return }
+    exitSelect(); router.refresh()
+  }
 
   // Group visible items by status for the board layout.
   const groups = useMemo(() => {
@@ -93,6 +114,23 @@ export function PunchListTab({ project, items, members, currentUserId, canEdit, 
               )}
             </div>
           )}
+          {canEdit && items.length > 0 && (
+            selectMode ? (
+              <button
+                onClick={exitSelect}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <X size={15} /> Cancel
+              </button>
+            ) : (
+              <button
+                onClick={() => setSelectMode(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <CheckSquare size={15} /> Select
+              </button>
+            )
+          )}
           {canEdit && (
             <button
               onClick={() => setImporting(true)}
@@ -109,6 +147,24 @@ export function PunchListTab({ project, items, members, currentUserId, canEdit, 
           </button>
         </div>
       </div>
+
+      {/* Select-mode bar: select all / count / delete */}
+      {selectMode && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 px-3 py-2">
+          <button onClick={toggleSelectAll} className="text-sm font-medium text-indigo-700 hover:underline">
+            {allVisibleSelected ? 'Clear all' : `Select all${filter !== 'all' ? ' shown' : ''} (${visible.length})`}
+          </button>
+          <span className="text-sm text-slate-500">{selected.size} selected</span>
+          <button
+            onClick={bulkDelete}
+            disabled={selected.size === 0 || deleting}
+            className="ml-auto flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+            Delete{selected.size > 0 ? ` (${selected.size})` : ''}
+          </button>
+        </div>
+      )}
 
       {/* Status filter chips */}
       <div className="flex flex-wrap gap-1.5">
@@ -153,6 +209,9 @@ export function PunchListTab({ project, items, members, currentUserId, canEdit, 
                     item={item}
                     assigneeName={item.assigned_to ? memberMap[item.assigned_to] ?? null : null}
                     onOpen={setDetail}
+                    selectMode={selectMode}
+                    selected={selected.has(item.id)}
+                    onToggleSelect={toggleSelect}
                   />
                 ))}
               </div>
