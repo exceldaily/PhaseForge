@@ -5,7 +5,7 @@ import {
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
-  Contact, HardHat, Truck, FolderOpen, Receipt, CalendarDays, BadgeDollarSign,
+  Contact, HardHat, Truck, FolderOpen, Receipt, CalendarDays, BadgeDollarSign, FileDiff,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -44,6 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Work',
     items: [
       { href: '/app/projects', label: 'Projects', icon: FolderKanban },
+      { href: '/app/change-orders', label: 'Change Orders', icon: FileDiff },
       { href: '/app/dispatch', label: 'Dispatch', icon: Radio, gate: 'dispatch' },
       { href: '/app/quotes',   label: 'Quotes',   icon: BadgeDollarSign, gate: 'dispatch' },
       { href: '/app/boards',   label: 'Boards',   icon: Layers },

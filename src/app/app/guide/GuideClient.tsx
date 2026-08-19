@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  BadgeDollarSign, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList, Contact, FolderKanban,
+  BadgeDollarSign, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList, Contact, FileDiff, FolderKanban,
   GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks, Mail, Map, Play, Radio, Search,
   ShieldAlert, Upload, UserCircle, UsersRound, X,
 } from 'lucide-react'
@@ -115,6 +115,24 @@ const SECTIONS: GuideSection[] = [
       { heading: 'What a phase holds', text: 'Name, start/end dates, status (Not Started, In Progress, Blocked, Completed, Skipped), percent complete, an owner (a team member or a trade), color, and notes. Changing status auto-updates percent complete.' },
       { heading: 'Milestones & critical path', text: 'Flag a phase as a milestone to surface it in the Dashboard\'s Upcoming Milestones card, or mark it critical-path to highlight schedule-driving work.' },
       { heading: 'Checklists & comments', text: 'Open a phase\'s Details to manage its checklist: add tasks, check them off, and assign each one to a teammate from the dropdown. Items save instantly and stay put. Each phase also has reminder notes and a comment thread for coordination right where the work is tracked.' },
+    ],
+  },
+  {
+    id: 'change-orders',
+    icon: FileDiff,
+    title: 'Change Orders',
+    summary: 'Track every CO from pricing through customer approval to billing — who has it, and what happens next.',
+    href: '/app/change-orders',
+    hrefLabel: 'Open Change Orders',
+    items: [
+      { heading: 'How it connects to projects', text: 'Change Orders live on your EXISTING projects — nothing is duplicated. Enable "CO tracking" on a project (from its COs tab, or via "Add Project" in the Control Center, multi-select supported), and creating a CO from a project fills in the customer, store #, and job # automatically. Disabling tracking later keeps all history.' },
+      { heading: 'The Control Center', text: 'Change Orders in the sidebar opens the command center: clickable KPI cards (Pending value, Need internal action, Waiting on customer, Over 14 days, Approved not billed…), instant search across CO#, tracking #, invoice #, project and store, plus Table, Kanban, Projects, and My Queue views. Every filter combines.' },
+      { heading: 'Owner vs. waiting on', text: 'Every open CO has an INTERNAL owner — the person responsible for moving it — even when it sits with a customer. External stages also show "Waiting on" (e.g. Aldi), so a CO in Customer Review still belongs to someone internally. My Queue shows everything assigned to you.' },
+      { heading: 'Stages & gated moves', text: 'COs move through a workflow: Potential → Pricing → Internal Review → Ready to Submit → Submitted → Customer Review → (Revision/Resubmitted) → Approved → Work Complete → Ready to Bill → Billed → Closed, plus Rejected/Cancelled/On Hold. Moving into Submitted requires the portal and a customer tracking # (or an explicit "portal gave no confirmation #", recorded with who said so). Approving requires the approved amount; Billed requires the invoice #.' },
+      { heading: 'Revisions', text: 'Customer wants changes? Add a revision on the SAME master CO — each keeps its amount, reason, and the +/- change from the previous one, with the current revision clearly marked. No duplicate CO records.' },
+      { heading: 'Handoffs & follow-ups', text: 'Hand off sends the CO to a teammate with a next action, due date, and note — it appears in their queue and notifications instantly. After checking a customer portal, log the check and set the next follow-up date so nothing sits forgotten. Aging shows time-in-stage with attention/warning/critical labels at 3/6/10 days.' },
+      { heading: 'Money & billing', text: 'Each project\'s COs page shows the contract math: original contract, approved / pending / potential CO value, current approved contract, and potential final exposure. Requested vs approved variance is computed on approval, and "Approved but not billed" is flagged loudly everywhere until an invoice number lands.' },
+      { heading: 'Audit trail', text: 'Every significant event — stage changes, owner changes, amount changes, revisions, submissions, tracking numbers, approvals, billing — is written to a permanent timeline with who/when/old/new. Notes can be added; history can\'t be rewritten. COs archive (owners/admins) rather than delete.' },
     ],
   },
   {

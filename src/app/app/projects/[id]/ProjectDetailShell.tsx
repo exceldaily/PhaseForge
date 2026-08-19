@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, GanttChartSquare, CheckSquare,
   Activity, Paperclip, Edit, MoreHorizontal,
-  MapPin, Calendar, User, Flag, ClipboardList, Map, Layers,
+  MapPin, Calendar, User, Flag, ClipboardList, Map, Layers, FileDiff,
 } from 'lucide-react'
 import { TransferToBoardModal } from '@/components/projects/TransferToBoardModal'
 import { GanttChart } from '@/components/gantt/GanttChart'
@@ -182,13 +182,20 @@ export function ProjectDetailShell({
               )}
             </button>
           ))}
-          {/* Plans is a full-screen module with its own routes, not a panel */}
+          {/* Plans + Change Orders are full-screen modules with their own routes */}
           <Link
             href={`/app/projects/${project.id}/plans`}
             className="flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
           >
             <Map size={15} />
             Plans
+          </Link>
+          <Link
+            href={`/app/projects/${project.id}/change-orders`}
+            className="flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
+          >
+            <FileDiff size={15} />
+            COs
           </Link>
         </div>
       </div>
