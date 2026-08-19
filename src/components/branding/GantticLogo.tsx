@@ -5,13 +5,13 @@ import { BRAND_ICON_SRC, BRAND_LOCKUP_SRC } from '@/lib/branding'
 const LOGO_ASSETS = {
   icon: {
     src: BRAND_ICON_SRC,
-    width: 360,
-    height: 370,
+    width: 512,
+    height: 512,
   },
   lockup: {
     src: BRAND_LOCKUP_SRC,
-    width: 950,
-    height: 380,
+    width: 1400,
+    height: 320,
   },
 } as const
 
