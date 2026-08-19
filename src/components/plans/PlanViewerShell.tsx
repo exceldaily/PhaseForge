@@ -73,10 +73,23 @@ export function PlanViewerShell({
   const revision = revisions.find((r) => r.id === viewRevisionId) ?? revisions.find((r) => r.status === 'current') ?? null
   const isSuperseded = revision != null && revision.status !== 'current'
 
+  // Compare target: an older revision of THIS sheet, or ANY other drawing in
+  // the project. Revision ids are used as-is; other sheets use "sheet:<id>".
   const [compareRevId, setCompareRevId] = useState<string | null>(initialCompareRevisionId)
   const [compareMode, setCompareMode] = useState<'overlay' | 'side'>('overlay')
   const [overlayOpacity, setOverlayOpacity] = useState(0.5)
-  const compareRev = revisions.find((r) => r.id === compareRevId) ?? null
+  const compareResolved = useMemo(() => {
+    if (!compareRevId) return null
+    if (compareRevId.startsWith('sheet:')) {
+      const s = ordered.find((x) => x.id === compareRevId.slice(6))
+      return s?.current?.pdf_path
+        ? { pdfPath: s.current.pdf_path, label: s.sheet_number, long: `${s.sheet_number}${s.title ? ' — ' + s.title : ''}` }
+        : null
+    }
+    const r = revisions.find((x) => x.id === compareRevId)
+    return r ? { pdfPath: r.pdf_path, label: `R${r.revision_label}`, long: `REV ${r.revision_label}` } : null
+  }, [compareRevId, ordered, revisions])
+  const canCompare = revisions.length >= 2 || ordered.length >= 2
 
   // Panels / chrome
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -477,13 +490,17 @@ export function PlanViewerShell({
               <PenLine size={16} />
             </IconBtn>
           )}
-          <IconBtn title="Compare revisions" active={!!compareRevId}
+          <IconBtn title="Compare / overlay drawings" active={!!compareRevId}
             onClick={() => {
               if (compareRevId) { setCompareRevId(null); return }
-              const prev = revisions.find((r) => r.id !== revision?.id)
-              if (!prev) { notify('Only one revision exists for this sheet'); return }
-              setCompareRevId(prev.id)
-            }} disabled={revisions.length < 2}>
+              // Prefer an older revision of this sheet; otherwise overlay the
+              // next drawing in the project so the bar opens with something.
+              const prevRev = revisions.find((r) => r.id !== revision?.id)
+              if (prevRev) { setCompareRevId(prevRev.id); return }
+              const otherSheet = ordered.find((s) => s.id !== sheet?.id && s.current?.pdf_path)
+              if (otherSheet) { setCompareRevId(`sheet:${otherSheet.id}`); return }
+              notify('Add another drawing or revision to compare')
+            }} disabled={!canCompare}>
             <Layers size={16} />
           </IconBtn>
           <IconBtn title="Copy link" onClick={copyLink} className="hidden sm:flex"><Link2 size={16} /></IconBtn>
@@ -556,16 +573,25 @@ export function PlanViewerShell({
       )}
 
       {/* ── Compare bar ── */}
-      {compareRevId && compareRev && revision && !chromeHidden && (
+      {compareRevId && compareResolved && revision && !chromeHidden && (
         <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-900 text-white text-xs z-20 shrink-0">
-          <span className="font-semibold shrink-0">Compare</span>
+          <span className="font-semibold shrink-0">Overlay</span>
           <select value={compareRevId} onChange={(e) => setCompareRevId(e.target.value)}
-            className="bg-slate-800 rounded px-1.5 py-1 text-xs">
-            {revisions.filter((r) => r.id !== revision.id).map((r) => (
-              <option key={r.id} value={r.id}>REV {r.revision_label}{r.revision_date ? ` — ${formatDate(r.revision_date)}` : ''}</option>
-            ))}
+            className="bg-slate-800 rounded px-1.5 py-1 text-xs max-w-[46vw] sm:max-w-xs">
+            {revisions.filter((r) => r.id !== revision.id).length > 0 && (
+              <optgroup label="This sheet — revisions">
+                {revisions.filter((r) => r.id !== revision.id).map((r) => (
+                  <option key={r.id} value={r.id}>REV {r.revision_label}{r.revision_date ? ` — ${formatDate(r.revision_date)}` : ''}</option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label="Other drawings">
+              {ordered.filter((s) => s.id !== sheet?.id && s.current?.pdf_path).map((s) => (
+                <option key={s.id} value={`sheet:${s.id}`}>{s.sheet_number}{s.title ? ` — ${s.title}` : ''}</option>
+              ))}
+            </optgroup>
           </select>
-          <span className="text-slate-400">vs REV {revision.revision_label}</span>
+          <span className="text-slate-400 shrink-0 hidden sm:inline">on {sheet?.sheet_number} R{revision.revision_label}</span>
           <div className="flex rounded-md overflow-hidden border border-slate-700 shrink-0">
             <button onClick={() => setCompareMode('overlay')}
               className={cn('px-2 py-1', compareMode === 'overlay' ? 'bg-indigo-600' : 'bg-slate-800')}>Overlay</button>
@@ -575,8 +601,8 @@ export function PlanViewerShell({
             </button>
           </div>
           {compareMode === 'overlay' && (
-            <label className="flex items-center gap-2 min-w-0 flex-1 max-w-52">
-              <span className="text-slate-400 shrink-0">R{compareRev.revision_label}</span>
+            <label className="flex items-center gap-2 min-w-0 flex-1 max-w-52" title="Slide to fade between the two drawings">
+              <span className="text-slate-400 shrink-0">{compareResolved.label}</span>
               <input type="range" min={0} max={100} value={overlayOpacity * 100}
                 onChange={(e) => setOverlayOpacity(Number(e.target.value) / 100)} className="flex-1 accent-indigo-500" />
               <span className="text-slate-400 shrink-0">R{revision.revision_label}</span>
@@ -605,14 +631,14 @@ export function PlanViewerShell({
               <button className="text-xs text-indigo-600 underline" onClick={() => { setError(null) }}>Retry</button>
             </div>
           ) : pdfPath ? (
-            compareRevId && compareMode === 'side' && compareRev ? (
+            compareRevId && compareMode === 'side' && compareResolved ? (
               <div className="absolute inset-0 grid grid-cols-2 gap-px bg-slate-300 dark:bg-slate-700">
                 <div className="relative">
-                  <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-slate-900/80 text-white rounded px-1.5 py-0.5">REV {compareRev.revision_label}</span>
-                  <PlanCanvas key={`cmp-${compareRev.id}`} pdfPath={compareRev.pdf_path} className="absolute inset-0" />
+                  <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-slate-900/80 text-white rounded px-1.5 py-0.5">{compareResolved.long}</span>
+                  <PlanCanvas key={`cmp-${compareRevId}`} pdfPath={compareResolved.pdfPath} className="absolute inset-0" />
                 </div>
                 <div className="relative">
-                  <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-emerald-600/90 text-white rounded px-1.5 py-0.5">REV {revision?.revision_label}</span>
+                  <span className="absolute top-2 left-2 z-10 text-[10px] font-bold bg-emerald-600/90 text-white rounded px-1.5 py-0.5">{sheet?.sheet_number} REV {revision?.revision_label}</span>
                   <PlanCanvas key={`cur-${revision?.id}`} pdfPath={pdfPath} className="absolute inset-0" />
                 </div>
               </div>
@@ -621,7 +647,7 @@ export function PlanViewerShell({
                 key={`${sheet.id}-${revision?.id ?? 'cur'}`}
                 ref={canvasRef}
                 pdfPath={pdfPath}
-                overlayPdfPath={compareRevId && compareMode === 'overlay' ? compareRev?.pdf_path : null}
+                overlayPdfPath={compareRevId && compareMode === 'overlay' ? compareResolved?.pdfPath : null}
                 overlayOpacity={overlayOpacity}
                 interactionMode={interactionMode}
                 initialView={pendingView}
