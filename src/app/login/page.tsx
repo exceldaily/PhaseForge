@@ -16,12 +16,14 @@ const manrope = Manrope({ subsets: ['latin'], weight: ['300', '400', '500', '600
 
 // ── Static data ──────────────────────────────────────────────────────────
 const CAPS = [
-  { n: '01', tag: 'SCHEDULE',   title: 'Gantt Timeline',    body: 'Drag-and-drop phase scheduling from mobilization to closeout. Zoom from day view to quarter view, set dependencies, and see your entire project on one screen.', specs: ['Day · Week · Month · Quarter zoom', 'Phase dependencies', 'Milestone tracking'] },
-  { n: '02', tag: 'KANBAN',     title: 'Project Boards',    body: 'Kanban boards with custom columns built around your workflow. Scope visibility by team so field crews see their boards and office staff see theirs.', specs: ['Custom stage columns', 'Team-scoped visibility', 'Custom field configurator'] },
-  { n: '03', tag: 'QA / FIELD', title: 'Punch Lists',       body: 'Log punch and QA items on-site with photos. Attach before/after images, assign to a trade, and track status to closed — all from your phone.', specs: ['Before/after photo pairs', 'Trade assignment & status', 'Excel import'] },
-  { n: '04', tag: 'TICKETS',    title: 'Tickets',           body: 'Track service calls and work orders on a shared board. Forward ticket details to any vendor email straight from the card, set reminders, and keep a running activity log per ticket.', specs: ['Forward to vendor email', 'Timed reminders', 'Full activity log'] },
-  { n: '05', tag: 'PEOPLE',     title: 'Team Management',   body: 'Invite your team, set their role, and scope what they can access. Four tiers — owner, admin, manager, member — with board-level visibility controls on top.', specs: ['Owner / admin / manager / member', 'Board-level access control', 'Email invite flow'] },
-  { n: '06', tag: 'REPORTING',  title: 'Reports',           body: 'Print project summaries and phase progress reports. Useful for owner updates, bank draws, and internal reviews. Export to PDF directly from the browser.', specs: ['Printable PDF export', 'Phase completion tracking', 'Portfolio overview'] },
+  { n: '01', tag: 'SCHEDULE',    title: 'Gantt Timeline',        body: 'Drag-and-drop phase scheduling from mobilization to closeout. Zoom from day view to quarter view, set dependencies, and see your entire project on one screen. Push phases to Google Calendar and keep them in sync.', specs: ['Day · Week · Month · Quarter zoom', 'Phase dependencies & milestones', 'Google Calendar sync'] },
+  { n: '02', tag: 'DRAWINGS',    title: 'Construction Plans',    body: 'Drop a full plan set — or a stack of individual sheets — and PhaseForge splits it, reads the title blocks, and builds a navigable drawing index. A purpose-built viewer replaces squinting at PDFs in a browser tab.', specs: ['Auto sheet number & discipline detection', 'Revisions with superseded warnings', 'Overlay compare · markups · pins'] },
+  { n: '03', tag: 'CHANGE ORDER', title: 'Change Order Control', body: 'Every CO from pricing through customer-portal approval to billing, on one board. Always know who owns it internally, who you are waiting on, how long it has sat, and whether it was ever actually submitted.', specs: ['Internal owner + waiting-on tracking', 'Portal tracking & confirmation numbers', 'Approved-but-not-billed alerts'] },
+  { n: '04', tag: 'QA / FIELD',  title: 'Punch Lists',           body: 'Log punch and QA items on-site with photos, assign them to a trade, and track each one to closed from your phone. Import an existing list from a PDF or spreadsheet and the photos come with it.', specs: ['Issue & completion photo pairs', 'PDF / Excel import with photos', 'Printable field report'] },
+  { n: '05', tag: 'CREW',        title: 'Weekly Schedules',      body: 'Build each crew\'s week, then copy it straight into an email as a clean formatted table your team can actually read. Departments can run the layout that fits how they work.', specs: ['Per-department schedule layouts', 'One-click copy for email', 'Job numbers link to your systems'] },
+  { n: '06', tag: 'SERVICE',     title: 'Dispatch & Quotes',     body: 'Run service calls on a live board with priorities, ETAs, and on-call rotation. Send vendor quote requests from your own Gmail and track every reply against the job.', specs: ['Service call board with ETA alerts', 'Vendor RFQs from your own inbox', 'Reply tracking per request'] },
+  { n: '07', tag: 'KANBAN',      title: 'Project Boards',        body: 'Kanban boards with columns built around your stages, not somebody else\'s. Scope visibility by team so field crews see their boards and office staff see theirs.', specs: ['Custom stage columns', 'Team-scoped visibility', 'Custom field configurator'] },
+  { n: '08', tag: 'REPORTING',   title: 'Reports & Analytics',   body: 'Portfolio dashboards, phase progress, and printable summaries for owner updates, bank draws, and internal reviews. Export to PDF straight from the browser.', specs: ['Printable PDF export', 'Portfolio & completion tracking', 'Role-scoped access'] },
 ]
 
 const GANTT = [
@@ -233,7 +235,7 @@ export default function LoginPage() {
             marginLeft: 'auto', marginRight: 'auto',
             ...ent(350, 700),
           }}>
-            Project scheduling, field punch lists, and team dispatch —
+            Schedules, drawings, punch lists, change orders, and dispatch —
             built for construction, not adapted from it.
           </p>
 
@@ -366,7 +368,7 @@ export default function LoginPage() {
             <div style={{ height: '1px', width: '28px', backgroundColor: '#D8891C' }} />
             <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>CAPABILITIES</span>
             <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.07)' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#2D4458' }}>01 — 06</span>
+            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#2D4458' }}>01 — {String(CAPS.length).padStart(2, '0')}</span>
           </div>
 
           {/* Engineering panel list */}
