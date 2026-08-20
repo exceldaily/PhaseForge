@@ -132,3 +132,50 @@ body {
     overflow-wrap: anywhere !important;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   MOBILE / PWA POLISH
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Kill the 300ms double-tap-zoom delay on controls; pinch-zoom still works. */
+html { touch-action: manipulation; }
+
+/* iOS Safari auto-zooms the page when focusing an input whose font-size is
+   under 16px — and then LEAVES it zoomed, which reads as "the site scrolls
+   and displays wrong on my phone". Forcing 16px on form controls at phone
+   widths prevents the zoom without changing the desktop design. */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* Standalone (installed PWA): respect the notch / status bar / home indicator.
+   viewport-fit=cover lets content extend under them; these insets push the
+   app shell back into the safe area on all four sides. */
+@media all and (display-mode: standalone) {
+  .pf-shell {
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .pf-shell main { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* The app's single scroll container: stop scroll chaining (rubber-banding the
+   whole PWA window) and clip stray horizontal overflow so pages never wobble
+   sideways — wide content (tables, kanban, gantt) scrolls inside its own
+   overflow-x container instead. */
+.pf-main-scroll {
+  overscroll-behavior-y: contain;
+  overflow-x: clip;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile sidebar drawer is position:fixed, so the shell's safe-area padding
+   doesn't reach it — give it its own insets when installed. */
+@media all and (display-mode: standalone) {
+  aside.fixed.inset-y-0 {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+}
