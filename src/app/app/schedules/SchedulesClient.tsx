@@ -549,7 +549,7 @@ export function SchedulesClient({
         {scheduleStyle === 'grid' && team ? (
           <GridSchedule
             teamName={team.name} weekStart={weekStart} jobs={jobs} roster={roster}
-            shiftOptions={shiftOptions} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
+            shiftOptions={shiftOptions} division={division} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
             onChanged={() => router.refresh()}
             reportCells={(jobId, cells) => report(jobId, { cells })}
           />

@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Plus, Trash2, X, ChevronDown } from 'lucide-react'
-import { deleteScheduleJob, updateScheduleJob, setGridCell } from './actions'
+import { deleteScheduleJob, updateScheduleJob, setGridCell, setShiftOptions } from './actions'
 
 export interface GridCell { name: string; shift: string }
 
@@ -39,7 +39,7 @@ function shiftColor(shift: string): string {
 }
 
 export function GridSchedule({
-  teamName, weekStart, jobs, roster, shiftOptions, canEdit, jobUrlTemplate,
+  teamName, weekStart, jobs, roster, shiftOptions, division, canEdit, jobUrlTemplate,
   onChanged, reportCells, zoom = 1,
 }: {
   teamName: string
@@ -47,6 +47,7 @@ export function GridSchedule({
   jobs: GridJob[]
   roster: string[]
   shiftOptions: string[]
+  division: string
   canEdit: boolean
   jobUrlTemplate: string | null
   onChanged: () => void
@@ -147,7 +148,8 @@ export function GridSchedule({
         const list = cells[editor.jobId]?.[editor.day] ?? []
         const existing = editor.idx != null ? list[editor.idx] : undefined
         return (
-          <CellEditor roster={roster} shiftOptions={shiftOptions} top={editor.top} left={editor.left} up={editor.up}
+          <CellEditor roster={roster} shiftOptions={shiftOptions} division={division} onShiftsChanged={onChanged}
+            top={editor.top} left={editor.left} up={editor.up}
             existing={existing}
             onAdd={(entry) => {
               const next = editor.idx != null
@@ -248,11 +250,17 @@ function GridRow({
   )
 }
 
-function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose, existing, onRemove }: {
-  roster: string[]; shiftOptions: string[]; top: number; left: number; up: boolean
-  onAdd: (e: GridCell) => void; onClose: () => void
+function CellEditor({ roster, shiftOptions, division, onShiftsChanged, top, left, up, onAdd, onClose, existing, onRemove }: {
+  roster: string[]; shiftOptions: string[]; division: string; top: number; left: number; up: boolean
+  onAdd: (e: GridCell) => void; onClose: () => void; onShiftsChanged: () => void
   existing?: GridCell; onRemove?: () => void
 }) {
+  // Shift notes are a department setting, edited right here so you can fix the
+  // list at the moment you notice it is wrong instead of hunting for a
+  // settings page. Local copy keeps the popover responsive while it saves.
+  const [manage, setManage] = useState(false)
+  const [shifts, setShifts] = useState(shiftOptions)
+  const [newShift, setNewShift] = useState('')
   const [name, setName] = useState(existing?.name ?? '')
   const [shift, setShift] = useState(existing?.shift ?? shiftOptions[0] ?? '')
   const ref = useRef<HTMLDivElement>(null)
@@ -266,6 +274,17 @@ function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose, exist
     }
   }, [onClose])
   const add = () => { if (name.trim()) onAdd({ name: name.trim(), shift }) }
+  const saveShifts = (next: string[]) => {
+    setShifts(next)
+    if (shift && !next.includes(shift)) setShift(next[0] ?? '')
+    void setShiftOptions(division, next).then(onShiftsChanged)
+  }
+  const addShift = () => {
+    const v = newShift.trim()
+    if (!v || shifts.includes(v)) { setNewShift(''); return }
+    setNewShift('')
+    saveShifts([...shifts, v])
+  }
   // Fixed layer so the scroll container can never clip it; flips above the cell
   // when there isn't room below.
   const phone = typeof window !== 'undefined' && window.innerWidth < 640
@@ -276,38 +295,75 @@ function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose, exist
       : { position: 'fixed', left, top: top + 4, zIndex: 60 }
   return (
     <div ref={ref} style={style} className="w-auto rounded-lg border border-slate-300 bg-white p-2 shadow-2xl sm:w-52 dark:border-slate-700 dark:bg-slate-900">
-      <input autoFocus={!phone} value={name} onChange={(e) => setName(e.target.value)} list="grid-roster-names"
-        onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') onClose() }}
-        placeholder="Person's name" className="mb-1.5 w-full rounded border border-slate-300 px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
-      <datalist id="grid-roster-names">{roster.map((r) => <option key={r} value={r} />)}</datalist>
-      {roster.length > 0 && (
-        <div className="mb-1.5 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
-          {roster.map((r) => (
-            <button key={r} onClick={() => setName(r)}
-              className={`rounded-full px-2 py-1 text-[11px] font-medium ${
-                name === r ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
-              }`}>{r}</button>
-          ))}
-        </div>
+      {manage ? (
+        <>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Shift notes for {division || 'this department'}
+          </p>
+          <div className="mb-1.5 flex flex-col gap-1">
+            {shifts.map((sn) => (
+              <span key={sn} className="flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                {sn}
+                <button onClick={() => saveShifts(shifts.filter((x) => x !== sn))} aria-label={`Remove ${sn}`}
+                  className="ml-auto p-0.5 text-slate-400 hover:text-rose-500"><X size={13} /></button>
+              </span>
+            ))}
+            {shifts.length === 0 && (
+              <span className="text-[11px] text-slate-400">No shift notes. Names will show without one.</span>
+            )}
+          </div>
+          <div className="mb-1.5 flex gap-1">
+            <input value={newShift} onChange={(e) => setNewShift(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') addShift() }}
+              placeholder="e.g. Swing, On call"
+              className="min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
+            <button onClick={addShift} disabled={!newShift.trim()}
+              className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">Add</button>
+          </div>
+          <p className="mb-1.5 text-[10px] leading-snug text-slate-400">
+            Applies to every team in this department. Names already scheduled keep the note they were given.
+          </p>
+          <button onClick={() => setManage(false)}
+            className="w-full rounded border border-slate-300 py-1.5 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-300">Done</button>
+        </>
+      ) : (
+        <>
+          <input autoFocus={!phone} value={name} onChange={(e) => setName(e.target.value)} list="grid-roster-names"
+            onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') onClose() }}
+            placeholder="Person's name" className="mb-1.5 w-full rounded border border-slate-300 px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
+          <datalist id="grid-roster-names">{roster.map((r) => <option key={r} value={r} />)}</datalist>
+          {roster.length > 0 && (
+            <div className="mb-1.5 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+              {roster.map((r) => (
+                <button key={r} onClick={() => setName(r)}
+                  className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                    name === r ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                  }`}>{r}</button>
+              ))}
+            </div>
+          )}
+          <div className="relative mb-1.5">
+            <select value={shift} onChange={(e) => setShift(e.target.value)}
+              className="w-full appearance-none rounded border border-slate-300 px-2 py-1 pr-6 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800">
+              <option value="">No shift note</option>
+              {shifts.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1.5 text-slate-400" />
+          </div>
+          <button onClick={() => setManage(true)}
+            className="mb-1.5 text-[11px] font-medium text-indigo-600 hover:underline">Add or remove shift notes</button>
+          <div className="flex gap-1">
+            <button onClick={add} disabled={!name.trim()} className="flex-1 rounded bg-indigo-600 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+              {existing ? 'Replace' : 'Add'}
+            </button>
+            {onRemove && (
+              <button onClick={onRemove} title="Remove this person from the day"
+                className="rounded border border-rose-200 px-2 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Remove</button>
+            )}
+            <button onClick={onClose} className="rounded border border-slate-300 px-2 py-1.5 text-xs text-slate-500 dark:border-slate-600">✕</button>
+          </div>
+        </>
       )}
-      <div className="relative mb-1.5">
-        <select value={shift} onChange={(e) => setShift(e.target.value)}
-          className="w-full appearance-none rounded border border-slate-300 px-2 py-1 pr-6 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800">
-          <option value="">No shift note</option>
-          {shiftOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1.5 text-slate-400" />
-      </div>
-      <div className="flex gap-1">
-        <button onClick={add} disabled={!name.trim()} className="flex-1 rounded bg-indigo-600 py-1.5 text-xs font-medium text-white disabled:opacity-50">
-          {existing ? 'Replace' : 'Add'}
-        </button>
-        {onRemove && (
-          <button onClick={onRemove} title="Remove this person from the day"
-            className="rounded border border-rose-200 px-2 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Remove</button>
-        )}
-        <button onClick={onClose} className="rounded border border-slate-300 px-2 py-1.5 text-xs text-slate-500 dark:border-slate-600">✕</button>
-      </div>
     </div>
   )
 }

@@ -117,6 +117,30 @@ export async function setDepartmentStyle(input: {
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// Edit just the shift-note list for a department (Days / Nights / Travel Day
+// / whatever this crew actually calls them). Kept separate from the style
+// setter so editing the list can never flip a department's layout, and an
+// empty list is honoured — some departments do not want shift notes at all.
+export async function setShiftOptions(division: string, options: string[]) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const clean = [...new Set((options ?? []).map((s) => s.trim()).filter(Boolean))].slice(0, 20)
+    const { data: existing } = await supabase.from('schedule_department_settings')
+      .select('style').eq('company_id', companyId).eq('division', division ?? '').maybeSingle()
+    const { error } = await supabase.from('schedule_department_settings').upsert({
+      company_id: companyId,
+      division: division ?? '',
+      style: (existing?.style as string) === 'grid' ? 'grid' : 'crew',
+      shift_options: clean,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'company_id,division' })
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // Replace the person+shift entries of ONE grid cell (job × weekday).
 export async function setGridCell(scheduleJobId: string, day: number, entries: GridCellEntry[]) {
   try {
