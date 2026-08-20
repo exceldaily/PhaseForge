@@ -62,11 +62,11 @@ export function ProjectDetailShell({
   const progress = getProjectProgressFromPhases(project.phases)
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex min-h-full flex-col md:h-full md:overflow-hidden">
       {/* ── Compact header ── */}
       <div className="flex-shrink-0 border-b border-slate-200 bg-white">
         {/* Breadcrumb + actions */}
-        <div className="flex items-center justify-between gap-3 px-6 pt-4 pb-3">
+        <div className="flex items-center justify-between gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-2.5 sm:pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <Link
               href="/app/projects"
@@ -130,7 +130,7 @@ export function ProjectDetailShell({
         </div>
 
         {/* Project meta strip */}
-        <div className="flex items-center gap-4 px-6 pb-3 text-xs text-slate-500 overflow-x-auto">
+        <div className="flex items-center gap-4 px-3 sm:px-6 pb-3 text-xs text-slate-500 overflow-x-auto">
           {project.customer_name && (
             <span className="flex items-center gap-1 flex-shrink-0">
               <User size={11} className="text-slate-400" /> {project.customer_name}
@@ -156,13 +156,13 @@ export function ProjectDetailShell({
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-0 border-t border-slate-100 px-4">
+        <div className="flex gap-0 border-t border-slate-100 px-2 sm:px-4 overflow-x-auto">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
+                'flex shrink-0 items-center gap-1.5 border-b-2 px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors',
                 activeTab === tab.id
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
@@ -185,14 +185,14 @@ export function ProjectDetailShell({
           {/* Plans + Change Orders are full-screen modules with their own routes */}
           <Link
             href={`/app/projects/${project.id}/plans`}
-            className="flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
+            className="flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
           >
             <Map size={15} />
             Plans
           </Link>
           <Link
             href={`/app/projects/${project.id}/change-orders`}
-            className="flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
+            className="flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
           >
             <FileDiff size={15} />
             COs
@@ -204,7 +204,7 @@ export function ProjectDetailShell({
 
       {/* GANTT — fills remaining height */}
       {isGantt && (
-        <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+        <div className="flex flex-col overflow-hidden h-[calc(100dvh-190px)] min-h-[420px] md:h-auto md:min-h-0 md:flex-1">
           {canEdit && <ProjectCalendarSyncBar projectId={project.id} />}
           <div className="flex-1 min-h-0 overflow-hidden">
             <GanttChart
@@ -222,7 +222,7 @@ export function ProjectDetailShell({
       {/* TASKS */}
       {activeTab === 'tasks' && (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-6">
+          <div className="max-w-4xl mx-auto p-3 sm:p-6">
             <PhaseList
               projectId={project.id}
               companyId={companyId}
@@ -238,7 +238,7 @@ export function ProjectDetailShell({
       {/* PUNCH LIST */}
       {activeTab === 'punch' && (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-6">
+          <div className="max-w-4xl mx-auto p-3 sm:p-6">
             <PunchListTab
               project={project}
               items={punchItems}
@@ -264,7 +264,7 @@ export function ProjectDetailShell({
       {/* FILES */}
       {activeTab === 'files' && (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto p-6">
+          <div className="max-w-2xl mx-auto p-3 sm:p-6">
             <ProjectAttachments
               projectId={project.id}
               attachments={attachments}
