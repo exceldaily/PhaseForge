@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
-  deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, updateScheduleJob,
+  deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, renameRosterMember, updateScheduleJob,
   setDepartmentStyle, type ScheduleStyle,
 } from './actions'
 import { GridSchedule, buildGridCopy, type GridCell } from './GridSchedule'
@@ -59,6 +59,8 @@ export function SchedulesClient({
   // department's list). Kept across team switches so the default sticks.
   const [dirDivision, setDirDivision] = useState('*')
   const [showProjects, setShowProjects] = useState(false)   // mobile project list
+  const [renaming, setRenaming] = useState<string | null>(null)  // crew chip being renamed
+  const [renameTo, setRenameTo] = useState('')
   const [zoom, setZoom] = useState(() => {
     if (typeof window === 'undefined') return 1
     const saved = Number(localStorage.getItem('pf-sched-zoom'))
@@ -120,6 +122,14 @@ export function SchedulesClient({
     if (!name || !teamId) return
     setNewMember('')
     run(() => updateRoster(teamId, [...roster, name]))
+  }
+  const saveRename = () => {
+    const target = renaming
+    if (!target || !teamId) { setRenaming(null); return }
+    const next = renameTo.trim()
+    setRenaming(null)
+    if (!next || next === target) return
+    run(() => renameRosterMember(teamId, target, next), `Renamed ${target} to ${next}`)
   }
   const removeMember = (name: string) => {
     if (!teamId) return
@@ -426,7 +436,19 @@ export function SchedulesClient({
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{team.name}&apos;s crew:</span>
             {roster.map((name) => (
               <span key={name} className="group inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                {name}
+                {renaming === name ? (
+                  <input autoFocus value={renameTo} onChange={(e) => setRenameTo(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(null) }}
+                    onBlur={saveRename}
+                    className="w-28 bg-transparent text-xs font-medium outline-none" />
+                ) : (
+                  /* Tap the name to swap in a different person — the week's
+                     assignments follow the rename instead of being lost. */
+                  <button onClick={() => { setRenaming(name); setRenameTo(name) }}
+                    title="Tap to rename or replace this person" className="underline-offset-2 hover:underline">
+                    {name}
+                  </button>
+                )}
                 {/* pointer-coarse: tablets/phones have no hover — keep the ✕ visible */}
                 <button onClick={() => removeMember(name)} className="text-slate-400 opacity-0 transition group-hover:opacity-100 pointer-coarse:opacity-100 hover:text-rose-500"><X size={11} /></button>
               </span>

@@ -65,7 +65,7 @@ export function GridSchedule({
   const [prevKey, setPrevKey] = useState(jobKey)
   if (prevKey !== jobKey) { setPrevKey(jobKey); setCells(seed()) }
 
-  const [editor, setEditor] = useState<{ jobId: string; day: number; top: number; left: number; up: boolean } | null>(null)
+  const [editor, setEditor] = useState<{ jobId: string; day: number; top: number; left: number; up: boolean; idx?: number } | null>(null)
   // Drag-to-fill: press a cell and drag across others to copy its entries.
   const drag = useRef<{ src: GridCell[]; from: string; moved: boolean } | null>(null)
 
@@ -97,10 +97,10 @@ export function GridSchedule({
     persist(jobId, day, d.src.map((e) => ({ ...e })))
   }
 
-  const openEditor = (jobId: string, day: number, el: HTMLElement) => {
+  const openEditor = (jobId: string, day: number, el: HTMLElement, idx?: number) => {
     const r = el.getBoundingClientRect()
     const up = r.bottom + 210 > window.innerHeight
-    setEditor({ jobId, day, top: up ? r.top : r.bottom, left: Math.min(r.left, window.innerWidth - 230), up })
+    setEditor({ jobId, day, top: up ? r.top : r.bottom, left: Math.min(r.left, window.innerWidth - 230), up, idx })
   }
 
   return (
@@ -135,6 +135,7 @@ export function GridSchedule({
                 jobUrlTemplate={jobUrlTemplate} onChanged={onChanged}
                 onRemove={(day, idx) => persist(job.id, day, (cells[job.id]?.[day] ?? []).filter((_, i) => i !== idx))}
                 onOpenEditor={(day, el) => openEditor(job.id, day, el)}
+                onEditEntry={(day, idx, el) => openEditor(job.id, day, el, idx)}
                 onCellDown={(day) => onCellDown(job.id, day)}
                 onCellEnter={(day) => onCellEnter(job.id, day)} />
             ))}
@@ -142,22 +143,38 @@ export function GridSchedule({
         </table>
       </div>
 
-      {editor && canEdit && (
-        <CellEditor roster={roster} shiftOptions={shiftOptions} top={editor.top} left={editor.left} up={editor.up}
-          onAdd={(entry) => { persist(editor.jobId, editor.day, [...(cells[editor.jobId]?.[editor.day] ?? []), entry]); setEditor(null) }}
-          onClose={() => setEditor(null)} />
-      )}
+      {editor && canEdit && (() => {
+        const list = cells[editor.jobId]?.[editor.day] ?? []
+        const existing = editor.idx != null ? list[editor.idx] : undefined
+        return (
+          <CellEditor roster={roster} shiftOptions={shiftOptions} top={editor.top} left={editor.left} up={editor.up}
+            existing={existing}
+            onAdd={(entry) => {
+              const next = editor.idx != null
+                ? list.map((e, i) => (i === editor.idx ? entry : e))   // replace in place
+                : [...list, entry]
+              persist(editor.jobId, editor.day, next)
+              setEditor(null)
+            }}
+            onRemove={editor.idx != null ? () => {
+              persist(editor.jobId, editor.day, list.filter((_, i) => i !== editor.idx))
+              setEditor(null)
+            } : undefined}
+            onClose={() => setEditor(null)} />
+        )
+      })()}
     </div>
   )
 }
 
 function GridRow({
-  job, cells, canEdit, jobUrlTemplate, onChanged, onRemove, onOpenEditor, onCellDown, onCellEnter,
+  job, cells, canEdit, jobUrlTemplate, onChanged, onRemove, onOpenEditor, onEditEntry, onCellDown, onCellEnter,
 }: {
   job: GridJob; cells: Record<number, GridCell[]>; canEdit: boolean
   jobUrlTemplate: string | null; onChanged: () => void
   onRemove: (day: number, idx: number) => void
   onOpenEditor: (day: number, el: HTMLElement) => void
+  onEditEntry: (day: number, idx: number, el: HTMLElement) => void
   onCellDown: (day: number) => void
   onCellEnter: (day: number) => void
 }) {
@@ -201,10 +218,20 @@ function GridRow({
               {entries.map((e, i) => (
                 <span key={i} className="group inline-flex items-center gap-1 text-[12px] font-semibold leading-tight"
                   style={{ color: shiftColor(e.shift) }}>
-                  <span>{e.name}{e.shift ? ` (${e.shift})` : ''}</span>
+                  {canEdit ? (
+                    <button onPointerDown={(ev) => ev.stopPropagation()}
+                      onClick={(ev) => onEditEntry(d, i, ev.currentTarget)}
+                      title="Tap to change this person or shift"
+                      className="text-left underline-offset-2 hover:underline">
+                      {e.name}{e.shift ? ` (${e.shift})` : ''}
+                    </button>
+                  ) : (
+                    <span>{e.name}{e.shift ? ` (${e.shift})` : ''}</span>
+                  )}
                   {canEdit && (
                     <button onPointerDown={(ev) => ev.stopPropagation()} onClick={() => onRemove(d, i)}
-                      className="text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-rose-500 print:hidden"><X size={11} /></button>
+                      aria-label={`Remove ${e.name}`}
+                      className="text-slate-300 opacity-0 transition group-hover:opacity-100 pointer-coarse:opacity-100 hover:text-rose-500 print:hidden"><X size={12} /></button>
                   )}
                 </span>
               ))}
@@ -222,12 +249,13 @@ function GridRow({
   )
 }
 
-function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose }: {
+function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose, existing, onRemove }: {
   roster: string[]; shiftOptions: string[]; top: number; left: number; up: boolean
   onAdd: (e: GridCell) => void; onClose: () => void
+  existing?: GridCell; onRemove?: () => void
 }) {
-  const [name, setName] = useState('')
-  const [shift, setShift] = useState(shiftOptions[0] ?? '')
+  const [name, setName] = useState(existing?.name ?? '')
+  const [shift, setShift] = useState(existing?.shift ?? shiftOptions[0] ?? '')
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const onDoc = (ev: MouseEvent) => { if (ref.current && !ref.current.contains(ev.target as Node)) onClose() }
@@ -255,8 +283,14 @@ function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose }: {
         <ChevronDown size={12} className="pointer-events-none absolute right-2 top-1.5 text-slate-400" />
       </div>
       <div className="flex gap-1">
-        <button onClick={add} disabled={!name.trim()} className="flex-1 rounded bg-indigo-600 py-1 text-xs font-medium text-white disabled:opacity-50">Add</button>
-        <button onClick={onClose} className="rounded border border-slate-300 px-2 text-xs text-slate-500 dark:border-slate-600">✕</button>
+        <button onClick={add} disabled={!name.trim()} className="flex-1 rounded bg-indigo-600 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+          {existing ? 'Replace' : 'Add'}
+        </button>
+        {onRemove && (
+          <button onClick={onRemove} title="Remove this person from the day"
+            className="rounded border border-rose-200 px-2 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50">Remove</button>
+        )}
+        <button onClick={onClose} className="rounded border border-slate-300 px-2 py-1.5 text-xs text-slate-500 dark:border-slate-600">✕</button>
       </div>
     </div>
   )

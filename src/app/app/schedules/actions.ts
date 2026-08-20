@@ -211,6 +211,52 @@ export async function updateRoster(superintendentId: string, roster: string[]) {
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// Rename someone on a crew. A typo'd or replaced name shouldn't cost you the
+// week's work, so this rewrites the roster AND every schedule row that person
+// already appears on (both crew-sheet techs and Startup grid entries), across
+// every week belonging to this team.
+export async function renameRosterMember(superintendentId: string, from: string, to: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const oldName = from.trim(), newName = to.trim()
+    if (!newName) return { error: 'New name is required' }
+    if (oldName === newName) return { ok: true }
+
+    const { data: sup } = await supabase.from('superintendents')
+      .select('roster').eq('id', superintendentId).eq('company_id', companyId).single()
+    const roster = ((sup?.roster as string[] | null) ?? []).map((r) => (r === oldName ? newName : r))
+    const { error: rErr } = await supabase.from('superintendents')
+      .update({ roster: [...new Set(roster.filter(Boolean))] })
+      .eq('id', superintendentId).eq('company_id', companyId)
+    if (rErr) return { error: rErr.message }
+
+    // Carry the name change into the schedules themselves.
+    const { data: jobs } = await supabase.from('schedule_jobs')
+      .select('id').eq('company_id', companyId).eq('superintendent_id', superintendentId)
+    const ids = (jobs ?? []).map((j) => j.id)
+    let moved = 0
+    for (let i = 0; i < ids.length; i += 200) {
+      const slice = ids.slice(i, i + 200)
+      const { data: rows } = await supabase.from('schedule_assignments')
+        .select('id, techs, cell_entries').in('schedule_job_id', slice)
+      for (const row of rows ?? []) {
+        const techs = ((row.techs as string[] | null) ?? [])
+        const cells = ((row.cell_entries as { name: string; shift: string }[] | null) ?? [])
+        const hit = techs.includes(oldName) || cells.some((c) => c.name === oldName)
+        if (!hit) continue
+        await supabase.from('schedule_assignments').update({
+          techs: [...new Set(techs.map((t) => (t === oldName ? newName : t)))],
+          cell_entries: cells.map((c) => (c.name === oldName ? { ...c, name: newName } : c)),
+        }).eq('id', row.id)
+        moved++
+      }
+    }
+    revalidatePath(PATH)
+    return { ok: true, moved }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // Toggle one tech on/off for EVERY day of a job's week in one call.
 export async function setWeekTech(scheduleJobId: string, tech: string, on: boolean) {
   try {
