@@ -7,6 +7,11 @@ import { SchedulesClient } from './SchedulesClient'
 
 export const dynamic = 'force-dynamic'
 
+// Directory projects tagged with this scope marker belong to EVERY department.
+const ALL_DEPTS = '*'
+// Pseudo-department shown in the picker: every crew, regardless of department.
+export const EVERY_DEPT = '__all__'
+
 // Sunday of the week containing `d` (UTC date math on yyyy-mm-dd strings).
 function sundayOf(d: Date): string {
   const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -66,13 +71,18 @@ export default async function SchedulesPage({ searchParams }: {
   const divisions = [...new Set([
     ...allTeams.map((t) => t.division ?? ''),
     ...(directory ?? []).map((d) => (d.division as string | null) ?? ''),
-  ])].sort((a, b) => a.localeCompare(b))
+  ])]
+    .filter((d) => d !== ALL_DEPTS)          // scope marker, not a department
+    .sort((a, b) => a.localeCompare(b))
 
   const teamFromParam = allTeams.find((t) => t.id === params.team)
-  const division = params.division !== undefined && divisions.includes(params.division)
+  // Offer "All departments" once there's more than one real department.
+  const pickable = divisions.length > 1 ? [EVERY_DEPT, ...divisions] : divisions
+  const firstPopulated = divisions.find((d) => allTeams.some((t) => (t.division ?? '') === d))
+  const division = params.division !== undefined && pickable.includes(params.division)
     ? params.division
-    : teamFromParam ? (teamFromParam.division ?? '') : (divisions[0] ?? '')
-  const teams = allTeams.filter((t) => (t.division ?? '') === division)
+    : teamFromParam ? (teamFromParam.division ?? '') : (firstPopulated ?? divisions[0] ?? '')
+  const teams = division === EVERY_DEPT ? allTeams : allTeams.filter((t) => (t.division ?? '') === division)
 
   const weekStart = /^\d{4}-\d{2}-\d{2}$/.test(params.week ?? '') ? params.week! : sundayOf(new Date())
   const teamId = teams.find((t) => t.id === params.team)?.id ?? teams[0]?.id ?? null
@@ -117,7 +127,7 @@ export default async function SchedulesPage({ searchParams }: {
       jobUrlTemplate={jobUrlTemplate}
       directory={directory ?? []}
       division={division}
-      divisions={divisions}
+      divisions={pickable}
       hasAnyTeams={allTeams.length > 0}
       allWeek={allWeek}
       scheduleStyle={styleByDivision.get(division)?.style ?? 'crew'}

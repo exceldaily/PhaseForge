@@ -74,11 +74,13 @@ export function SchedulesClient({
     // '*' (All) — across team switches so All stays the default.
   }
 
-  const divLabel = (d: string) => (d === '*' ? 'All' : d || 'General')
+  const divLabel = (d: string) => (d === '__all__' ? 'All departments' : d === '*' ? 'All' : d || 'General')
   // The sidebar can "peek" at another department's project list without leaving
   // the current team's week (cycle button). Projects tagged '*' (All) show in
   // every department's list, so a job can be shared by General, Startup, etc.
-  const dirEntries = directory.filter((p) => (p.division ?? '') === peekDivision || p.division === '*')
+  const dirEntries = peekDivision === '__all__'
+    ? directory
+    : directory.filter((p) => (p.division ?? '') === peekDivision || p.division === '*')
   const cyclePeek = (dir: 1 | -1) => {
     if (divisions.length < 2) return
     const i = divisions.indexOf(peekDivision)
@@ -248,7 +250,9 @@ export function SchedulesClient({
     // "everything" copy across mixed styles would be inconsistent — grid scopes
     // to the current department.)
     if (scheduleStyle === 'grid') {
-      const gridTeams = allWeek.filter((t) => (t.division ?? '') === division)
+      const gridTeams = (division === '__all__'
+        ? allWeek
+        : allWeek.filter((t) => (t.division ?? '') === division))
         .map((t) => ({ ...t, jobsNow: t.id === teamId ? liveJobs() : t.jobs }))
       if (gridTeams.length === 0) { setMsg('No schedules on this week yet.'); return }
       const sections = gridTeams.map((t) => buildGridCopy(t.name, t.jobsNow, weekStart, jobUrlTemplate))
@@ -363,7 +367,7 @@ export function SchedulesClient({
                   <button onClick={() => setShowAddTeam(false)} className="px-1 text-xs text-slate-400">✕</button>
                 </span>
               ) : (
-                <button onClick={() => { setNewTeamDivision(division); setShowAddTeam(true) }}
+                <button onClick={() => { setNewTeamDivision(division === '__all__' ? '' : division); setShowAddTeam(true) }}
                   className="rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600">
                   + Team
                 </button>
