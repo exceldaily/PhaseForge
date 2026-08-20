@@ -40,7 +40,7 @@ function shiftColor(shift: string): string {
 
 export function GridSchedule({
   teamName, weekStart, jobs, roster, shiftOptions, canEdit, jobUrlTemplate,
-  onChanged, reportCells,
+  onChanged, reportCells, zoom = 1,
 }: {
   teamName: string
   weekStart: string
@@ -51,6 +51,7 @@ export function GridSchedule({
   jobUrlTemplate: string | null
   onChanged: () => void
   reportCells: (jobId: string, cells: Record<number, GridCell[]>) => void
+  zoom?: number
 }) {
   // Central cell state: jobId → day → entries. Re-seeded when the job set
   // changes (add/delete job, week change) via the key on each job id list.
@@ -111,7 +112,8 @@ export function GridSchedule({
       {canEdit && (
         <p className="mb-2 text-[11px] text-slate-400 print:hidden">Tip: tap &ldquo;add&rdquo; to place a person, or press a cell and drag across the row/column to copy it.</p>
       )}
-      <div className="min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:rounded-none print:border-black print:shadow-none">
+      <div className="min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:rounded-none print:border-black print:shadow-none"
+        style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-slate-800 text-white print:bg-slate-200 print:text-black">

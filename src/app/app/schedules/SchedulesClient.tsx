@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, updateScheduleJob,
@@ -59,6 +59,12 @@ export function SchedulesClient({
   // department's list). Kept across team switches so the default sticks.
   const [dirDivision, setDirDivision] = useState('*')
   const [showProjects, setShowProjects] = useState(false)   // mobile project list
+  const [zoom, setZoom] = useState(() => {
+    if (typeof window === 'undefined') return 1
+    const saved = Number(localStorage.getItem('pf-sched-zoom'))
+    return saved >= 0.5 && saved <= 1.2 ? saved : 1
+  })
+  useEffect(() => { localStorage.setItem('pf-sched-zoom', String(zoom)) }, [zoom])
   const [peekDivision, setPeekDivision] = useState(division)
   const [prevDivision, setPrevDivision] = useState(division)
   const weekEnd = shiftDate(weekStart, 6)
@@ -290,12 +296,25 @@ export function SchedulesClient({
       <div className="border-b border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3 print:hidden dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
-            <CalendarDays size={16} className="text-indigo-500" /> Schedules
+            <CalendarDays size={16} className="text-indigo-500" /><span className="hidden sm:inline">Schedules</span>
           </span>
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700">
             <button aria-label="Previous week" onClick={() => nav(teamId, shiftDate(weekStart, -7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronLeft size={16} /></button>
             <span className="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">{mmdd(weekStart)} – {mmdd(weekEnd)}</span>
             <button aria-label="Next week" onClick={() => nav(teamId, shiftDate(weekStart, 7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronRight size={16} /></button>
+          </div>
+          {/* Always visible on phones: the job list lives in a drawer there, and
+              zoom shrinks the week so a 7-day grid fits a narrow screen. */}
+          <button onClick={() => setShowProjects((v) => !v)}
+            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-medium lg:hidden ${showProjects ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
+            <ListTree size={13} /> Job list
+          </button>
+          <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+            <button aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}
+              className="p-2 text-slate-500 hover:text-indigo-600 sm:p-1.5"><ZoomOut size={15} /></button>
+            <span className="min-w-9 text-center text-[11px] font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
+            <button aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(1.2, +(z + 0.1).toFixed(2)))}
+              className="p-2 text-slate-500 hover:text-indigo-600 sm:p-1.5"><ZoomIn size={15} /></button>
           </div>
           <div className="flex w-full items-center gap-x-2 gap-y-1 overflow-x-auto pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
             {divisions.length > 0 && (
@@ -394,10 +413,6 @@ export function SchedulesClient({
             <button onClick={copyAllForEmail} title="Copy every team's schedule for this week in one shot"
               className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <ClipboardCopy size={13} /> <span className="whitespace-nowrap">Copy all</span>
-            </button>
-            <button onClick={() => setShowProjects((v) => !v)}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-600 hover:border-indigo-300 lg:hidden dark:border-slate-700 dark:text-slate-300">
-              <ClipboardCopy size={13} /> <span className="whitespace-nowrap">{showProjects ? 'Hide jobs' : 'Job list'}</span>
             </button>
             <button onClick={() => window.print()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <Printer size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Print</span><span className="hidden sm:inline">Print / PDF</span></span>
@@ -512,12 +527,13 @@ export function SchedulesClient({
         {scheduleStyle === 'grid' && team ? (
           <GridSchedule
             teamName={team.name} weekStart={weekStart} jobs={jobs} roster={roster}
-            shiftOptions={shiftOptions} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate}
+            shiftOptions={shiftOptions} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
             onChanged={() => router.refresh()}
             reportCells={(jobId, cells) => report(jobId, { cells })}
           />
         ) : (
         <div className="schedule-print-root flex-1 bg-slate-100 p-3 sm:p-4 md:overflow-y-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
+          <div suppressHydrationWarning style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left', width: `${100 / zoom}%` }}>
         {/* Wide cap: big rosters (12+ names) need room so day rows keep chips on
             one line. Print is unaffected — the print root is forced to 7.5in. */}
         <div className="mx-auto max-w-[1400px] space-y-4">
@@ -537,6 +553,7 @@ export function SchedulesClient({
               urlTemplate={jobUrlTemplate} report={report} onChanged={() => router.refresh()} />
           ))}
         </div>
+          </div>
         </div>
         )}
       </div>
