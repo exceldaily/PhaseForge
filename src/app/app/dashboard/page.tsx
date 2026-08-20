@@ -24,6 +24,7 @@ import {
 import { addDays, differenceInDays, format, formatDate, isOverdue } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
 import { createClient } from '@/lib/supabase/server'
+import { activeTrade } from '@/lib/tradeFilter'
 import { getStoredBoardFilter } from '@/lib/boardFilter.server'
 import { cn } from '@/lib/utils'
 import { Phase, Profile, Project, ProjectPriority, ProjectStatus } from '@/types/app'
@@ -99,12 +100,14 @@ export default async function DashboardPage({
   const storedBoardFilter = await getStoredBoardFilter()
   const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
+  const trade = await activeTrade(supabase, profile.company_id)
   let projectsQuery = supabase
     .from('projects')
     .select('*, phases(*)')
     .eq('company_id', profile.company_id)
     .eq('is_archived', false)
     .order('updated_at', { ascending: false })
+  if (trade) projectsQuery = projectsQuery.eq('trade', trade)
   if (boardFilter === BOARD_FILTER_NONE) {
     projectsQuery = projectsQuery.is('board_id', null)
   } else if (boardFilter) {

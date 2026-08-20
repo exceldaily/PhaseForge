@@ -101,6 +101,7 @@ export interface Project {
   superintendent: string | null
   subcontractors: string[]
   permit_status: string | null
+  trade?: string | null
   is_archived: boolean
   created_by: string | null
   created_at: string

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { activeTrade } from '@/lib/tradeFilter'
 import { redirect } from 'next/navigation'
 import { GanttChart } from '@/components/gantt/GanttChart'
 import { ProjectCalendarSyncBar } from '@/components/gantt/ProjectCalendarSyncBar'
@@ -36,6 +37,7 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
   const storedBoardFilter = await getStoredBoardFilter()
   const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
+  const trade = await activeTrade(supabase, profile.company_id)
   let projectQuery = supabase
     .from('projects')
     .select('*, phases(*)')
@@ -44,6 +46,7 @@ export default async function GanttPage({ searchParams }: { searchParams: Promis
     .neq('status', 'closed')
     .order('start_date', { ascending: true })
 
+  if (trade) projectQuery = projectQuery.eq('trade', trade)
   if (params.project) {
     projectQuery = projectQuery.eq('id', params.project)
   }

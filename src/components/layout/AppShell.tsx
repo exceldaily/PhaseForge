@@ -14,10 +14,11 @@ interface AppShellProps {
   canUseDispatch?: boolean
   canUseSchedules?: boolean
   opsModules?: string[]
+  tradeFilter?: { current: string; trades: string[] } | null
   children: React.ReactNode
 }
 
-export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, canUseDispatch = false, canUseSchedules = false, opsModules = [], children }: AppShellProps) {
+export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, canUseDispatch = false, canUseSchedules = false, opsModules = [], tradeFilter = null, children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Sync the theme whenever the app shell mounts (covers client-side nav into
@@ -51,6 +52,7 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
           profile={profile}
           canUseDarkMode={canUseDarkMode}
           onMenuClick={() => setMobileNavOpen((o) => !o)}
+          tradeFilter={tradeFilter}
         />
         <main className="pf-main-scroll flex-1 overflow-y-auto print:overflow-visible">
           {children}

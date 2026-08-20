@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
+import { TradeSwitcher } from './TradeSwitcher'
 import { Profile } from '@/types/app'
 
 interface TopBarProps {
@@ -11,9 +12,10 @@ interface TopBarProps {
   title?: string
   canUseDarkMode?: boolean
   onMenuClick?: () => void
+  tradeFilter?: { current: string; trades: string[] } | null
 }
 
-export function TopBar({ profile, title, canUseDarkMode = false, onMenuClick }: TopBarProps) {
+export function TopBar({ profile, title, canUseDarkMode = false, onMenuClick, tradeFilter = null }: TopBarProps) {
   return (
     <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-white border-b border-slate-200 flex-shrink-0 print:hidden">
       <div className="flex items-center gap-3">
@@ -27,6 +29,7 @@ export function TopBar({ profile, title, canUseDarkMode = false, onMenuClick }: 
         {title && <h1 className="text-lg font-semibold text-slate-900">{title}</h1>}
       </div>
       <div className="flex items-center gap-3">
+        {tradeFilter && <TradeSwitcher current={tradeFilter.current} trades={tradeFilter.trades} />}
         {canUseDarkMode && <ThemeToggle />}
         {profile?.id && profile?.company_id && (
           <NotificationBell userId={profile.id} companyId={profile.company_id} />

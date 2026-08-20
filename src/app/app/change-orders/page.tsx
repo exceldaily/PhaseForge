@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { activeTrade } from '@/lib/tradeFilter'
 import { ChangeOrdersClient } from './ChangeOrdersClient'
 import type { ChangeOrderRow } from '@/lib/changeOrders'
 
@@ -14,6 +15,7 @@ export default async function ChangeOrdersPage() {
     .from('profiles').select('id, company_id, role, full_name').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/app/dashboard')
 
+  const trade = await activeTrade(supabase, profile.company_id)
   const [{ data: cos }, { data: members }, { data: coProjects }, { data: otherProjects }] = await Promise.all([
     supabase.from('change_orders')
       .select('*')
@@ -27,7 +29,7 @@ export default async function ChangeOrdersPage() {
       .eq('is_active', true)
       .order('full_name'),
     supabase.from('projects')
-      .select('id, name, customer_name, store_site_id, job_number, project_manager, original_contract_value, co_tracking_enabled')
+      .select('id, name, customer_name, store_site_id, job_number, project_manager, original_contract_value, co_tracking_enabled, trade')
       .eq('company_id', profile.company_id)
       .eq('co_tracking_enabled', true)
       .order('name'),
@@ -39,11 +41,14 @@ export default async function ChangeOrdersPage() {
       .order('name'),
   ])
 
+  const visProjects = trade ? (coProjects ?? []).filter((p) => (p.trade ?? '') === trade) : (coProjects ?? [])
+  const visIds = new Set(visProjects.map((p) => p.id))
+  const visCos = trade ? ((cos ?? []) as ChangeOrderRow[]).filter((x) => visIds.has(x.project_id)) : ((cos ?? []) as ChangeOrderRow[])
   return (
     <ChangeOrdersClient
-      cos={(cos ?? []) as ChangeOrderRow[]}
+      cos={visCos}
       members={members ?? []}
-      coProjects={coProjects ?? []}
+      coProjects={visProjects}
       eligibleProjects={otherProjects ?? []}
       currentUserId={profile.id}
       isManager={['owner', 'admin', 'manager'].includes(profile.role)}

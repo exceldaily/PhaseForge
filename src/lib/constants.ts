@@ -135,13 +135,13 @@ export const PLAN_LABELS: Record<string, string> = {
  */
 export const PLAN_FEATURES: Record<string, {
   printAndReports: boolean; darkMode: boolean; tickets: boolean
-  schedules: boolean; calendarSync: boolean
+  schedules: boolean; calendarSync: boolean; tradeFilter: boolean
 }> = {
-  free:       { printAndReports: false, darkMode: false, tickets: false, schedules: false, calendarSync: false },
-  individual: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
-  pro:        { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
-  business:   { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
-  enterprise: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true  },
+  free:       { printAndReports: false, darkMode: false, tickets: false, schedules: false, calendarSync: false, tradeFilter: false },
+  individual: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: false },
+  pro:        { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: false },
+  business:   { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: true  },
+  enterprise: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: true  },
 }
 
 /** Whether a plan can print Gantt charts and use the Reports page. */
@@ -168,6 +168,17 @@ export function canUseSchedules(plan: string | null | undefined): boolean {
 export function canUseCalendarSync(plan: string | null | undefined): boolean {
   return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.calendarSync ?? false
 }
+
+/** Whether a plan can use the org-wide trade/division filter (premium). */
+export function canUseTradeFilter(plan: string | null | undefined): boolean {
+  return PLAN_FEATURES[plan ?? DEFAULT_PLAN]?.tradeFilter ?? false
+}
+
+/** Standard construction trades offered by the trade filter / project form. */
+export const STANDARD_TRADES = [
+  'Refrigeration', 'HVAC', 'Electrical', 'Plumbing', 'General Construction',
+  'Controls / BAS', 'Fire Protection', 'Startup',
+] as const
 
 /** Board column constraints */
 export const BOARD_COLUMN_MIN = 3

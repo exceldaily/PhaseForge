@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { activeTrade } from '@/lib/tradeFilter'
 import { redirect } from 'next/navigation'
 import { BOARD_FILTER_NONE, BoardOption, resolveBoardFilter } from '@/lib/boardFilter'
 import { getStoredBoardFilter } from '@/lib/boardFilter.server'
@@ -28,12 +29,14 @@ export default async function ProjectsPage({
   const storedBoardFilter = await getStoredBoardFilter()
   const boardFilter = resolveBoardFilter(params.board, boards, storedBoardFilter)
 
+  const trade = await activeTrade(supabase, profile.company_id)
   let projectsQuery = supabase
     .from('projects')
     .select('*, phases(id, status, percent_complete, start_date, end_date, updated_at, reminder_notes, sort_order)')
     .eq('company_id', profile.company_id)
     .eq('is_archived', false)
     .order('updated_at', { ascending: false })
+  if (trade) projectsQuery = projectsQuery.eq('trade', trade)
   if (boardFilter === BOARD_FILTER_NONE) {
     projectsQuery = projectsQuery.is('board_id', null)
   } else if (boardFilter) {

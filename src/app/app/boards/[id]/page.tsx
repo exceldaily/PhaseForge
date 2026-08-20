@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { activeTrade } from '@/lib/tradeFilter'
 import { redirect, notFound } from 'next/navigation'
 import { BoardKanban } from './BoardKanban'
 import { Board, BoardColumn, Project } from '@/types/app'
@@ -12,6 +13,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/signup')
 
+  const trade = await activeTrade(supabase, profile.company_id)
   const [boardRes, projectsRes, membersRes] = await Promise.all([
     supabase
       .from('boards')
@@ -41,7 +43,8 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const memberMap = Object.fromEntries((membersRes.data ?? []).map(m => [m.id, m.full_name]))
 
   // Punch counts per project for the optional card button (fail-soft if not migrated).
-  const baseProjects = (projectsRes.data ?? []) as Project[]
+  const allProjects = (projectsRes.data ?? []) as Project[]
+  const baseProjects = trade ? allProjects.filter((p) => (p.trade ?? '') === trade) : allProjects
   const projectIds = baseProjects.map((p) => p.id)
   const { data: punchRows } = projectIds.length > 0
     ? await supabase.from('punch_items').select('project_id, status').in('project_id', projectIds)

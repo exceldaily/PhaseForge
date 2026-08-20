@@ -8,7 +8,7 @@ import { checkProjectLimit } from '@/lib/planLimits'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { DEFAULT_PHASE_COLORS } from '@/lib/constants'
+import { DEFAULT_PHASE_COLORS, STANDARD_TRADES } from '@/lib/constants'
 import { boardSupportsPunch } from '@/lib/boardTemplates'
 import { isMissingLinksColumnError, isMissingShowPunchColumnError, isMissingUpdatedByColumnError } from '@/lib/projectAudit'
 import { updateProject, updateProjectBoard } from '@/app/app/projects/[id]/actions'
@@ -67,6 +67,7 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
     superintendent: project?.superintendent || '',
     subcontractors: project?.subcontractors || [],
     permit_status: project?.permit_status || 'not_required',
+    trade: project?.trade || '',
     status: project?.status || 'mobilization',
     priority: project?.priority || 'medium',
     notes: project?.notes || '',
@@ -404,6 +405,10 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
             {PERMIT_STATUSES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </Select>
           )}
+          <Select id="trade" label="Trade / Division" value={form.trade} onChange={set('trade')}>
+            <option value="">No trade</option>
+            {STANDARD_TRADES.map(t => <option key={t} value={t}>{t}</option>)}
+          </Select>
         </div>
       </section>
 
