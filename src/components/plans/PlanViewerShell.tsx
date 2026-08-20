@@ -477,7 +477,7 @@ export function PlanViewerShell({
             title="Fit page (F)">
             {scalePct}%
           </button>
-          <IconBtn title="Zoom in (+)" onClick={() => canvasRef.current?.zoomBy(1.25)}><ZoomIn size={16} /></IconBtn>
+          <IconBtn helpKey="plan-zoom" title="Zoom in (+)" onClick={() => canvasRef.current?.zoomBy(1.25)}><ZoomIn size={16} /></IconBtn>
           <IconBtn title="Rotate" onClick={() => {
             const next = (((revisionRotation(canvasRef) + 90) % 360)) as Rotation
             canvasRef.current?.setRotation(next)
@@ -486,11 +486,11 @@ export function PlanViewerShell({
 
         <div className="flex items-center gap-0.5">
           {canMarkup && (
-            <IconBtn title="Markup" active={markupOpen} onClick={() => { setMarkupOpen((o) => !o); setTool(null) }}>
+            <IconBtn helpKey="plan-markup" title="Markup" active={markupOpen} onClick={() => { setMarkupOpen((o) => !o); setTool(null) }}>
               <PenLine size={16} />
             </IconBtn>
           )}
-          <IconBtn title="Compare / overlay drawings" active={!!compareRevId}
+          <IconBtn helpKey="plan-compare" title="Compare / overlay drawings" active={!!compareRevId}
             onClick={() => {
               if (compareRevId) { setCompareRevId(null); return }
               // Prefer an older revision of this sheet; otherwise overlay the
@@ -504,7 +504,7 @@ export function PlanViewerShell({
             <Layers size={16} />
           </IconBtn>
           <IconBtn title="Copy link" onClick={copyLink} className="hidden sm:flex"><Link2 size={16} /></IconBtn>
-          <IconBtn title="Download sheet" onClick={downloadCurrent} className="hidden sm:flex"><Download size={16} /></IconBtn>
+          <IconBtn helpKey="plan-download" title="Download sheet" onClick={downloadCurrent} className="hidden sm:flex"><Download size={16} /></IconBtn>
           <IconBtn title="Print sheet" onClick={printCurrent} className="hidden sm:flex"><Printer size={16} /></IconBtn>
           <IconBtn title="Drawing info" active={infoOpen} onClick={() => setInfoOpen((o) => !o)}><Info size={16} /></IconBtn>
           <IconBtn title="Fullscreen" onClick={toggleFullscreen} className="hidden sm:flex">
@@ -817,12 +817,14 @@ function revisionRotation(ref: React.RefObject<PlanCanvasHandle | null>): number
   return ref.current?.getViewState().rotation ?? 0
 }
 
-function IconBtn({ children, title, onClick, active, disabled, className }: {
+function IconBtn({ children, title, onClick, active, disabled, className, helpKey }: {
   children: React.ReactNode; title: string; onClick: () => void
   active?: boolean; disabled?: boolean; className?: string
+  /** data-help anchor, see src/lib/help/pageHelp.ts */
+  helpKey?: string
 }) {
   return (
-    <button onClick={onClick} title={title} disabled={disabled}
+    <button onClick={onClick} title={title} disabled={disabled} data-help={helpKey}
       className={cn('p-2 rounded-lg transition-colors disabled:opacity-30',
         active ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
         className)}>

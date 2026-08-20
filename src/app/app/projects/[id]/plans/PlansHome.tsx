@@ -308,7 +308,7 @@ export function PlansHome({
               <Printer size={14} /> Print
             </Button>
             {canManage && (
-              <Button variant="primary" size="sm" onClick={() => setUploadOpen(true)}>
+              <Button data-help="plans-upload" variant="primary" size="sm" onClick={() => setUploadOpen(true)}>
                 <Upload size={14} /> Upload
               </Button>
             )}
@@ -324,6 +324,7 @@ export function PlansHome({
                     ref={searchRef}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
+                    data-help="plans-filter"
                     placeholder="Search sheets, titles, text on drawings…  ( / )"
                     className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-8 pr-8 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     onKeyDown={(e) => { if (e.key === 'Enter' && filtered[0]) openSheet(filtered[0]) }}
@@ -341,7 +342,7 @@ export function PlansHome({
                     {sets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 )}
-                <button onClick={() => { setSelectMode((m) => !m); setSelected(new Set()) }}
+                <button data-help="plans-select" onClick={() => { setSelectMode((m) => !m); setSelected(new Set()) }}
                   className={cn('rounded-lg border px-2.5 py-1.5 text-xs font-medium shrink-0',
                     selectMode ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300')}>
                   Select

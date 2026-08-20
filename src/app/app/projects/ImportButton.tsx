@@ -14,7 +14,7 @@ export function ImportButton({ companyId, currentUserId, selectedBoardId }: Impo
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button data-help="projects-import" variant="outline" onClick={() => setOpen(true)}>
         <Upload size={16} /> Import Schedule
       </Button>
       <ImportScheduleModal

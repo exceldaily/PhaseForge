@@ -156,7 +156,7 @@ export function ProjectDetailShell({
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-0 border-t border-slate-100 px-2 sm:px-4 overflow-x-auto">
+        <div data-help="project-tabs" className="flex gap-0 border-t border-slate-100 px-2 sm:px-4 overflow-x-auto">
           {TABS.map(tab => (
             <button
               key={tab.id}

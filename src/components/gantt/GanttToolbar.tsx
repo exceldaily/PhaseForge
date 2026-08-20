@@ -202,7 +202,7 @@ export function GanttToolbar({
           </button>
         </div>
 
-        <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+        <div data-help="gantt-zoom" className="flex items-center bg-slate-100 rounded-lg p-0.5">
           {ZOOM_LEVELS.map(({ value, label }) => (
             <button
               type="button"
@@ -279,6 +279,7 @@ export function GanttToolbar({
           <Button
             variant="outline"
             size="sm"
+            data-help="gantt-print"
             onClick={() => setIsPrintMenuOpen(!isPrintMenuOpen)}
           >
             <Printer size={14} /> Print

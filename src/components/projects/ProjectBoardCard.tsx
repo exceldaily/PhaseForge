@@ -222,6 +222,7 @@ export function ProjectBoardCard({
                     event.stopPropagation()
                     setShowMenu((current) => !current)
                   }}
+                  data-help="projects-menu"
                   className="rounded-xl p-2 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600"
                   aria-label={`Project actions for ${project.name}`}
                 >

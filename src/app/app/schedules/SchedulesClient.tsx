@@ -309,18 +309,18 @@ export function SchedulesClient({
             <CalendarDays size={16} className="text-indigo-500" /><span className="hidden sm:inline">Schedules</span>
           </span>
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700">
-            <button aria-label="Previous week" onClick={() => nav(teamId, shiftDate(weekStart, -7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronLeft size={16} /></button>
+            <button data-help="sched-week" aria-label="Previous week" onClick={() => nav(teamId, shiftDate(weekStart, -7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronLeft size={16} /></button>
             <span className="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">{mmdd(weekStart)} – {mmdd(weekEnd)}</span>
             <button aria-label="Next week" onClick={() => nav(teamId, shiftDate(weekStart, 7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronRight size={16} /></button>
           </div>
           {/* Always visible on phones: the job list lives in a drawer there, and
               zoom shrinks the week so a 7-day grid fits a narrow screen. */}
-          <button onClick={() => setShowProjects((v) => !v)}
+          <button data-help="sched-projects" onClick={() => setShowProjects((v) => !v)}
             className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-medium lg:hidden ${showProjects ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
             <ListTree size={13} /> Job list
           </button>
           <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-            <button aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}
+            <button data-help="sched-zoom" aria-label="Zoom out" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}
               className="p-2 text-slate-500 hover:text-indigo-600 sm:p-1.5"><ZoomOut size={15} /></button>
             <span className="min-w-9 text-center text-[11px] font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
             <button aria-label="Zoom in" onClick={() => setZoom((z) => Math.min(1.2, +(z + 0.1).toFixed(2)))}
@@ -329,6 +329,7 @@ export function SchedulesClient({
           <div className="flex w-full items-center gap-x-2 gap-y-1 overflow-x-auto pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
             {divisions.length > 0 && (
               <select
+                data-help="sched-division"
                 value={division}
                 onChange={(e) => nav(null, weekStart, e.target.value)}
                 className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 outline-none focus:border-indigo-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
@@ -339,6 +340,7 @@ export function SchedulesClient({
             {canEdit && (
               <select
                 value={scheduleStyle}
+                data-help="sched-style"
                 title={`Schedule style for the ${divLabel(division)} department`}
                 onChange={(e) => {
                   const style = e.target.value as ScheduleStyle
@@ -417,7 +419,7 @@ export function SchedulesClient({
                 </button>
               </>
             )}
-            <button onClick={copyForEmail} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+            <button data-help="sched-copy" onClick={copyForEmail} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <ClipboardCopy size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy for email</span></span>
             </button>
             <button onClick={copyAllForEmail} title="Copy every team's schedule for this week in one shot"
@@ -460,6 +462,7 @@ export function SchedulesClient({
                 onChange={(e) => setNewMember(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addMember()}
                 onBlur={addMember}
+                data-help="sched-roster"
                 placeholder="Add crew member…"
                 className="w-32 rounded-md border border-dashed border-slate-300 bg-transparent px-2 py-0.5 text-xs outline-none focus:border-indigo-400 dark:border-slate-600"
               />

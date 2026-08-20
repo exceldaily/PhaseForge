@@ -131,7 +131,7 @@ export function ChangeOrdersClient({
             </button>
           )}
           {isManager && (
-            <button onClick={() => setCreating(true)}
+            <button data-help="co-new" onClick={() => setCreating(true)}
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
               <Plus size={16} /> New Change Order
             </button>
@@ -159,7 +159,7 @@ export function ChangeOrdersClient({
             placeholder="Search CO#, project, store, tracking#, invoice…"
             className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-8 pr-3 py-2 text-sm outline-none focus:border-indigo-400" />
         </div>
-        <FilterSelect value={stageFilter} onChange={setStageFilter} label="All stages"
+        <FilterSelect helpKey="co-filter" value={stageFilter} onChange={setStageFilter} label="All stages"
           options={CO_STAGES.map((s) => ({ value: s.key, label: s.label }))} />
         <FilterSelect value={customerFilter} onChange={setCustomerFilter} label="All customers"
           options={customers.map((c) => ({ value: c, label: c }))} />
@@ -238,13 +238,15 @@ function ViewBtn({ active, onClick, icon, label }: { active: boolean; onClick: (
   )
 }
 
-function FilterSelect({ value, onChange, label, options }: {
+function FilterSelect({ value, onChange, label, options, helpKey }: {
   value: string; onChange: (v: string) => void; label: string
   options: { value: string; label: string }[]
+  /** data-help anchor, see src/lib/help/pageHelp.ts */
+  helpKey?: string
 }) {
   return (
     <div className="relative">
-      <select value={value} onChange={(e) => onChange(e.target.value)}
+      <select data-help={helpKey} value={value} onChange={(e) => onChange(e.target.value)}
         className={cn('appearance-none rounded-lg border px-2.5 py-2 pr-7 text-xs font-medium bg-white dark:bg-slate-900',
           value ? 'border-indigo-300 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300')}>
         <option value="">{label}</option>
@@ -394,7 +396,7 @@ function KanbanView({ rows, memberName, projectById, isManager, onChanged }: {
 
   return (
     <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-      <div className="flex gap-3 min-w-max">
+      <div data-help="co-stage" className="flex gap-3 min-w-max">
         {CO_KANBAN_STAGES.map((s) => {
           const list = byStage.get(s.key) ?? []
           const total = list.reduce((a, c) => a + (coDisplayAmount(c) ?? 0), 0)

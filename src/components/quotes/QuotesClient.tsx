@@ -175,7 +175,7 @@ function GmailCard({ gmailEmail, hasSignature, oauthError, justConnected }: {
               Quotes send from your own email address. Each teammate connects their own account — nothing is shared.
             </p>
           </div>
-          <a href="/api/quotes/gmail/start" className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+          <a data-help="quotes-gmail" href="/api/quotes/gmail/start" className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
             Connect Gmail
           </a>
         </div>

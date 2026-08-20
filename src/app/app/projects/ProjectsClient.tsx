@@ -70,7 +70,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
         <div className="flex gap-2 flex-wrap">
           <ImportButton companyId={companyId} currentUserId={currentUserId} selectedBoardId={selectedBoardId} />
           <Link href="/app/projects/new">
-            <Button><Plus size={16} /> New Project</Button>
+            <Button data-help="projects-new"><Plus size={16} /> New Project</Button>
           </Link>
         </div>
       </div>
@@ -82,6 +82,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
+            data-help="projects-search"
             placeholder="Search by project name, client, location..."
             className="w-full pl-9 pr-8 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
           />

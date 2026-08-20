@@ -111,6 +111,7 @@ export function BoardKanban({ board, columns, projects, memberMap, canEdit, canA
 
           {canAdmin && (
             <Link
+              data-help="board-settings"
               href={`/app/boards/${board.id}/settings`}
               className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
             >
@@ -325,6 +326,7 @@ export function BoardColumnsKanban({
         <div className="flex items-center justify-end">
           <button
             type="button"
+            data-help="board-column-add"
             onClick={() => setShowColSettings((current) => !current)}
             className={cn(
               'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all',
