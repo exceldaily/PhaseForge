@@ -58,6 +58,7 @@ export function SchedulesClient({
   // New directory projects default to '*' = All departments (visible in every
   // department's list). Kept across team switches so the default sticks.
   const [dirDivision, setDirDivision] = useState('*')
+  const [showProjects, setShowProjects] = useState(false)   // mobile project list
   const [peekDivision, setPeekDivision] = useState(division)
   const [prevDivision, setPrevDivision] = useState(division)
   const weekEnd = shiftDate(weekStart, 6)
@@ -284,19 +285,19 @@ export function SchedulesClient({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-full flex-col md:h-full">
       {/* ── Controls ── */}
-      <div className="border-b border-slate-200 bg-white px-4 py-3 print:hidden dark:border-slate-800 dark:bg-slate-900">
+      <div className="border-b border-slate-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3 print:hidden dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
             <CalendarDays size={16} className="text-indigo-500" /> Schedules
           </span>
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700">
-            <button onClick={() => nav(teamId, shiftDate(weekStart, -7))} className="p-1.5 text-slate-500 hover:text-indigo-600"><ChevronLeft size={16} /></button>
+            <button aria-label="Previous week" onClick={() => nav(teamId, shiftDate(weekStart, -7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronLeft size={16} /></button>
             <span className="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">{mmdd(weekStart)} – {mmdd(weekEnd)}</span>
-            <button onClick={() => nav(teamId, shiftDate(weekStart, 7))} className="p-1.5 text-slate-500 hover:text-indigo-600"><ChevronRight size={16} /></button>
+            <button aria-label="Next week" onClick={() => nav(teamId, shiftDate(weekStart, 7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronRight size={16} /></button>
           </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="flex w-full items-center gap-x-2 gap-y-1 overflow-x-auto pb-0.5 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
             {divisions.length > 0 && (
               <select
                 value={division}
@@ -374,28 +375,32 @@ export function SchedulesClient({
               )
             )}
           </div>
-          <div className="ml-auto flex flex-wrap gap-2">
+          <div className="flex w-full gap-1.5 overflow-x-auto sm:ml-auto sm:w-auto sm:flex-wrap sm:gap-2">
             {canEdit && (
               <>
                 <button onClick={() => teamId && run(() => copyWeek(teamId, shiftDate(weekStart, -7), weekStart))} disabled={pending}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">
-                  <Copy size={13} /> Copy last week
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">
+                  <Copy size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Last wk</span><span className="hidden sm:inline">Copy last week</span></span>
                 </button>
                 <button onClick={() => teamId && run(() => addScheduleJob({ superintendentId: teamId, weekStart, title: 'New Job', sortOrder: jobs.length }))} disabled={pending}
-                  className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-                  <Plus size={13} /> Add job
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+                  <Plus size={13} /> <span className="whitespace-nowrap">Add job</span>
                 </button>
               </>
             )}
-            <button onClick={copyForEmail} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
-              <ClipboardCopy size={13} /> Copy for email
+            <button onClick={copyForEmail} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+              <ClipboardCopy size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy for email</span></span>
             </button>
             <button onClick={copyAllForEmail} title="Copy every team's schedule for this week in one shot"
-              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
-              <ClipboardCopy size={13} /> Copy all
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+              <ClipboardCopy size={13} /> <span className="whitespace-nowrap">Copy all</span>
             </button>
-            <button onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
-              <Printer size={13} /> Print / PDF
+            <button onClick={() => setShowProjects((v) => !v)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-medium text-slate-600 hover:border-indigo-300 lg:hidden dark:border-slate-700 dark:text-slate-300">
+              <ClipboardCopy size={13} /> <span className="whitespace-nowrap">{showProjects ? 'Hide jobs' : 'Job list'}</span>
+            </button>
+            <button onClick={() => window.print()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+              <Printer size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Print</span><span className="hidden sm:inline">Print / PDF</span></span>
             </button>
           </div>
         </div>
@@ -429,9 +434,9 @@ export function SchedulesClient({
       </div>
 
       {/* ── Sheet ── */}
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex flex-1 md:min-h-0">
         {/* ── Project directory (persistent job list / history) ── */}
-        <aside className="hidden w-64 flex-shrink-0 overflow-y-auto border-r border-slate-200 bg-white p-3 lg:block print:hidden dark:border-slate-800 dark:bg-slate-900">
+        <aside className={`${showProjects ? 'block' : 'hidden'} absolute inset-x-0 top-0 z-20 max-h-[70vh] overflow-y-auto border-b border-slate-200 bg-white p-3 shadow-lg lg:static lg:z-auto lg:block lg:max-h-none lg:w-64 lg:flex-shrink-0 lg:border-b-0 lg:border-r lg:shadow-none print:hidden dark:border-slate-800 dark:bg-slate-900`}>
           <div className="mb-2 flex items-center gap-1">
             {divisions.length > 1 && (
               <button onClick={() => cyclePeek(-1)} title="Previous department's projects"
@@ -512,7 +517,7 @@ export function SchedulesClient({
             reportCells={(jobId, cells) => report(jobId, { cells })}
           />
         ) : (
-        <div className="schedule-print-root flex-1 overflow-y-auto bg-slate-100 p-4 dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
+        <div className="schedule-print-root flex-1 bg-slate-100 p-3 sm:p-4 md:overflow-y-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
         {/* Wide cap: big rosters (12+ names) need room so day rows keep chips on
             one line. Print is unaffected — the print root is forced to 7.5in. */}
         <div className="mx-auto max-w-[1400px] space-y-4">

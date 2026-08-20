@@ -103,7 +103,7 @@ export function GridSchedule({
   }
 
   return (
-    <div className="schedule-print-root flex-1 overflow-auto bg-slate-100 p-4 dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
+    <div className="schedule-print-root flex-1 overflow-x-auto bg-slate-100 p-3 sm:p-4 md:overflow-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
       <div className="hidden text-center print:block">
         <h1 className="text-lg font-bold">STARTUP SCHEDULE {mmdd(weekStart)}–{mmdd(shiftDate(weekStart, 6))}</h1>
         <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{teamName}</p>
