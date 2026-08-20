@@ -772,8 +772,7 @@ function Chip({ name, on, onClick, onPointerDown, small }: {
     <button
       onClick={onClick}
       onPointerDown={onPointerDown}
-      style={onPointerDown ? { touchAction: 'none' } : undefined}
-      className={`select-none rounded-full font-medium transition-colors print:hidden ${small ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs'} ${on
+      className={`select-none rounded-full font-medium transition-colors print:hidden ${onPointerDown ? 'pointer-fine:[touch-action:none]' : ''} ${small ? 'px-2 py-0.5 pointer-coarse:py-1 text-[11px]' : 'px-2.5 py-1 pointer-coarse:py-1.5 text-xs'} ${on
         ? 'bg-indigo-600 text-white'
         : 'bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:text-slate-600 hover:ring-slate-300 dark:bg-slate-800 dark:ring-slate-700'}`}
     >

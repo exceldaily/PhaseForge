@@ -212,8 +212,7 @@ function GridRow({
           <td key={d}
             onPointerDown={() => onCellDown(d)}
             onPointerEnter={() => onCellEnter(d)}
-            className="border-r-2 border-slate-300 px-1.5 py-1 align-top last:border-r-0 dark:border-slate-600"
-            style={{ touchAction: 'none' }}>
+            className="border-r-2 border-slate-300 px-1.5 py-1 align-top last:border-r-0 pointer-fine:[touch-action:none] dark:border-slate-600">
             <div className="flex flex-col gap-0.5">
               {entries.map((e, i) => (
                 <span key={i} className="group inline-flex items-center gap-1 text-[12px] font-semibold leading-tight"
@@ -222,7 +221,7 @@ function GridRow({
                     <button onPointerDown={(ev) => ev.stopPropagation()}
                       onClick={(ev) => onEditEntry(d, i, ev.currentTarget)}
                       title="Tap to change this person or shift"
-                      className="text-left underline-offset-2 hover:underline">
+                      className="text-left underline-offset-2 pointer-coarse:py-0.5 hover:underline">
                       {e.name}{e.shift ? ` (${e.shift})` : ''}
                     </button>
                   ) : (
@@ -231,13 +230,13 @@ function GridRow({
                   {canEdit && (
                     <button onPointerDown={(ev) => ev.stopPropagation()} onClick={() => onRemove(d, i)}
                       aria-label={`Remove ${e.name}`}
-                      className="text-slate-300 opacity-0 transition group-hover:opacity-100 pointer-coarse:opacity-100 hover:text-rose-500 print:hidden"><X size={12} /></button>
+                      className="-m-1 shrink-0 p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 pointer-coarse:opacity-100 hover:text-rose-500 print:hidden"><X size={12} /></button>
                   )}
                 </span>
               ))}
               {canEdit && (
                 <button onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => onOpenEditor(d, ev.currentTarget)}
-                  className="mt-0.5 inline-flex w-fit items-center gap-0.5 rounded px-1 text-[10px] font-medium text-slate-400 hover:bg-slate-200 hover:text-indigo-600 dark:hover:bg-slate-800 print:hidden">
+                  className="mt-0.5 inline-flex w-fit items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-slate-400 pointer-coarse:px-2 pointer-coarse:py-1 pointer-coarse:text-[12px] hover:bg-slate-200 hover:text-indigo-600 dark:hover:bg-slate-800 print:hidden">
                   <Plus size={10} /> add
                 </button>
               )}
@@ -258,22 +257,39 @@ function CellEditor({ roster, shiftOptions, top, left, up, onAdd, onClose, exist
   const [shift, setShift] = useState(existing?.shift ?? shiftOptions[0] ?? '')
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const onDoc = (ev: MouseEvent) => { if (ref.current && !ref.current.contains(ev.target as Node)) onClose() }
+    const onDoc = (ev: Event) => { if (ref.current && !ref.current.contains(ev.target as Node)) onClose() }
     document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    document.addEventListener('touchstart', onDoc)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('touchstart', onDoc)
+    }
   }, [onClose])
   const add = () => { if (name.trim()) onAdd({ name: name.trim(), shift }) }
   // Fixed layer so the scroll container can never clip it; flips above the cell
   // when there isn't room below.
-  const style: React.CSSProperties = up
-    ? { position: 'fixed', left, bottom: window.innerHeight - top + 4, zIndex: 60 }
-    : { position: 'fixed', left, top: top + 4, zIndex: 60 }
+  const phone = typeof window !== 'undefined' && window.innerWidth < 640
+  const style: React.CSSProperties = phone
+    ? { position: 'fixed', left: 8, right: 8, top: 8, zIndex: 60 }
+    : up
+      ? { position: 'fixed', left, bottom: window.innerHeight - top + 4, zIndex: 60 }
+      : { position: 'fixed', left, top: top + 4, zIndex: 60 }
   return (
-    <div ref={ref} style={style} className="w-52 rounded-lg border border-slate-300 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} list="grid-roster-names"
+    <div ref={ref} style={style} className="w-auto rounded-lg border border-slate-300 bg-white p-2 shadow-2xl sm:w-52 dark:border-slate-700 dark:bg-slate-900">
+      <input autoFocus={!phone} value={name} onChange={(e) => setName(e.target.value)} list="grid-roster-names"
         onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') onClose() }}
         placeholder="Person's name" className="mb-1.5 w-full rounded border border-slate-300 px-2 py-1 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800" />
       <datalist id="grid-roster-names">{roster.map((r) => <option key={r} value={r} />)}</datalist>
+      {roster.length > 0 && (
+        <div className="mb-1.5 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+          {roster.map((r) => (
+            <button key={r} onClick={() => setName(r)}
+              className={`rounded-full px-2 py-1 text-[11px] font-medium ${
+                name === r ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+              }`}>{r}</button>
+          ))}
+        </div>
+      )}
       <div className="relative mb-1.5">
         <select value={shift} onChange={(e) => setShift(e.target.value)}
           className="w-full appearance-none rounded border border-slate-300 px-2 py-1 pr-6 text-xs outline-none focus:border-indigo-400 dark:border-slate-600 dark:bg-slate-800">
