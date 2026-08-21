@@ -7,8 +7,9 @@
 // never clipped by the scroll container.
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, X, ChevronDown } from 'lucide-react'
+import { GripVertical, Plus, Trash2, X, ChevronDown } from 'lucide-react'
 import { deleteScheduleJob, updateScheduleJob, setGridCell, setShiftOptions } from './actions'
+import type { RowReorder } from './useRowReorder'
 
 export interface GridCell { name: string; shift: string }
 
@@ -40,7 +41,7 @@ function shiftColor(shift: string): string {
 
 export function GridSchedule({
   teamName, weekStart, jobs, roster, shiftOptions, division, canEdit, jobUrlTemplate,
-  onChanged, reportCells, zoom = 1,
+  onChanged, reportCells, reorder, zoom = 1,
 }: {
   teamName: string
   weekStart: string
@@ -52,6 +53,8 @@ export function GridSchedule({
   jobUrlTemplate: string | null
   onChanged: () => void
   reportCells: (jobId: string, cells: Record<number, GridCell[]>) => void
+  /** Row reorder state, owned by the page so both layouts share one order. */
+  reorder: RowReorder<GridJob>
   zoom?: number
 }) {
   // Central cell state: jobId → day → entries. Re-seeded when the job set
@@ -111,7 +114,7 @@ export function GridSchedule({
         <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{teamName}</p>
       </div>
       {canEdit && (
-        <p className="mb-2 text-[11px] text-slate-400 print:hidden">Tip: tap &ldquo;add&rdquo; to place a person, or press a cell and drag across the row/column to copy it.</p>
+        <p className="mb-2 text-[11px] text-slate-400 print:hidden">Tip: tap &ldquo;add&rdquo; to place a person, press a cell and drag across the row/column to copy it, or drag a row by its grip to reorder the week.</p>
       )}
       <div className="min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:rounded-none print:border-black print:shadow-none"
         style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
@@ -131,8 +134,10 @@ export function GridSchedule({
               <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">
                 No jobs on {teamName}&apos;s week yet — use &ldquo;Add job&rdquo;.
               </td></tr>
-            ) : jobs.map((job) => (
+            ) : reorder.ordered.map((job) => (
               <GridRow key={job.id} job={job} cells={cells[job.id] ?? {}} canEdit={canEdit}
+                rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
+                dragging={reorder.dragId === job.id}
                 jobUrlTemplate={jobUrlTemplate} onChanged={onChanged}
                 onRemove={(day, idx) => persist(job.id, day, (cells[job.id]?.[day] ?? []).filter((_, i) => i !== idx))}
                 onOpenEditor={(day, el) => openEditor(job.id, day, el)}
@@ -171,6 +176,7 @@ export function GridSchedule({
 
 function GridRow({
   job, cells, canEdit, jobUrlTemplate, onChanged, onRemove, onOpenEditor, onEditEntry, onCellDown, onCellEnter,
+  rowRef, gripProps, dragging,
 }: {
   job: GridJob; cells: Record<number, GridCell[]>; canEdit: boolean
   jobUrlTemplate: string | null; onChanged: () => void
@@ -179,6 +185,9 @@ function GridRow({
   onEditEntry: (day: number, idx: number, el: HTMLElement) => void
   onCellDown: (day: number) => void
   onCellEnter: (day: number) => void
+  rowRef: (el: HTMLElement | null) => void
+  gripProps: React.ComponentProps<'button'>
+  dragging: boolean
 }) {
   const [title, setTitle] = useState(job.title)
   const [jobNumber, setJobNumber] = useState(job.job_number ?? '')
@@ -190,21 +199,34 @@ function GridRow({
   const url = jobUrl(jobUrlTemplate, jobNumber)
 
   return (
-    <tr className="border-b-2 border-slate-300 odd:bg-white even:bg-slate-100 dark:border-slate-600 dark:odd:bg-slate-900 dark:even:bg-slate-800/60">
+    <tr ref={rowRef}
+      className={`border-b-2 border-slate-300 odd:bg-white even:bg-slate-100 dark:border-slate-600 dark:odd:bg-slate-900 dark:even:bg-slate-800/60 ${
+        dragging ? 'relative z-10 opacity-90 shadow-lg outline outline-2 outline-indigo-500' : ''
+      }`}>
       <td className="w-56 border-r-2 border-slate-300 px-2 py-1.5 align-top dark:border-slate-600">
-        <input value={title} readOnly={!canEdit}
-          onChange={(e) => { setTitle(e.target.value); debounced('title', () => void updateScheduleJob(job.id, { title: e.target.value })) }}
-          className="w-full bg-transparent text-[13px] font-bold text-slate-900 outline-none dark:text-slate-100" />
-        <div className="flex items-center gap-1 text-[11px] text-slate-500">
-          Job#
-          <input value={jobNumber} readOnly={!canEdit} placeholder="—"
-            onChange={(e) => { setJobNumber(e.target.value); debounced('job', () => void updateScheduleJob(job.id, { jobNumber: e.target.value })) }}
-            className="w-24 bg-transparent font-semibold text-indigo-600 outline-none" />
-          {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 print:hidden" title="Open job">↗</a>}
+        <div className="flex items-start gap-1">
           {canEdit && (
-            <button onClick={() => { if (confirm(`Delete "${title}" from this week?`)) void deleteScheduleJob(job.id).then(onChanged) }}
-              className="ml-auto text-rose-400 hover:text-rose-600 print:hidden"><Trash2 size={12} /></button>
+            <button {...gripProps} data-help="sched-reorder" aria-label={`Reorder ${title}`} title="Drag to reorder this job"
+              className="-ml-1 mt-0.5 shrink-0 rounded p-1 text-slate-300 hover:bg-slate-200 hover:text-indigo-600 active:cursor-grabbing dark:hover:bg-slate-800 print:hidden">
+              <GripVertical size={14} />
+            </button>
           )}
+          <div className="min-w-0 flex-1">
+            <input value={title} readOnly={!canEdit}
+              onChange={(e) => { setTitle(e.target.value); debounced('title', () => void updateScheduleJob(job.id, { title: e.target.value })) }}
+              className="w-full bg-transparent text-[13px] font-bold text-slate-900 outline-none dark:text-slate-100" />
+            <div className="flex items-center gap-1 text-[11px] text-slate-500">
+              Job#
+              <input value={jobNumber} readOnly={!canEdit} placeholder="—"
+                onChange={(e) => { setJobNumber(e.target.value); debounced('job', () => void updateScheduleJob(job.id, { jobNumber: e.target.value })) }}
+                className="w-24 bg-transparent font-semibold text-indigo-600 outline-none" />
+              {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 print:hidden" title="Open job">↗</a>}
+              {canEdit && (
+                <button onClick={() => { if (confirm(`Delete "${title}" from this week?`)) void deleteScheduleJob(job.id).then(onChanged) }}
+                  className="ml-auto text-rose-400 hover:text-rose-600 print:hidden"><Trash2 size={12} /></button>
+              )}
+            </div>
+          </div>
         </div>
       </td>
 

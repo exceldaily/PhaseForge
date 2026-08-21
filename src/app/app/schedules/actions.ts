@@ -62,6 +62,29 @@ export async function updateScheduleJob(id: string, patch: {
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// Persist a new top-to-bottom job order for a week. The client sends the full
+// id list, so a single drag and a bulk rearrange cost the same.
+export async function reorderScheduleJobs(ids: string[]) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const clean = [...new Set(ids.filter(Boolean))]
+    if (!clean.length) return { ok: true }
+    // Chunked so a long week does not open one round trip per row in series.
+    for (let i = 0; i < clean.length; i += 25) {
+      const slice = clean.slice(i, i + 25)
+      const results = await Promise.all(slice.map((id, n) =>
+        supabase.from('schedule_jobs')
+          .update({ sort_order: i + n })
+          .eq('id', id).eq('company_id', companyId)))
+      const failed = results.find((r) => r.error)
+      if (failed?.error) return { error: failed.error.message }
+    }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 export async function deleteScheduleJob(id: string) {
   try {
     const { supabase, companyId, isManager } = await ctx()

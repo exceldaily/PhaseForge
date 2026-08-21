@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, renameRosterMember, updateScheduleJob,
-  setDepartmentStyle, type ScheduleStyle,
+  setDepartmentStyle, reorderScheduleJobs, type ScheduleStyle,
 } from './actions'
 import { GridSchedule, buildGridCopy, type GridCell } from './GridSchedule'
+import { useRowReorder } from './useRowReorder'
 
 interface Job {
   id: string; title: string; job_number: string | null; shift_label: string | null
@@ -97,6 +98,9 @@ export function SchedulesClient({
     setPeekDivision(next)
   }
 
+  // Job blocks drag by their grip into whatever order the week should read in.
+  const reorder = useRowReorder(jobs, (ids) => { void reorderScheduleJobs(ids).then(() => router.refresh()) }, canEdit)
+
   // Live mirror of each job block's local edits so Copy for email always
   // matches the screen (saves no longer invalidate the route cache, so the
   // server props can lag behind by design).
@@ -104,7 +108,9 @@ export function SchedulesClient({
   const report = (id: string, snap: Partial<Job>) => {
     liveRef.current[id] = { ...liveRef.current[id], ...snap }
   }
-  const liveJobs = (): Job[] => jobs.map((j) => ({ ...j, ...liveRef.current[j.id] }))
+  // Reordered list, not the server's: an email copied right after a drag has
+  // to read in the order on screen, before the refresh lands.
+  const liveJobs = (): Job[] => reorder.ordered.map((j) => ({ ...j, ...liveRef.current[j.id] }))
 
   const nav = (t: string | null, w: string, d: string = division) =>
     router.push(`/app/schedules?division=${encodeURIComponent(d)}&team=${t ?? ''}&week=${w}`)
@@ -553,6 +559,7 @@ export function SchedulesClient({
           <GridSchedule
             teamName={team.name} weekStart={weekStart} jobs={jobs} roster={roster}
             shiftOptions={shiftOptions} division={division} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
+            reorder={reorder}
             onChanged={() => router.refresh()}
             reportCells={(jobId, cells) => report(jobId, { cells })}
           />
@@ -573,8 +580,10 @@ export function SchedulesClient({
                 ? <>No jobs on {team.name}&apos;s week — &ldquo;Add job&rdquo; or &ldquo;Copy last week&rdquo;.</>
                 : <>No teams in {divLabel(division)} yet — use &ldquo;+ Team&rdquo; to add one.</>}
             </p>
-          ) : jobs.map((job) => (
+          ) : reorder.ordered.map((job) => (
             <JobBlock key={`${job.id}-${weekStart}`} job={job} weekStart={weekStart} roster={roster} canEdit={canEdit}
+              rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
+              dragging={reorder.dragId === job.id}
               urlTemplate={jobUrlTemplate} report={report} onChanged={() => router.refresh()} />
           ))}
         </div>
@@ -600,11 +609,14 @@ export function SchedulesClient({
   )
 }
 
-function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChanged }: {
+function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChanged, rowRef, gripProps, dragging }: {
   job: Job; weekStart: string; roster: string[]; canEdit: boolean
   urlTemplate: string | null
   report: (id: string, snap: Partial<Job>) => void
   onChanged: () => void
+  rowRef: (el: HTMLElement | null) => void
+  gripProps: React.ComponentProps<'button'>
+  dragging: boolean
 }) {
   const [title, setTitle] = useState(job.title)
   const [jobNumber, setJobNumber] = useState(job.job_number ?? '')
@@ -688,9 +700,18 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 print:break-inside-avoid print:rounded-none print:border-black print:shadow-none">
+    <div ref={rowRef}
+      className={`overflow-hidden rounded-lg border bg-white shadow-sm dark:bg-slate-900 print:break-inside-avoid print:rounded-none print:border-black print:shadow-none ${
+        dragging ? 'border-indigo-500 opacity-90 shadow-lg ring-2 ring-indigo-500' : 'border-slate-300 dark:border-slate-700'
+      }`}>
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 border-b-2 border-slate-800 bg-slate-50 px-3 py-2 dark:border-slate-500 dark:bg-slate-800/60 print:bg-white">
+        {canEdit && (
+          <button {...gripProps} data-help="sched-reorder" aria-label={`Reorder ${title}`} title="Drag to reorder this job"
+            className="-ml-1 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-indigo-600 active:cursor-grabbing dark:hover:bg-slate-700 print:hidden">
+            <GripVertical size={15} />
+          </button>
+        )}
         <input value={title} readOnly={!canEdit}
           onChange={(e) => { setTitle(e.target.value); report(job.id, { title: e.target.value }); saveHeader({ title: e.target.value }) }}
           className="min-w-0 flex-1 bg-transparent text-[15px] font-bold text-slate-900 outline-none dark:text-slate-100" />
