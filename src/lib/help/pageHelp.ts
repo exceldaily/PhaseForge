@@ -163,6 +163,7 @@ export const PAGE_HELP: PageHelp[] = [
     title: 'Gantt',
     sectionIds: ['gantt', 'phases'],
     pins: [
+      { key: 'gantt-undo', label: 'Undo / redo', text: 'Steps back through bar moves, resizes, and percent changes you made on the chart. Ctrl+Z and Ctrl+Shift+Z work too.' },
       { key: 'gantt-zoom', label: 'Time scale', text: 'Day, week, month, or quarter. Wider scales fit more of the job on screen.' },
       { key: 'gantt-print', label: 'Print', text: 'Prints the chart to paper or PDF for a job trailer wall. Paid plans.' },
     ],

@@ -26,6 +26,7 @@ import { GanttMobileList } from './GanttMobileList'
 import { GanttMobileTimeline } from './GanttMobileTimeline'
 import { GanttSidebar } from './GanttSidebar'
 import { GanttToolbar } from './GanttToolbar'
+import { useGanttHistory, type GanttEdit } from './useGanttHistory'
 
 interface GanttChartProps {
   projects: Project[]
@@ -149,6 +150,138 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     toggleProjectCollapse(projectId)
   }, [projects, selectedPhaseId, setSelectedPhase, toggleProjectCollapse])
 
+  /**
+   * The single place phase dates are written. Optimistic first, reverted as a
+   * whole if any row fails, so a partial cascade can never be left on screen.
+   * Undo and redo go through here too rather than reimplementing the write.
+   */
+  const writePhaseDates = useCallback(async (
+    projectId: string,
+    rows: { id: string; start: string; end: string }[],
+  ): Promise<boolean> => {
+    if (!rows.length) return true
+    const before = new Map<string, { start: string; end: string }>()
+    setProjects((currentProjects) => currentProjects.map((project) => {
+      if (project.id !== projectId) return project
+      const byId = new Map(rows.map((r) => [r.id, r]))
+      return {
+        ...project,
+        phases: (project.phases || []).map((phase) => {
+          const row = byId.get(phase.id)
+          if (!row) return phase
+          before.set(phase.id, { start: phase.start_date, end: phase.end_date })
+          return { ...phase, start_date: row.start, end_date: row.end }
+        }),
+      }
+    }))
+
+    const supabase = createClient()
+    const updatedAt = new Date().toISOString()
+    const results = await Promise.all(rows.map((r) =>
+      supabase.from('phases')
+        .update({ start_date: r.start, end_date: r.end, updated_at: updatedAt })
+        .eq('id', r.id)))
+
+    if (results.some((r) => r.error)) {
+      setProjects((currentProjects) => currentProjects.map((project) => {
+        if (project.id !== projectId) return project
+        return {
+          ...project,
+          phases: (project.phases || []).map((phase) => {
+            const orig = before.get(phase.id)
+            return orig ? { ...phase, start_date: orig.start, end_date: orig.end } : phase
+          }),
+        }
+      }))
+      return false
+    }
+
+    await touchProjectAudit(supabase, projectId, currentUserId, updatedAt)
+    for (const r of rows) autoSyncPhaseIfEnabled(r.id).catch(() => {})
+    return true
+  }, [currentUserId])
+
+  /** Same contract as writePhaseDates, for the inline percent handle. */
+  const writePhasePercents = useCallback(async (
+    projectId: string,
+    rows: { id: string; percent: number }[],
+  ): Promise<boolean> => {
+    if (!rows.length) return true
+    const before = new Map<string, number>()
+    setProjects((currentProjects) => currentProjects.map((project) => {
+      if (project.id !== projectId) return project
+      const byId = new Map(rows.map((r) => [r.id, r]))
+      return {
+        ...project,
+        phases: (project.phases || []).map((phase) => {
+          const row = byId.get(phase.id)
+          if (!row) return phase
+          before.set(phase.id, getPhasePercentComplete(phase))
+          return { ...phase, percent_complete: row.percent }
+        }),
+      }
+    }))
+
+    const supabase = createClient()
+    const updatedAt = new Date().toISOString()
+    const results = await Promise.all(rows.map((r) =>
+      supabase.from('phases')
+        .update({ percent_complete: r.percent, updated_at: updatedAt })
+        .eq('id', r.id)))
+
+    if (results.some((r) => r.error)) {
+      setProjects((currentProjects) => currentProjects.map((project) => {
+        if (project.id !== projectId) return project
+        return {
+          ...project,
+          phases: (project.phases || []).map((phase) => {
+            const orig = before.get(phase.id)
+            return orig === undefined ? phase : { ...phase, percent_complete: orig }
+          }),
+        }
+      }))
+      return false
+    }
+
+    await touchProjectAudit(supabase, projectId, currentUserId, updatedAt)
+    return true
+  }, [currentUserId])
+
+  // Undo / redo. An entry whose phases are no longer loaded (the board filter
+  // changed, someone deleted the phase) is dropped rather than half-applied.
+  const applyEdit = useCallback(async (edit: GanttEdit, direction: 'undo' | 'redo'): Promise<boolean> => {
+    const project = projects.find((p) => p.id === edit.projectId)
+    const phases = new Map((project?.phases || []).map((p) => [p.id, p]))
+
+    if (edit.kind === 'dates') {
+      const rows = edit.phases.flatMap((p) => {
+        const live = phases.get(p.id)
+        if (!live) return []
+        // Only touch a phase that still holds the value this entry left it at.
+        // If it was changed since — in the side panel, or by a teammate — that
+        // newer edit wins rather than being silently rolled back.
+        const expect = direction === 'undo' ? p.to : p.from
+        if (live.start_date !== expect.start || live.end_date !== expect.end) return []
+        const next = direction === 'undo' ? p.from : p.to
+        return [{ id: p.id, start: next.start, end: next.end }]
+      })
+      if (!rows.length) return false
+      return writePhaseDates(edit.projectId, rows)
+    }
+
+    const rows = edit.phases.flatMap((p) => {
+      const live = phases.get(p.id)
+      if (!live) return []
+      const expect = direction === 'undo' ? p.to : p.from
+      if (getPhasePercentComplete(live) !== expect) return []
+      return [{ id: p.id, percent: direction === 'undo' ? p.from : p.to }]
+    })
+    if (!rows.length) return false
+    return writePhasePercents(edit.projectId, rows)
+  }, [projects, writePhaseDates, writePhasePercents])
+
+  const history = useGanttHistory(applyEdit)
+
   const handleMouseDown = useCallback((
     event: React.MouseEvent,
     phaseId: string,
@@ -262,56 +395,49 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
       )
     }
 
-    const supabase = createClient()
-    const updatedAt = new Date().toISOString()
-
-    // Persist the moved phase plus any cascaded phases.
-    const writes = [
-      supabase
-        .from('phases')
-        .update({ start_date: phase.start_date, end_date: phase.end_date, updated_at: updatedAt })
-        .eq('id', phase.id),
-      ...cascadeUpdates.map((u) =>
-        supabase
-          .from('phases')
-          .update({ start_date: u.start_date, end_date: u.end_date, updated_at: updatedAt })
-          .eq('id', u.id)
-      ),
+    const rows = [
+      { id: phase.id, start: phase.start_date, end: phase.end_date },
+      ...cascadeUpdates.map((u) => ({ id: u.id, start: u.start_date, end: u.end_date })),
     ]
+    const ok = await writePhaseDates(snapshot.projectId, rows)
+    if (!ok) return
 
-    const results = await Promise.all(writes)
-    const failed = results.some((r) => r.error)
+    // Record both sides so Undo restores exact dates rather than re-deriving
+    // a delta, which would drift if anything else moved in between.
+    history.push({
+      kind: 'dates',
+      projectId: snapshot.projectId,
+      label: cascadeUpdates.length
+        ? `move "${phase.name}" and ${cascadeUpdates.length} later phase${cascadeUpdates.length === 1 ? '' : 's'}`
+        : `${snapshot.mode === 'move' ? 'move' : 'resize'} "${phase.name}"`,
+      phases: [
+        {
+          id: phase.id,
+          from: { start: snapshot.origStart, end: snapshot.origEnd },
+          to: { start: phase.start_date, end: phase.end_date },
+        },
+        ...cascadeUpdates.map((u) => ({
+          id: u.id,
+          from: { start: u.origStart, end: u.origEnd },
+          to: { start: u.start_date, end: u.end_date },
+        })),
+      ],
+    })
+  }, [dragging, history, projects, shiftMode, writePhaseDates])
 
-    if (failed) {
-      // Revert the moved phase and every cascaded phase to their originals.
-      setProjects((currentProjects) =>
-        currentProjects.map((proj) => {
-          if (proj.id !== snapshot.projectId) return proj
-          const revertById = new Map(cascadeUpdates.map((u) => [u.id, u]))
-          return {
-            ...proj,
-            phases: (proj.phases || []).map((p) => {
-              if (p.id === snapshot.phaseId) {
-                return { ...p, start_date: snapshot.origStart, end_date: snapshot.origEnd }
-              }
-              const u = revertById.get(p.id)
-              return u ? { ...p, start_date: u.origStart, end_date: u.origEnd } : p
-            }),
-          }
-        })
-      )
-      return
+  useEffect(() => {
+    if (!canEdit) return
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+      const key = e.key.toLowerCase()
+      if (key === 'z' && !e.shiftKey) { e.preventDefault(); history.undo() }
+      else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); history.redo() }
     }
-
-    await touchProjectAudit(supabase, snapshot.projectId, currentUserId, updatedAt)
-
-    // Push date changes to Google Calendar for the dragged phase and any
-    // dependency-cascaded phases. Fire-and-forget; only acts when the phase is
-    // linked or its project has auto-sync on.
-    for (const id of [phase.id, ...cascadeUpdates.map((u) => u.id)]) {
-      autoSyncPhaseIfEnabled(id).catch(() => {})
-    }
-  }, [currentUserId, dragging, projects, shiftMode])
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canEdit, history])
 
   const handlePhaseUpdate = useCallback((updatedPhase: Phase) => {
     setProjects((currentProjects) => currentProjects.map((project) => ({
@@ -324,42 +450,22 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
   const handlePhasePercent = useCallback(async (phaseId: string, projectId: string, rawPercent: number) => {
     const percent = Math.max(0, Math.min(100, Math.round(rawPercent)))
 
-    let previous = 0
-    setProjects((currentProjects) => currentProjects.map((project) => {
-      if (project.id !== projectId) return project
-      return {
-        ...project,
-        phases: (project.phases || []).map((phase) => {
-          if (phase.id !== phaseId) return phase
-          previous = getPhasePercentComplete(phase)
-          return { ...phase, percent_complete: percent }
-        }),
-      }
-    }))
+    const project = projects.find((p) => p.id === projectId)
+    const target = (project?.phases || []).find((p) => p.id === phaseId)
+    if (!target) return
+    const previous = getPhasePercentComplete(target)
+    if (previous === percent) return
 
-    const supabase = createClient()
-    const updatedAt = new Date().toISOString()
-    const { error } = await supabase
-      .from('phases')
-      .update({ percent_complete: percent, updated_at: updatedAt })
-      .eq('id', phaseId)
+    const ok = await writePhasePercents(projectId, [{ id: phaseId, percent }])
+    if (!ok) return
 
-    if (error) {
-      // Revert on failure.
-      setProjects((currentProjects) => currentProjects.map((project) => {
-        if (project.id !== projectId) return project
-        return {
-          ...project,
-          phases: (project.phases || []).map((phase) =>
-            phase.id === phaseId ? { ...phase, percent_complete: previous } : phase
-          ),
-        }
-      }))
-      return
-    }
-
-    await touchProjectAudit(supabase, projectId, currentUserId, updatedAt)
-  }, [currentUserId])
+    history.push({
+      kind: 'percent',
+      projectId,
+      label: `set "${target.name}" to ${percent}%`,
+      phases: [{ id: phaseId, from: previous, to: percent }],
+    })
+  }, [history, projects, writePhasePercents])
 
   // Click-and-drag panning on empty timeline background.
   const panRef = useRef<{ startX: number; scrollLeft: number } | null>(null)
@@ -493,6 +599,7 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
         projectCount={projects.length}
         canPrint={canPrint}
         projects={projects}
+        history={canEdit ? history : undefined}
       />
 
       <div className="flex flex-1 overflow-hidden border-t border-slate-200">

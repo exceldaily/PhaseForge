@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarRange, Target, Printer, Link2, Palette, Plus } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, CalendarRange, Target, Printer, Link2, Palette, Plus, Redo2, Undo2 } from 'lucide-react'
 import { GanttAddPhaseModal } from './GanttAddPhaseModal'
 import { format, parseISO } from '@/lib/dates'
 import { useGanttStore } from '@/stores/ganttStore'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { GanttPrintModal } from './GanttPrintModal'
 import { ZoomLevel } from '@/types/app'
 import { Project } from '@/types/app'
+import type { GanttHistory } from './useGanttHistory'
 
 const ZOOM_LEVELS: { value: ZoomLevel; label: string }[] = [
   { value: 'day', label: 'Day' },
@@ -32,10 +33,13 @@ export function GanttToolbar({
   projectCount,
   canPrint,
   projects = [],
+  history,
 }: {
   projectCount: number
   canPrint: boolean
   projects?: Project[]
+  /** Undo/redo for chart edits; omitted for read-only viewers. */
+  history?: GanttHistory
 }) {
   const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd, collapsedProjects, selectedProjectId, shiftMode, setShiftMode, colorMode, setColorMode } = useGanttStore()
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
@@ -201,6 +205,31 @@ export function GanttToolbar({
             <ChevronRight size={14} />
           </button>
         </div>
+
+        {history && (
+          <div data-help="gantt-undo" className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={history.undo}
+              disabled={!history.canUndo || history.busy}
+              title={history.canUndo ? `Undo ${history.undoLabel} (Ctrl+Z)` : 'Nothing to undo'}
+              aria-label={history.canUndo ? `Undo ${history.undoLabel}` : 'Nothing to undo'}
+              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Undo2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={history.redo}
+              disabled={!history.canRedo || history.busy}
+              title={history.canRedo ? `Redo ${history.redoLabel} (Ctrl+Shift+Z)` : 'Nothing to redo'}
+              aria-label={history.canRedo ? `Redo ${history.redoLabel}` : 'Nothing to redo'}
+              className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Redo2 size={16} />
+            </button>
+          </div>
+        )}
 
         <div data-help="gantt-zoom" className="flex items-center bg-slate-100 rounded-lg p-0.5">
           {ZOOM_LEVELS.map(({ value, label }) => (
