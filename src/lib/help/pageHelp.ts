@@ -133,6 +133,17 @@ export const PAGE_HELP: PageHelp[] = [
     ],
   },
   {
+    match: /^\/app\/quotes\/pricing\/[^/]+$/,
+    title: 'Pricing a quote',
+    sectionIds: ['quote-pricing'],
+    pins: [
+      { key: 'pricing-markup', label: 'Markup', text: 'The percentage added to every line that has no markup of its own. Change it and the whole sheet re-prices.' },
+      { key: 'pricing-add', label: 'Add a line', text: 'Labor, travel, or anything else that belongs on the job, alongside the parts read off the vendor PDF.' },
+      { key: 'pricing-status', label: 'Status', text: 'Draft, sent, won, or lost. Lost sheets drop to the bottom of the list instead of cluttering it.' },
+      { key: 'pricing-totals', label: 'Totals', text: 'Cost, markup, tax, and the number you give the customer, with the gross margin underneath.' },
+    ],
+  },
+  {
     match: /^\/app\/quotes\/[^/]+$/,
     title: 'Quote',
     sectionIds: ['quotes'],
@@ -140,8 +151,10 @@ export const PAGE_HELP: PageHelp[] = [
   {
     match: /^\/app\/quotes$/,
     title: 'Quotes',
-    sectionIds: ['quotes'],
+    sectionIds: ['quotes', 'quote-pricing'],
     pins: [
+      { key: 'quotes-tabs', label: 'Two sections', text: 'Requests sends RFQs out to vendors. Pricing reads the quotes that come back and marks them up.' },
+      { key: 'pricing-upload', label: 'Attach vendor quote', text: 'Reads each line item off the vendor PDF as your cost, ready to mark up.' },
       { key: 'quotes-gmail', label: 'Connect Gmail', text: 'Vendor emails send from your own address, so each person connects their own Gmail once.' },
     ],
   },

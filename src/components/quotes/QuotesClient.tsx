@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Check, ClipboardPaste, FileUp, Mail, Pencil, Plus, RefreshCw, Trash2, X,
+  Calculator, Check, ClipboardPaste, FileUp, Mail, Pencil, Plus, RefreshCw, Send, Trash2, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
@@ -16,6 +16,7 @@ import {
   addVendor, createQuoteFromPdf, createQuoteFromText, deleteVendor, updateVendor,
   disconnectGmail, refreshSignature,
 } from '@/app/app/quotes/actions'
+import { PricingList, type PricingListItem } from './PricingList'
 
 export type QuoteListItem = {
   id: string
@@ -44,8 +45,9 @@ const STATUS_STYLE: Record<string, string> = {
 
 const inputCls = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
 
-export function QuotesClient({ quotes, vendors, gmailEmail, hasSignature }: {
+export function QuotesClient({ quotes, pricings, vendors, gmailEmail, hasSignature }: {
   quotes: QuoteListItem[]
+  pricings: PricingListItem[]
   vendors: VendorItem[]
   gmailEmail: string | null
   hasSignature: boolean
@@ -68,6 +70,10 @@ export function QuotesClient({ quotes, vendors, gmailEmail, hasSignature }: {
       else setError(('error' in res ? res.error : null) ?? 'Could not read that form.')
     })
 
+  const tab = params.get('tab') === 'pricing' ? 'pricing' : 'requests'
+  const setTab = (next: 'requests' | 'pricing') =>
+    router.replace(next === 'requests' ? '/app/quotes' : '/app/quotes?tab=pricing')
+
   const active = quotes.filter((q) => q.status !== 'closed')
   const completed = quotes.filter((q) => q.status === 'closed')
 
@@ -76,9 +82,34 @@ export function QuotesClient({ quotes, vendors, gmailEmail, hasSignature }: {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Quotes</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Tech form submissions in, vendor inquiries out, replies tracked. Nothing sends until you press Send.
+          Two halves of the same job: send requests out to vendors, then price what comes back.
         </p>
       </div>
+
+      {/* Two sections, kept in the URL so either half can be linked to. */}
+      <div data-help="quotes-tabs" className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1">
+        {([
+          { key: 'requests', label: 'Requests', icon: Send, hint: 'RFQs out to vendors' },
+          { key: 'pricing', label: 'Pricing', icon: Calculator, hint: 'Quotes back, marked up' },
+        ] as const).map((t) => (
+          <button
+            key={t.key} onClick={() => setTab(t.key)}
+            className={cn(
+              'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition',
+              tab === t.key ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100',
+            )}
+          >
+            <t.icon className="h-4 w-4" />
+            {t.label}
+            <span className={cn('hidden text-xs font-normal sm:inline', tab === t.key ? 'text-indigo-200' : 'text-slate-400')}>
+              {t.hint}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {tab === 'pricing' ? <PricingList pricings={pricings} /> : (
+      <>
 
       <GmailCard gmailEmail={gmailEmail} hasSignature={hasSignature} oauthError={oauthError} justConnected={justConnected} />
 
@@ -150,6 +181,8 @@ export function QuotesClient({ quotes, vendors, gmailEmail, hasSignature }: {
       )}
 
       <VendorManager vendors={vendors} />
+      </>
+      )}
     </div>
   )
 }
