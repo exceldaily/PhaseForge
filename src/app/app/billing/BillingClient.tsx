@@ -23,6 +23,7 @@ interface Invoice {
 
 interface BillingClientProps {
   companyId: string
+  companyName?: string
   currentPlan: string
   billingStatus: string
   billingCycleStart: string | null
@@ -43,6 +44,7 @@ const TABS = [
 
 export function BillingClient({
   companyId,
+  companyName,
   currentPlan,
   billingStatus,
   billingCycleStart,
@@ -92,6 +94,7 @@ export function BillingClient({
       <div>
         {activeTab === 'plan' && (
           <PricingCards
+            companyName={companyName}
             currentPlan={currentPlan}
             billingCycleStart={billingCycleStart}
             billingCycleEnd={billingCycleEnd}

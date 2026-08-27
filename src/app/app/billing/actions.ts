@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { stripe, getOrCreateStripeCustomer, createCheckoutSession as createStripeCheckout, getCustomerPortalUrl } from '@/lib/stripe'
+import { CONTACT_ONLY_PLANS, SALES_EMAIL } from '@/lib/constants'
 
 export async function createCheckoutSession(
   companyId: string,
@@ -9,6 +10,13 @@ export async function createCheckoutSession(
   returnUrl: string
 ): Promise<string> {
   try {
+    // Quoted plans have no Stripe price. The UI sends you to email instead, so
+    // reaching here means something is wrong — fail loudly rather than
+    // creating a checkout for a price that does not exist.
+    if ((CONTACT_ONLY_PLANS as readonly string[]).includes(planType)) {
+      throw new Error(`${planType} is quoted, not self-serve. Email ${SALES_EMAIL}.`)
+    }
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

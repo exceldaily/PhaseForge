@@ -15,7 +15,7 @@ interface PlanSelectorModalProps {
   onSuccess?: (newPlan: string) => void
 }
 
-const PLANS = ['free', 'individual', 'pro', 'business', 'enterprise'] as const
+const PLANS = ['free', 'individual', 'pro', 'business', 'business_plus', 'enterprise'] as const
 type Plan = (typeof PLANS)[number]
 
 export function PlanSelectorModal({
@@ -86,6 +86,7 @@ export function PlanSelectorModal({
                   {plan === 'free' && '1 board, 5 projects, 3 members'}
                   {plan === 'pro' && '10 boards, unlimited projects, 25 members'}
                   {plan === 'business' && 'Unlimited everything'}
+                  {plan === 'business_plus' && 'Business + customization built for them'}
                   {plan === 'enterprise' && 'Unlimited everything + support'}
                 </div>
               </div>

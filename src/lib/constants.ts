@@ -109,10 +109,22 @@ export const PLAN_LIMITS: Record<string, {
   individual: { boards: 10,   projects: 0,    members: 1,    teams: 1    },
   pro:        { boards: 10,   projects: 0,    members: 25,   teams: 5    },
   business:   { boards: 0,    projects: 0,    members: 0,    teams: 0    },
+  // Business Plus is Business plus bespoke work, so the numbers match.
+  business_plus: { boards: 0, projects: 0,    members: 0,    teams: 0    },
   enterprise: { boards: 0,    projects: 0,    members: 0,    teams: 0    },
 }
 
 export const DEFAULT_PLAN = 'free'
+
+/**
+ * Business Plus is quoted, not self-serve: the customization is scoped per
+ * company, so there is no Stripe price and the card opens an email instead of
+ * a checkout. Keep this address in step with the footer and the guide.
+ */
+export const SALES_EMAIL = 'customersupport@phase-forge.com'
+
+/** Plans that are sold by conversation rather than by card. */
+export const CONTACT_ONLY_PLANS = ['business_plus', 'enterprise'] as const
 
 /** Shared color palette for board and kanban columns */
 export const COLUMN_COLORS = [
@@ -126,6 +138,7 @@ export const PLAN_LABELS: Record<string, string> = {
   individual: 'Individual',
   pro:        'Pro',
   business:   'Business',
+  business_plus: 'Business Plus',
   enterprise: 'Enterprise',
 }
 
@@ -141,6 +154,7 @@ export const PLAN_FEATURES: Record<string, {
   individual: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: false },
   pro:        { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: false },
   business:   { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: true  },
+  business_plus: { printAndReports: true, darkMode: true, tickets: true, schedules: true, calendarSync: true, tradeFilter: true },
   enterprise: { printAndReports: true,  darkMode: true,  tickets: true,  schedules: true,  calendarSync: true,  tradeFilter: true  },
 }
 

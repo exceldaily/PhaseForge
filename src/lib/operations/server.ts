@@ -80,7 +80,7 @@ export async function requireModuleOrDispatch(key: ModuleKey): Promise<OpsContex
   const { data: company } = await supabase
     .from('companies').select('plan, dispatch_enabled').eq('id', ctx.companyId).single()
   const dispatchAllowed = Boolean(company?.dispatch_enabled) ||
-    ['individual', 'pro', 'business', 'enterprise'].includes(company?.plan ?? '')
+    ['individual', 'pro', 'business', 'business_plus', 'enterprise'].includes(company?.plan ?? '')
   if (!dispatchAllowed) redirect('/app/dashboard')
   return ctx
 }

@@ -40,6 +40,7 @@ export default async function BillingPage() {
 
       <BillingClient
         companyId={profile.company_id}
+        companyName={company?.name ?? undefined}
         currentPlan={company?.plan || 'free'}
         billingStatus={company?.billing_status || 'active'}
         billingCycleStart={company?.billing_cycle_start}
