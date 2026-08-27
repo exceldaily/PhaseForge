@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { Phase, PhaseStatus, Profile, Project } from '@/types/app'
 import { PhaseComments } from '@/components/phases/PhaseComments'
 import { PhaseSyncSection } from '@/components/gantt/PhaseSyncSection'
+import { PhaseScheduleSection, type PhaseScheduleIntel } from '@/components/gantt/PhaseScheduleSection'
 import { autoSyncPhaseIfEnabled } from '@/app/app/projects/[id]/scheduleActions'
 
 interface GanttEditPanelProps {
@@ -32,6 +33,8 @@ interface GanttEditPanelProps {
   canEdit: boolean
   // When true, render as a full-screen sheet (mobile) instead of a side panel.
   mobile?: boolean
+  /** Float, criticality, baseline, and dependency data from GanttChart. */
+  scheduleIntel?: PhaseScheduleIntel
 }
 
 function normalizeOption(value: string) {
@@ -53,6 +56,7 @@ export function GanttEditPanel({
   onUpdate,
   canEdit,
   mobile = false,
+  scheduleIntel,
 }: GanttEditPanelProps) {
   const { trades, addTrade } = usePhaseConfig(companyId)
   const [form, setForm] = useState({
@@ -463,6 +467,20 @@ export function GanttEditPanel({
             {saved ? '✓ Saved' : <><Save size={14} /> Save changes</>}
           </Button>
         </div>
+      )}
+
+      {scheduleIntel && (
+        <PhaseScheduleSection
+          phase={phase}
+          projectId={project.id}
+          allPhases={scheduleIntel.allPhases}
+          deps={scheduleIntel.deps}
+          float={scheduleIntel.float}
+          isCritical={scheduleIntel.isCritical}
+          baseline={scheduleIntel.baseline}
+          canEdit={canEdit}
+          onDepsChanged={scheduleIntel.onDepsChanged}
+        />
       )}
 
       {canEdit && <PhaseSyncSection phaseId={phase.id} />}

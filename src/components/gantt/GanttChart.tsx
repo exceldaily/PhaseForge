@@ -26,6 +26,13 @@ import { GanttMobileList } from './GanttMobileList'
 import { GanttMobileTimeline } from './GanttMobileTimeline'
 import { GanttSidebar } from './GanttSidebar'
 import { GanttToolbar } from './GanttToolbar'
+import {
+  useGanttIntel, useMoveGate, impactForMove,
+  MoveImpactDialog, LookaheadModal, BaselineCompareModal, CompletionChip,
+  type PendingMove, type BaselineData,
+} from './GanttIntel'
+import { logScheduleChange, setBaseline } from '@/app/app/projects/[id]/intelActions'
+import { REASON_PROMPT_THRESHOLD_DAYS } from '@/lib/activity/log'
 import { useGanttHistory, type GanttEdit } from './useGanttHistory'
 
 interface GanttChartProps {
@@ -64,6 +71,14 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
   useEffect(() => {
     setProjects(initialProjects)
   }, [initialProjects])
+
+  // Schedule intelligence: dependencies, baselines, CPM per project.
+  const intel = useGanttIntel(projects)
+  const [showCritical, setShowCritical] = useState(false)
+  const [showBaseline, setShowBaseline] = useState(true)
+  const [showLookahead, setShowLookahead] = useState(false)
+  const [compareProjectId, setCompareProjectId] = useState<string | null>(null)
+  const moveGate = useMoveGate()
   const [dragging, setDragging] = useState<{
     phaseId: string
     projectId: string
@@ -346,43 +361,23 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
     }))
   }, [dragging, pixelsPerDay])
 
-  const handleMouseUp = useCallback(async () => {
-    if (!dragging) return
-
-    const snapshot = dragging
-    setDragging(null)
-
-    const phase = projects.find((project) => project.id === snapshot.projectId)?.phases?.find((item) => item.id === snapshot.phaseId)
-    if (!phase) return
-
-    // Net days the moved phase shifted (only meaningful for a 'move' drag).
-    const deltaDays = differenceInDays(parseISO(phase.start_date), parseISO(snapshot.origStart))
-
-    // Cascade: when in "move this + later" mode and the bar was moved (not
-    // resized), shift every later phase in the same project by the same delta,
-    // preserving each task's duration.
-    const shouldCascade = shiftMode === 'cascade' && snapshot.mode === 'move' && deltaDays !== 0
-
-    const project = projects.find((p) => p.id === snapshot.projectId)
-    const cascadePhases = shouldCascade && project
-      ? (project.phases || []).filter(
-          (p) => p.id !== snapshot.phaseId && p.start_date >= snapshot.origStart
-        )
-      : []
-
-    // Build the optimistic shifted versions for the cascade set.
-    const cascadeUpdates = cascadePhases.map((p) => ({
-      id: p.id,
-      origStart: p.start_date,
-      origEnd: p.end_date,
-      start_date: format(addDays(parseISO(p.start_date), deltaDays), 'yyyy-MM-dd'),
-      end_date: format(addDays(parseISO(p.end_date), deltaDays), 'yyyy-MM-dd'),
-    }))
-
+  /**
+   * Commits a gated or ungated schedule change: writes the rows, records
+   * undo history, and logs the timeline event (with the reason when given).
+   */
+  const commitScheduleChange = useCallback(async (input: {
+    projectId: string
+    phase: Phase
+    mode: 'move' | 'resize'
+    from: { start: string; end: string }
+    cascadeUpdates: { id: string; name: string; origStart: string; origEnd: string; start_date: string; end_date: string }[]
+    reason: string | null
+  }) => {
+    const { projectId, phase, mode, from, cascadeUpdates, reason } = input
     if (cascadeUpdates.length > 0) {
       setProjects((currentProjects) =>
         currentProjects.map((proj) => {
-          if (proj.id !== snapshot.projectId) return proj
+          if (proj.id !== projectId) return proj
           const byId = new Map(cascadeUpdates.map((u) => [u.id, u]))
           return {
             ...proj,
@@ -399,23 +394,19 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
       { id: phase.id, start: phase.start_date, end: phase.end_date },
       ...cascadeUpdates.map((u) => ({ id: u.id, start: u.start_date, end: u.end_date })),
     ]
-    const ok = await writePhaseDates(snapshot.projectId, rows)
+    const ok = await writePhaseDates(projectId, rows)
     if (!ok) return
 
     // Record both sides so Undo restores exact dates rather than re-deriving
     // a delta, which would drift if anything else moved in between.
     history.push({
       kind: 'dates',
-      projectId: snapshot.projectId,
+      projectId,
       label: cascadeUpdates.length
         ? `move "${phase.name}" and ${cascadeUpdates.length} later phase${cascadeUpdates.length === 1 ? '' : 's'}`
-        : `${snapshot.mode === 'move' ? 'move' : 'resize'} "${phase.name}"`,
+        : `${mode === 'move' ? 'move' : 'resize'} "${phase.name}"`,
       phases: [
-        {
-          id: phase.id,
-          from: { start: snapshot.origStart, end: snapshot.origEnd },
-          to: { start: phase.start_date, end: phase.end_date },
-        },
+        { id: phase.id, from, to: { start: phase.start_date, end: phase.end_date } },
         ...cascadeUpdates.map((u) => ({
           id: u.id,
           from: { start: u.origStart, end: u.origEnd },
@@ -423,7 +414,138 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
         })),
       ],
     })
-  }, [dragging, history, projects, shiftMode, writePhaseDates])
+
+    // One event on the universal timeline, cascade summarized inside it.
+    void logScheduleChange({
+      projectId,
+      phaseId: phase.id,
+      phaseName: phase.name,
+      kind: mode,
+      from,
+      to: { start: phase.start_date, end: phase.end_date },
+      reason,
+      cascaded: cascadeUpdates.map((u) => ({
+        name: u.name,
+        from: { start: u.origStart, end: u.origEnd },
+        to: { start: u.start_date, end: u.end_date },
+      })),
+    })
+  }, [history, writePhaseDates])
+
+  // Cascade rows computed at drag end, consumed when the dialog resolves.
+  const pendingCascadeRef = useRef<{ id: string; name: string; origStart: string; origEnd: string; start_date: string; end_date: string }[]>([])
+
+  const handleMouseUp = useCallback(async () => {
+    if (!dragging) return
+
+    const snapshot = dragging
+    setDragging(null)
+
+    const project = projects.find((p) => p.id === snapshot.projectId)
+    const phase = project?.phases?.find((item) => item.id === snapshot.phaseId)
+    if (!phase || !project) return
+
+    const startDelta = differenceInDays(parseISO(phase.start_date), parseISO(snapshot.origStart))
+    const endDelta = differenceInDays(parseISO(phase.end_date), parseISO(snapshot.origEnd))
+    if (startDelta === 0 && endDelta === 0) return
+    const deltaDays = snapshot.mode === 'move' ? startDelta : endDelta
+
+    // Legacy cascade mode: shift every later phase in the project.
+    const shouldCascade = shiftMode === 'cascade' && snapshot.mode === 'move' && deltaDays !== 0
+    const cascadePhases = shouldCascade
+      ? (project.phases || []).filter((p) => p.id !== snapshot.phaseId && p.start_date >= snapshot.origStart)
+      : []
+    const cascadeUpdates = cascadePhases.map((p) => ({
+      id: p.id,
+      name: p.name,
+      origStart: p.start_date,
+      origEnd: p.end_date,
+      start_date: format(addDays(parseISO(p.start_date), deltaDays), 'yyyy-MM-dd'),
+      end_date: format(addDays(parseISO(p.end_date), deltaDays), 'yyyy-MM-dd'),
+    }))
+
+    const from = { start: snapshot.origStart, end: snapshot.origEnd }
+
+    // Dependency impact: what a delayed finish pushes downstream. Computed
+    // against the ORIGINAL dates so the math sees the schedule as it stood.
+    const deps = intel.depsByProject.get(project.id) ?? []
+    const origPhases = (project.phases || []).map((p) =>
+      p.id === phase.id ? { ...p, start_date: snapshot.origStart, end_date: snapshot.origEnd } : p)
+    const impact = endDelta !== 0 && deps.length > 0 && !shouldCascade
+      ? impactForMove({ ...project, phases: origPhases }, deps, phase.id, endDelta)
+      : { affected: [], completionDeltaDays: 0, newCompletionDate: null, cycleError: false }
+
+    const askReason = Math.abs(deltaDays) >= REASON_PROMPT_THRESHOLD_DAYS
+    // Communicate before cascading: any downstream movement, or any move big
+    // enough to deserve a reason, goes through the dialog first.
+    if ((impact.affected.length > 0 || askReason) && canEdit) {
+      pendingCascadeRef.current = cascadeUpdates
+      moveGate.setPending({
+        phase,
+        projectId: project.id,
+        kind: snapshot.mode === 'move' ? 'move' : 'resize',
+        deltaDays,
+        from,
+        to: { start: phase.start_date, end: phase.end_date },
+        impact,
+        askReason,
+      })
+      return
+    }
+
+    await commitScheduleChange({
+      projectId: project.id, phase, mode: snapshot.mode === 'move' ? 'move' : 'resize',
+      from, cascadeUpdates, reason: null,
+    })
+  }, [canEdit, commitScheduleChange, dragging, intel.depsByProject, moveGate, projects, shiftMode])
+
+  /** Dialog resolution: apply (optionally with downstream) or revert. */
+  const resolvePendingMove = useCallback(async (reason: string | null, applyDownstream: boolean) => {
+    const pending = moveGate.pending
+    if (!pending) return
+    moveGate.clear()
+    const project = projects.find((p) => p.id === pending.projectId)
+    const phase = project?.phases?.find((p) => p.id === pending.phase.id)
+    if (!phase || !project) return
+
+    // Downstream rows from the dependency impact, when accepted.
+    const downstream = applyDownstream
+      ? pending.impact.affected.map((a) => {
+          const orig = (project.phases || []).find((p) => p.id === a.id)
+          return orig ? {
+            id: a.id, name: a.name,
+            origStart: orig.start_date, origEnd: orig.end_date,
+            start_date: a.newStart, end_date: a.newEnd,
+          } : null
+        }).filter((x): x is NonNullable<typeof x> => !!x)
+      : []
+    // Legacy shiftMode cascade and dependency-driven rows never coexist:
+    // impact is only computed when the cascade mode is off.
+    const cascadeUpdates = [...pendingCascadeRef.current, ...downstream]
+    pendingCascadeRef.current = []
+
+    await commitScheduleChange({
+      projectId: pending.projectId, phase, mode: pending.kind,
+      from: pending.from, cascadeUpdates, reason,
+    })
+  }, [commitScheduleChange, moveGate, projects])
+
+  const cancelPendingMove = useCallback(() => {
+    const pending = moveGate.pending
+    if (!pending) return
+    moveGate.clear()
+    pendingCascadeRef.current = []
+    // Put the dragged bar back where it was.
+    setProjects((currentProjects) => currentProjects.map((proj) => {
+      if (proj.id !== pending.projectId) return proj
+      return {
+        ...proj,
+        phases: (proj.phases || []).map((p) =>
+          p.id === pending.phase.id ? { ...p, start_date: pending.from.start, end_date: pending.from.end } : p),
+      }
+    }))
+  }, [moveGate])
+
 
   useEffect(() => {
     if (!canEdit) return
@@ -570,7 +692,14 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
         {/* Full-screen detail sheet on mobile */}
         {selectedPhase && selectedProject && (
           <div className="fixed inset-0 z-50 flex flex-col bg-white">
-            <GanttEditPanel
+            <GanttEditPanel scheduleIntel={selectedProject ? {
+                allPhases: selectedProject.phases ?? [],
+                deps: intel.depsByProject.get(selectedProject.id) ?? [],
+                float: (() => { const a = intel.analyses.get(selectedProject.id); return a?.ok ? (a.phases.get(selectedPhase?.id ?? "")?.totalFloat ?? null) : null })(),
+                isCritical: (() => { const a = intel.analyses.get(selectedProject.id); return a?.ok ? a.criticalIds.has(selectedPhase?.id ?? "") : false })(),
+                baseline: intel.baselines.get(selectedProject.id)?.phases.get(selectedPhase?.id ?? "") ?? null,
+                onDepsChanged: intel.reload,
+              } : undefined}
               key={selectedPhase.id}
               phase={selectedPhase}
               project={selectedProject}
@@ -600,6 +729,29 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
         canPrint={canPrint}
         projects={projects}
         history={canEdit ? history : undefined}
+        scheduleIntel={{
+          showCritical,
+          onToggleCritical: () => setShowCritical((v) => !v),
+          showBaseline,
+          onToggleBaseline: () => setShowBaseline((v) => !v),
+          hasBaseline: projects.length === 1 && intel.baselines.has(projects[0]?.id),
+          canBaseline: canEdit && projects.length === 1,
+          onSetBaseline: async () => {
+            const p = projects[0]
+            if (!p) return
+            const existing = intel.baselines.has(p.id)
+            if (existing && !confirm('Replace the current baseline? The old one is kept in history, and future variance is measured against the new one.')) return
+            const res = await setBaseline(p.id)
+            if (res.ok) intel.reload()
+            else alert(res.error ?? 'Could not set the baseline.')
+          },
+          onCompare: () => { const p = projects[0]; if (p && intel.baselines.has(p.id)) setCompareProjectId(p.id) },
+          onLookahead: () => setShowLookahead(true),
+          completionChip: projects.length === 1
+            ? <CompletionChip project={projects[0]} baseline={intel.baselines.get(projects[0].id) ?? null} />
+            : null,
+          cycleWarning: projects.some((p) => { const a = intel.analyses.get(p.id); return a ? !a.ok : false }),
+        }}
       />
 
       <div className="flex flex-1 overflow-hidden border-t border-slate-200">
@@ -650,7 +802,10 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
                     {!isCollapsed && phases.map((phase) => (
                       <GanttPhaseRow
                         key={phase.id}
-                        phase={phase}
+                        phase={showCritical && (() => { const a = intel.analyses.get(project.id); return a?.ok ? a.criticalIds.has(phase.id) : false })()
+                          ? { ...phase, is_critical_path: true }
+                          : { ...phase, is_critical_path: false }}
+                        baselineBar={showBaseline ? (intel.baselines.get(project.id)?.phases.get(phase.id) ?? null) : null}
                         assignee={phase.assigned_to ? memberMap[phase.assigned_to] ?? null : null}
                         viewStart={viewStart}
                         viewEnd={viewEnd}
@@ -674,8 +829,33 @@ export function GanttChart({ projects: initialProjects, companyId, members, curr
           </div>
         </div>
 
+        {moveGate.pending && (
+          <MoveImpactDialog
+            pending={moveGate.pending}
+            onApply={(reason, applyDownstream) => void resolvePendingMove(reason, applyDownstream)}
+            onCancel={cancelPendingMove}
+          />
+        )}
+        {showLookahead && (
+          <LookaheadModal projects={projects} depsByProject={intel.depsByProject} onClose={() => setShowLookahead(false)} />
+        )}
+        {compareProjectId && intel.baselines.get(compareProjectId) && (
+          <BaselineCompareModal
+            project={projects.find((p) => p.id === compareProjectId) as Project}
+            baseline={intel.baselines.get(compareProjectId) as BaselineData}
+            onClose={() => setCompareProjectId(null)}
+          />
+        )}
+
         {selectedPhase && selectedProject && (
-          <GanttEditPanel
+          <GanttEditPanel scheduleIntel={selectedProject ? {
+                allPhases: selectedProject.phases ?? [],
+                deps: intel.depsByProject.get(selectedProject.id) ?? [],
+                float: (() => { const a = intel.analyses.get(selectedProject.id); return a?.ok ? (a.phases.get(selectedPhase?.id ?? "")?.totalFloat ?? null) : null })(),
+                isCritical: (() => { const a = intel.analyses.get(selectedProject.id); return a?.ok ? a.criticalIds.has(selectedPhase?.id ?? "") : false })(),
+                baseline: intel.baselines.get(selectedProject.id)?.phases.get(selectedPhase?.id ?? "") ?? null,
+                onDepsChanged: intel.reload,
+              } : undefined}
             key={selectedPhase.id}
             phase={selectedPhase}
             project={selectedProject}
@@ -881,6 +1061,7 @@ function GanttPhaseRow({
   onMouseDown,
   onPercentChange,
   isDragging,
+  baselineBar = null,
 }: {
   phase: Phase
   assignee: Profile | null
@@ -897,6 +1078,8 @@ function GanttPhaseRow({
   onMouseDown: (event: React.MouseEvent, mode: 'move' | 'resize-right' | 'resize-left') => void
   onPercentChange: (percent: number) => void
   isDragging: boolean | undefined
+  /** Baseline window for this phase; renders as a ghost bar underneath. */
+  baselineBar?: { start: string; end: string } | null
 }) {
   const { left, width, clippedStart, clippedEnd } = getClippedBarPosition(
     phase.start_date,
@@ -935,6 +1118,20 @@ function GanttPhaseRow({
     <div className="relative border-b border-slate-100/50 transition-colors hover:bg-indigo-50/20" style={{ height: rowHeight }}>
       <GridLines totalDays={totalDays} pixelsPerDay={pixelsPerDay} zoom={zoom} />
       <TodayLine viewStart={viewStart} pixelsPerDay={pixelsPerDay} />
+
+      {baselineBar && (() => {
+        const b = getClippedBarPosition(baselineBar.start, baselineBar.end, viewStart, viewEnd, pixelsPerDay)
+        if (b.width <= 0) return null
+        const drifted = baselineBar.start !== phase.start_date || baselineBar.end !== phase.end_date
+        return (
+          <div
+            className={cn('pointer-events-none absolute rounded-sm border',
+              drifted ? 'border-slate-400/70 bg-slate-300/30' : 'border-slate-300/50 bg-slate-200/20')}
+            style={{ left: b.left, width: Math.max(b.width, 6), height: 5, bottom: 3 }}
+            title={`Baseline: ${formatDate(baselineBar.start, 'MMM d')} – ${formatDate(baselineBar.end, 'MMM d')}`}
+          />
+        )
+      })()}
 
       {width > 0 && (
         <div

@@ -30,6 +30,8 @@ export interface SchedulePhase {
 }
 
 export interface ScheduleDependency {
+  /** Row id when loaded from the database; absent in synthetic test data. */
+  id?: string
   phase_id: string        // the successor
   depends_on_id: string   // the predecessor
   type: 'finish_to_start' | 'start_to_start' | 'finish_to_finish'

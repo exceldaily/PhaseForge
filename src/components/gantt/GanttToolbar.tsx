@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, CalendarRange, Target, Printer, Link2, Palette, Plus, Redo2, Undo2 } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, CalendarRange, GitBranch, Target, Printer, Link2, Palette, Plus, Redo2, Undo2 } from 'lucide-react'
 import { GanttAddPhaseModal } from './GanttAddPhaseModal'
 import { format, parseISO } from '@/lib/dates'
 import { useGanttStore } from '@/stores/ganttStore'
@@ -29,18 +29,36 @@ function getRangeLabel(start: Date, end: Date, zoom: ZoomLevel) {
   return `${format(start, 'MMM d, yyyy')} - ${format(end, 'MMM d, yyyy')}`
 }
 
+export interface ScheduleIntelControls {
+  showCritical: boolean
+  onToggleCritical: () => void
+  showBaseline: boolean
+  onToggleBaseline: () => void
+  hasBaseline: boolean
+  canBaseline: boolean
+  onSetBaseline: () => void | Promise<void>
+  onCompare: () => void
+  onLookahead: () => void
+  completionChip: React.ReactNode
+  cycleWarning: boolean
+}
+
 export function GanttToolbar({
   projectCount,
   canPrint,
   projects = [],
   history,
+  scheduleIntel,
 }: {
   projectCount: number
   canPrint: boolean
   projects?: Project[]
   /** Undo/redo for chart edits; omitted for read-only viewers. */
   history?: GanttHistory
+  /** Baseline / critical path / lookahead controls from GanttChart. */
+  scheduleIntel?: ScheduleIntelControls
 }) {
+  const [scheduleMenuOpen, setScheduleMenuOpen] = useState(false)
   const { zoom, setZoom, scrollToToday, shiftView, setViewRange, viewStart, viewEnd, collapsedProjects, selectedProjectId, shiftMode, setShiftMode, colorMode, setColorMode } = useGanttStore()
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [fromDate, setFromDate] = useState('')
@@ -302,6 +320,78 @@ export function GanttToolbar({
         <Button variant="outline" size="sm" onClick={scrollToToday}>
           <Target size={14} /> Today
         </Button>
+
+        {scheduleIntel && (
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              data-help="gantt-schedule"
+              onClick={() => setScheduleMenuOpen((v) => !v)}
+            >
+              <GitBranch size={14} /> Schedule
+              {scheduleIntel.cycleWarning && <AlertTriangle size={12} className="text-rose-500" />}
+            </Button>
+            {scheduleMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setScheduleMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                  <button
+                    onClick={() => { setScheduleMenuOpen(false); scheduleIntel.onToggleCritical() }}
+                    className="flex w-full items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Show critical path
+                    <span className={scheduleIntel.showCritical ? 'text-indigo-600 text-xs font-semibold' : 'text-slate-300 text-xs'}>
+                      {scheduleIntel.showCritical ? 'On' : 'Off'}
+                    </span>
+                  </button>
+                  {scheduleIntel.hasBaseline && (
+                    <button
+                      onClick={() => { setScheduleMenuOpen(false); scheduleIntel.onToggleBaseline() }}
+                      className="flex w-full items-center justify-between px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      Show baseline bars
+                      <span className={scheduleIntel.showBaseline ? 'text-indigo-600 text-xs font-semibold' : 'text-slate-300 text-xs'}>
+                        {scheduleIntel.showBaseline ? 'On' : 'Off'}
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setScheduleMenuOpen(false); scheduleIntel.onLookahead() }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Lookahead schedule
+                  </button>
+                  {scheduleIntel.hasBaseline && (
+                    <button
+                      onClick={() => { setScheduleMenuOpen(false); scheduleIntel.onCompare() }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      Compare to baseline
+                    </button>
+                  )}
+                  {scheduleIntel.canBaseline && (
+                    <>
+                      <div className="my-1 border-t border-slate-100" />
+                      <button
+                        onClick={() => { setScheduleMenuOpen(false); void scheduleIntel.onSetBaseline() }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+                      >
+                        {scheduleIntel.hasBaseline ? 'Set a new baseline' : 'Set baseline'}
+                      </button>
+                    </>
+                  )}
+                  {scheduleIntel.cycleWarning && (
+                    <p className="border-t border-slate-100 px-3 py-2 text-[11px] leading-snug text-rose-600">
+                      A circular dependency is blocking critical-path math. Remove one of the looping predecessors.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {scheduleIntel?.completionChip}
 
         {canPrint && (
         <div ref={printMenuRef} className="relative">
