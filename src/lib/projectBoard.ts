@@ -32,6 +32,26 @@ export interface ProjectBoardState {
   stageProgressLabel: string
 }
 
+/**
+ * Serialized slice of loadProjectIntel handed to board cards: the score and
+ * priority come from the shared health engine so the board can never disagree
+ * with the Command Center about the same project.
+ */
+export interface BoardIntel {
+  score: number
+  level: ProjectHealth
+  priority: number
+  attentionCount: number
+  hasCritical: boolean
+  topAttention: string[]
+  slipDays: number
+  progressPercent: number
+  overduePhases: number
+  blockedPhases: number
+  openPunchCount: number
+  lastActivityAt: string | null
+}
+
 export interface ProjectExecutiveSummary {
   activeProjects: number
   onTrack: number

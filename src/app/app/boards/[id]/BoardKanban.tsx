@@ -1,6 +1,6 @@
 'use client'
 
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   DndContext,
@@ -25,7 +25,7 @@ import { addBoardColumn, deleteBoardColumn, moveProjectToColumn, updateBoardColu
 import { createClient } from '@/lib/supabase/client'
 import { ProjectBoardCard, type ProjectBoardStageOption } from '@/components/projects/ProjectBoardCard'
 import { StickyHScroll } from '@/components/ui/StickyHScroll'
-import { getProjectBoardState } from '@/lib/projectBoard'
+import { getProjectBoardState, type BoardIntel } from '@/lib/projectBoard'
 import { COLUMN_COLORS } from '@/lib/constants'
 import { Board, BoardColumn, Project } from '@/types/app'
 import { cn, validateHexColor } from '@/lib/utils'
@@ -37,6 +37,19 @@ const dropCollision: CollisionDetection = (args) => {
   return pointer.length > 0 ? pointer : closestCorners(args)
 }
 
+export type BoardDensity = 'compact' | 'standard' | 'detailed'
+export type BoardSort = 'smart' | 'behind' | 'health' | 'stale' | 'progress' | 'name' | 'end_date'
+
+const SORT_OPTIONS: { value: BoardSort; label: string }[] = [
+  { value: 'smart',    label: 'Smart priority' },
+  { value: 'behind',   label: 'Most behind' },
+  { value: 'health',   label: 'Most at risk' },
+  { value: 'stale',    label: 'Least recently updated' },
+  { value: 'progress', label: 'Completion %' },
+  { value: 'end_date', label: 'Completion date' },
+  { value: 'name',     label: 'Name' },
+]
+
 interface BoardKanbanProps {
   board: Board
   columns: BoardColumn[]
@@ -45,11 +58,40 @@ interface BoardKanbanProps {
   currentUserId: string
   canEdit: boolean
   canAdmin: boolean
+  intelById?: Record<string, BoardIntel>
 }
 
-export function BoardKanban({ board, columns, projects, memberMap, canEdit, canAdmin }: BoardKanbanProps) {
+export function BoardKanban({ board, columns, projects, memberMap, canEdit, canAdmin, intelById = {} }: BoardKanbanProps) {
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
+
+  // Card density is a personal reading preference; it sticks per browser.
+  const [density, setDensity] = useState<BoardDensity>(() => {
+    if (typeof window === 'undefined') return 'standard'
+    const saved = localStorage.getItem('pf-board-density')
+    return saved === 'compact' || saved === 'detailed' ? saved : 'standard'
+  })
+  useEffect(() => {
+    try { localStorage.setItem('pf-board-density', density) } catch { /* private mode */ }
+  }, [density])
+  const [sortBy, setSortBy] = useState<BoardSort>('smart')
+
+  // Column order for cards. Smart priority is documented in projectHealth.ts:
+  // (100 - health) + attention weight + critical bump + near-completion bump.
+  const orderProjects = (list: Project[]): Project[] => {
+    const intel = (p: Project) => intelById[p.id]
+    const sorted = [...list]
+    switch (sortBy) {
+      case 'smart':    sorted.sort((a, b) => (intel(b)?.priority ?? 0) - (intel(a)?.priority ?? 0)); break
+      case 'behind':   sorted.sort((a, b) => (intel(b)?.slipDays ?? 0) - (intel(a)?.slipDays ?? 0)); break
+      case 'health':   sorted.sort((a, b) => (intel(a)?.score ?? 100) - (intel(b)?.score ?? 100)); break
+      case 'stale':    sorted.sort((a, b) => (intel(a)?.lastActivityAt ?? '').localeCompare(intel(b)?.lastActivityAt ?? '')); break
+      case 'progress': sorted.sort((a, b) => (intel(a)?.progressPercent ?? 0) - (intel(b)?.progressPercent ?? 0)); break
+      case 'end_date': sorted.sort((a, b) => (a.end_date ?? '').localeCompare(b.end_date ?? '')); break
+      case 'name':     sorted.sort((a, b) => a.name.localeCompare(b.name)); break
+    }
+    return sorted
+  }
 
   const filtered = useMemo(() => {
     const query = deferredSearch.toLowerCase().trim()
@@ -78,6 +120,22 @@ export function BoardKanban({ board, columns, projects, memberMap, canEdit, canA
             {filtered.length} project{filtered.length === 1 ? '' : 's'}
             {doneCount > 0 ? ` | ${doneCount} done` : ''}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div data-help="board-density" className="flex rounded-lg bg-slate-100 p-0.5">
+              {(['compact', 'standard', 'detailed'] as const).map((d) => (
+                <button key={d} onClick={() => setDensity(d)}
+                  className={cn('rounded-md px-2.5 py-1 text-[11px] font-semibold capitalize transition',
+                    density === d ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700')}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            <select data-help="board-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as BoardSort)}
+              title="How cards are ordered inside each column"
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] font-medium text-slate-600 outline-none focus:border-indigo-400">
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
         </div>
 
         <div className="flex flex-shrink-0 items-center gap-2">
@@ -122,6 +180,9 @@ export function BoardKanban({ board, columns, projects, memberMap, canEdit, canA
       </div>
 
       <BoardColumnsKanban
+        intelById={intelById}
+        density={density}
+        orderProjects={orderProjects}
         boardId={board.id}
         columns={columns}
         projects={filtered}
@@ -138,12 +199,18 @@ export function BoardColumnsKanban({
   projects,
   memberMap,
   canEdit,
+  intelById = {},
+  density = 'standard',
+  orderProjects = (list) => list,
 }: {
   boardId: string
   columns: BoardColumn[]
   projects: Project[]
   memberMap: Record<string, string>
   canEdit: boolean
+  intelById?: Record<string, BoardIntel>
+  density?: BoardDensity
+  orderProjects?: (list: Project[]) => Project[]
 }) {
   const router = useRouter()
   const [projectColumnOverrides, setProjectColumnOverrides] = useState<Record<string, string | null>>({})
@@ -476,13 +543,15 @@ export function BoardColumnsKanban({
               <KanbanColumn
                 key={column.id}
                 column={column}
-                projects={columnProjects}
+                projects={orderProjects(columnProjects)}
                 canEdit={canEdit}
                 memberMap={memberMap}
                 activeId={activeId}
                 onMoveProject={moveProject}
                 onDeleteProject={canEdit ? handleDeleteProject : undefined}
                 stageOptions={stageOptions}
+                intelById={intelById}
+                density={density}
               />
             )
           })}
@@ -518,6 +587,8 @@ function KanbanColumn({
   onMoveProject,
   onDeleteProject,
   stageOptions,
+  intelById = {},
+  density = 'standard',
 }: {
   column: BoardColumn
   projects: Project[]
@@ -527,11 +598,19 @@ function KanbanColumn({
   onMoveProject: (projectId: string, columnId: string) => Promise<void>
   onDeleteProject?: (projectId: string) => Promise<void>
   stageOptions: ProjectBoardStageOption[]
+  intelById?: Record<string, BoardIntel>
+  density?: BoardDensity
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: column.id, disabled: !canEdit })
 
-  const attentionCount = projects.filter((project) => getProjectBoardState(project).needsAttentionToday).length
-  const delayedCount = projects.filter((project) => getProjectBoardState(project).health === 'delayed').length
+  // Real engine numbers when available; the legacy per-card heuristic backs
+  // them up for projects the loader had no data for.
+  const attentionCount = projects.filter((p) =>
+    intelById[p.id] ? intelById[p.id].attentionCount > 0 : getProjectBoardState(p).needsAttentionToday).length
+  const delayedCount = projects.filter((p) =>
+    (intelById[p.id]?.level ?? getProjectBoardState(p).health) === 'delayed').length
+  const scored = projects.map((p) => intelById[p.id]?.score).filter((n): n is number => typeof n === 'number')
+  const avgHealth = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null
 
   return (
     <div className="w-[320px] flex-shrink-0">
@@ -555,6 +634,12 @@ function KanbanColumn({
           <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
             {attentionCount > 0 ? `${attentionCount} need attention` : 'No urgent issues'}
           </span>
+          {avgHealth !== null && (
+            <span className={cn('rounded-full px-2.5 py-1 font-medium',
+              avgHealth >= 80 ? 'bg-emerald-50 text-emerald-700' : avgHealth >= 60 ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700')}>
+              Avg health {avgHealth}
+            </span>
+          )}
           {delayedCount > 0 && (
             <span className="rounded-full bg-rose-50 px-2.5 py-1 font-medium text-rose-700">
               {delayedCount} delayed
@@ -582,6 +667,8 @@ function KanbanColumn({
             column={column}
             onMoveProject={onMoveProject}
             onDeleteProject={onDeleteProject}
+            intel={intelById[project.id]}
+            density={density}
           />
         ))}
 
@@ -619,6 +706,8 @@ function DraggableCard({
   column,
   onMoveProject,
   onDeleteProject,
+  intel,
+  density,
 }: {
   project: Project
   memberMap: Record<string, string>
@@ -627,6 +716,8 @@ function DraggableCard({
   column: BoardColumn
   onMoveProject: (projectId: string, columnId: string) => Promise<void>
   onDeleteProject?: (projectId: string) => Promise<void>
+  intel?: BoardIntel
+  density?: BoardDensity
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
@@ -650,6 +741,8 @@ function DraggableCard({
         onStageChange={onMoveProject}
         onDelete={onDeleteProject}
         dragHandle={{ attributes, listeners }}
+        intel={intel}
+        density={density}
       />
     </div>
   )

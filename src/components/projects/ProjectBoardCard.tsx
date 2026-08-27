@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/Badge'
 import {
   PROJECT_HEALTH_META,
   getProjectBoardState,
+  type BoardIntel,
 } from '@/lib/projectBoard'
 import { PRIORITY_COLORS, PRIORITY_LABELS } from '@/lib/constants'
 import { Project, ProjectPriority } from '@/types/app'
@@ -57,6 +58,9 @@ interface ProjectBoardCardProps {
   dragHandle?: { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners }
   isDragging?: boolean
   isSelected?: boolean
+  /** From the shared health engine; the card renders richer when present. */
+  intel?: BoardIntel
+  density?: 'compact' | 'standard' | 'detailed'
 }
 
 function MetricTile({
@@ -104,6 +108,8 @@ export function ProjectBoardCard({
   dragHandle,
   isDragging = false,
   isSelected = false,
+  intel,
+  density = 'detailed',
 }: ProjectBoardCardProps) {
   const searchParams = useSearchParams()
   const [showMenu, setShowMenu] = useState(false)
@@ -143,6 +149,114 @@ export function ProjectBoardCard({
     onCardClick(project.id)
   }
 
+  const level = intel?.level ?? state.health
+  const levelMeta = PROJECT_HEALTH_META[level]
+  const slip = intel?.slipDays ?? state.overdueDays
+  const attention = intel?.attentionCount ?? 0
+  const actionRequired = intel?.hasCritical ?? false
+
+  if (density === 'compact') {
+    return (
+      <div
+        onClick={handleCardClick}
+        className={cn(
+          'group overflow-hidden rounded-xl border bg-white shadow-sm transition-all',
+          onCardClick && 'cursor-pointer',
+          isDragging ? 'border-indigo-200 shadow-lg' : 'border-slate-200 hover:border-slate-300 hover:shadow-md',
+          actionRequired && 'border-l-4 border-l-rose-500',
+        )}
+      >
+        <div className="flex items-center gap-2 p-2.5">
+          {dragHandle && canEdit && (
+            <button {...dragHandle.attributes} {...dragHandle.listeners} data-card-action="true"
+              className="cursor-grab p-0.5 text-slate-300 hover:text-slate-500" aria-label="Drag project">
+              <GripVertical size={13} />
+            </button>
+          )}
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', levelMeta.dotClassName)} />
+          <Link href={detailHref} className="min-w-0 flex-1" data-card-action="true">
+            <p className="truncate text-xs font-semibold text-slate-900">
+              {project.job_number ? `${project.job_number} · ` : ''}{project.name}
+            </p>
+            <p className="truncate text-[10px] text-slate-400">
+              {slip > 0 ? `${slip}d behind` : 'On plan'}
+              {' · '}{intel?.progressPercent ?? state.progressPercent}%
+              {attention > 0 ? ` · ${attention} need${attention === 1 ? 's' : ''} attention` : ''}
+            </p>
+          </Link>
+          {intel && (
+            <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold', levelMeta.pillClassName)}>
+              {intel.score}
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (density === 'standard') {
+    return (
+      <div
+        onClick={handleCardClick}
+        className={cn(
+          'group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all',
+          onCardClick && 'cursor-pointer',
+          isDragging ? 'border-indigo-200 shadow-xl' : isSelected ? 'border-indigo-300 shadow-lg' : 'border-slate-200 hover:border-slate-300 hover:shadow-md',
+        )}
+      >
+        <div className="h-1 w-full" style={{ backgroundColor: stageColor }} />
+        {actionRequired && intel && (
+          <Link href={detailHref} data-card-action="true"
+            className="flex items-center gap-1.5 bg-rose-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-600 hover:bg-rose-100">
+            Action required · {intel.attentionCount} item{intel.attentionCount === 1 ? '' : 's'}
+          </Link>
+        )}
+        <div className="space-y-2.5 p-3">
+          <div className="flex items-start gap-2">
+            {dragHandle && canEdit && (
+              <button {...dragHandle.attributes} {...dragHandle.listeners} data-card-action="true"
+                className="mt-0.5 cursor-grab p-0.5 text-slate-300 hover:text-slate-500" aria-label="Drag project">
+                <GripVertical size={13} />
+              </button>
+            )}
+            <Link href={detailHref} className="min-w-0 flex-1" data-card-action="true">
+              <p className="line-clamp-2 text-sm font-semibold leading-5 text-slate-900">{project.name}</p>
+              <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                {[project.job_number, pmName && `PM ${pmName}`].filter(Boolean).join(' · ') || project.customer_name || ''}
+              </p>
+            </Link>
+            <Badge className={cn('shrink-0 border text-[10px] font-semibold', levelMeta.pillClassName)}>
+              {intel ? intel.score : levelMeta.label}
+            </Badge>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-emerald-500"
+                style={{ width: `${intel?.progressPercent ?? state.progressPercent}%` }} />
+            </div>
+            <span className="text-[10px] font-semibold text-slate-500">{intel?.progressPercent ?? state.progressPercent}%</span>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 text-[10px] font-medium">
+            <span className={cn('rounded-full px-2 py-0.5', slip > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600')}>
+              {slip > 0 ? `${slip}d behind` : 'On plan'}
+            </span>
+            {(intel?.blockedPhases ?? state.blockedPhases) > 0 && (
+              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-600">
+                {intel?.blockedPhases ?? state.blockedPhases} blocked
+              </span>
+            )}
+            {(intel?.overduePhases ?? 0) > 0 && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{intel?.overduePhases} overdue</span>
+            )}
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{state.updatedLabel}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       onClick={handleCardClick}
@@ -157,6 +271,19 @@ export function ProjectBoardCard({
       )}
     >
       <div className="h-1.5 w-full" style={{ backgroundColor: stageColor }} />
+      {actionRequired && intel && (
+        <Link href={detailHref} data-card-action="true"
+          className="block bg-rose-50 px-4 py-2 hover:bg-rose-100">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-rose-600">
+            Action required · {intel.attentionCount} item{intel.attentionCount === 1 ? '' : 's'}
+          </p>
+          <ul className="mt-0.5 space-y-0.5">
+            {intel.topAttention.map((t) => (
+              <li key={t} className="truncate text-[11px] text-rose-700">{t}</li>
+            ))}
+          </ul>
+        </Link>
+      )}
 
       <div className="space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
