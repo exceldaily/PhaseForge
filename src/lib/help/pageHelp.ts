@@ -112,6 +112,7 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'sched-week', label: 'Week', text: 'Step through weeks. Copy last week clones the previous one so you only edit what changed.' },
       { key: 'sched-roster', label: 'Crew', text: 'Type a name to add someone. Tap a name to rename or swap them out and every day they are on follows.' },
       { key: 'sched-reorder', label: 'Reorder', text: 'Drag a job by its grip to move it up or down. The order you set is the order it prints and emails in.' },
+      { key: 'sched-highlight', label: 'Highlight', text: 'Tint a row so it stands out. The colour carries through to print and to the copied email.' },
       { key: 'sched-projects', label: 'Job list', text: 'Your recurring jobs with their numbers. One tap drops a job onto this week.' },
       { key: 'sched-zoom', label: 'Zoom', text: 'Shrink the sheet to fit a wide week on a phone screen.' },
       { key: 'sched-copy', label: 'Copy for email', text: 'Copies the schedule as a formatted table. Paste straight into Gmail or Outlook.' },

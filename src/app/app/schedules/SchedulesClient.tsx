@@ -13,7 +13,7 @@ import { useRowReorder } from './useRowReorder'
 
 interface Job {
   id: string; title: string; job_number: string | null; shift_label: string | null
-  sort_order: number; days: Record<number, string[]>
+  sort_order: number; highlight_color?: string | null; days: Record<number, string[]>
   cells?: Record<number, GridCell[]>
 }
 interface Team { id: string; name: string; roster: string[]; division: string | null }
@@ -38,13 +38,13 @@ interface WeekTeam { id: string; name: string; division: string | null; roster: 
 export function SchedulesClient({
   teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
   division = '', divisions = [], hasAnyTeams = true, allWeek = [],
-  scheduleStyle = 'crew', shiftOptions = ['Days', 'Nights', 'Travel Day', 'As needed'],
+  scheduleStyle = 'crew', shiftOptions = ['Days', 'Nights', 'Travel Day', 'As needed'], shiftColors = {},
 }: {
   teams: Team[]; teamId: string | null; weekStart: string; jobs: Job[]; canEdit: boolean
   jobUrlTemplate?: string | null; directory?: DirEntry[]
   division?: string; divisions?: string[]; hasAnyTeams?: boolean
   allWeek?: WeekTeam[]
-  scheduleStyle?: ScheduleStyle; shiftOptions?: string[]
+  scheduleStyle?: ScheduleStyle; shiftOptions?: string[]; shiftColors?: Record<string, string>
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -256,7 +256,7 @@ export function SchedulesClient({
   const copyForEmail = async () => {
     const jobsNow = liveJobs()
     if (scheduleStyle === 'grid') {
-      const { html, plain } = buildGridCopy(team?.name ?? 'Team', jobsNow, weekStart, jobUrlTemplate)
+      const { html, plain } = buildGridCopy(team?.name ?? 'Team', jobsNow, weekStart, jobUrlTemplate, shiftColors)
       await writeClipboard(html, plain)
       return
     }
@@ -278,7 +278,7 @@ export function SchedulesClient({
         : allWeek.filter((t) => (t.division ?? '') === division))
         .map((t) => ({ ...t, jobsNow: t.id === teamId ? liveJobs() : t.jobs }))
       if (gridTeams.length === 0) { setMsg('No schedules on this week yet.'); return }
-      const sections = gridTeams.map((t) => buildGridCopy(t.name, t.jobsNow, weekStart, jobUrlTemplate))
+      const sections = gridTeams.map((t) => buildGridCopy(t.name, t.jobsNow, weekStart, jobUrlTemplate, shiftColors))
       await writeClipboard(
         sections.map((s) => s.html).join('<br>'),
         sections.map((s) => s.plain).join('\n\n' + '='.repeat(40) + '\n\n'),
@@ -558,7 +558,8 @@ export function SchedulesClient({
         {scheduleStyle === 'grid' && team ? (
           <GridSchedule
             teamName={team.name} weekStart={weekStart} jobs={jobs} roster={roster}
-            shiftOptions={shiftOptions} division={division} canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
+            shiftOptions={shiftOptions} shiftColors={shiftColors} division={division}
+            canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
             reorder={reorder}
             onChanged={() => router.refresh()}
             reportCells={(jobId, cells) => report(jobId, { cells })}

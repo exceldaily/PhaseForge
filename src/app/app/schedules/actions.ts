@@ -62,6 +62,20 @@ export async function updateScheduleJob(id: string, patch: {
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+// Tint one row of the Startup grid so it stands out on screen, on paper, and
+// in the pasted email. null clears it.
+export async function setJobHighlight(id: string, color: string | null) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const hex = color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : null
+    const { error } = await supabase.from('schedule_jobs')
+      .update({ highlight_color: hex }).eq('id', id).eq('company_id', companyId)
+    if (error) return { error: error.message }
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
 // Persist a new top-to-bottom job order for a week. The client sends the full
 // id list, so a single drag and a bulk rearrange cost the same.
 export async function reorderScheduleJobs(ids: string[]) {
@@ -144,11 +158,18 @@ export async function setDepartmentStyle(input: {
 // / whatever this crew actually calls them). Kept separate from the style
 // setter so editing the list can never flip a department's layout, and an
 // empty list is honoured — some departments do not want shift notes at all.
-export async function setShiftOptions(division: string, options: string[]) {
+export async function setShiftOptions(division: string, options: string[], colors?: Record<string, string>) {
   try {
     const { supabase, companyId, isManager } = await ctx()
     if (!isManager) return { error: 'Managers only' }
     const clean = [...new Set((options ?? []).map((s) => s.trim()).filter(Boolean))].slice(0, 20)
+    // Only keep colours for notes that still exist, and only real hex values —
+    // the map is rendered straight into a style attribute.
+    const cleanColors: Record<string, string> = {}
+    for (const name of clean) {
+      const hex = colors?.[name]
+      if (hex && /^#[0-9a-fA-F]{6}$/.test(hex)) cleanColors[name] = hex
+    }
     const { data: existing } = await supabase.from('schedule_department_settings')
       .select('style').eq('company_id', companyId).eq('division', division ?? '').maybeSingle()
     const { error } = await supabase.from('schedule_department_settings').upsert({
@@ -156,6 +177,7 @@ export async function setShiftOptions(division: string, options: string[]) {
       division: division ?? '',
       style: (existing?.style as string) === 'grid' ? 'grid' : 'crew',
       shift_options: clean,
+      shift_colors: cleanColors,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'company_id,division' })
     if (error) return { error: error.message }

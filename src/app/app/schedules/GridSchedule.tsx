@@ -7,15 +7,16 @@
 // never clipped by the scroll container.
 
 import { useEffect, useRef, useState } from 'react'
-import { GripVertical, Plus, Trash2, X, ChevronDown } from 'lucide-react'
-import { deleteScheduleJob, updateScheduleJob, setGridCell, setShiftOptions } from './actions'
+import { GripVertical, Highlighter, Plus, Trash2, X, ChevronDown } from 'lucide-react'
+import { deleteScheduleJob, updateScheduleJob, setGridCell, setShiftOptions, setJobHighlight } from './actions'
 import type { RowReorder } from './useRowReorder'
+import { ROW_HIGHLIGHTS, SHIFT_COLORS, safeHex, shiftColor } from './colors'
 
 export interface GridCell { name: string; shift: string }
 
 interface GridJob {
   id: string; title: string; job_number: string | null; shift_label: string | null
-  sort_order: number; cells?: Record<number, GridCell[]>
+  sort_order: number; highlight_color?: string | null; cells?: Record<number, GridCell[]>
 }
 type CellMap = Record<string, Record<number, GridCell[]>>
 
@@ -31,16 +32,9 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
   if (!template || !jobNumber?.trim()) return null
   return template.replace('{job}', encodeURIComponent(jobNumber.trim()))
 }
-function shiftColor(shift: string): string {
-  const s = shift.toLowerCase()
-  if (s.includes('travel')) return '#c0392b'
-  if (s.includes('night')) return '#6d28d9'
-  if (s.includes('as need')) return '#b45309'
-  return '#15803d'
-}
 
 export function GridSchedule({
-  teamName, weekStart, jobs, roster, shiftOptions, division, canEdit, jobUrlTemplate,
+  teamName, weekStart, jobs, roster, shiftOptions, shiftColors, division, canEdit, jobUrlTemplate,
   onChanged, reportCells, reorder, zoom = 1,
 }: {
   teamName: string
@@ -48,6 +42,7 @@ export function GridSchedule({
   jobs: GridJob[]
   roster: string[]
   shiftOptions: string[]
+  shiftColors: Record<string, string>
   division: string
   canEdit: boolean
   jobUrlTemplate: string | null
@@ -136,6 +131,7 @@ export function GridSchedule({
               </td></tr>
             ) : reorder.ordered.map((job) => (
               <GridRow key={job.id} job={job} cells={cells[job.id] ?? {}} canEdit={canEdit}
+                shiftColors={shiftColors}
                 rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
                 dragging={reorder.dragId === job.id}
                 jobUrlTemplate={jobUrlTemplate} onChanged={onChanged}
@@ -153,7 +149,7 @@ export function GridSchedule({
         const list = cells[editor.jobId]?.[editor.day] ?? []
         const existing = editor.idx != null ? list[editor.idx] : undefined
         return (
-          <CellEditor roster={roster} shiftOptions={shiftOptions} division={division} onShiftsChanged={onChanged}
+          <CellEditor roster={roster} shiftOptions={shiftOptions} shiftColors={shiftColors} division={division} onShiftsChanged={onChanged}
             top={editor.top} left={editor.left} up={editor.up}
             existing={existing}
             onAdd={(entry) => {
@@ -176,7 +172,7 @@ export function GridSchedule({
 
 function GridRow({
   job, cells, canEdit, jobUrlTemplate, onChanged, onRemove, onOpenEditor, onEditEntry, onCellDown, onCellEnter,
-  rowRef, gripProps, dragging,
+  shiftColors, rowRef, gripProps, dragging,
 }: {
   job: GridJob; cells: Record<number, GridCell[]>; canEdit: boolean
   jobUrlTemplate: string | null; onChanged: () => void
@@ -185,6 +181,7 @@ function GridRow({
   onEditEntry: (day: number, idx: number, el: HTMLElement) => void
   onCellDown: (day: number) => void
   onCellEnter: (day: number) => void
+  shiftColors: Record<string, string>
   rowRef: (el: HTMLElement | null) => void
   gripProps: React.ComponentProps<'button'>
   dragging: boolean
@@ -196,13 +193,22 @@ function GridRow({
     if (timers.current[key]) clearTimeout(timers.current[key])
     timers.current[key] = setTimeout(fn, 700)
   }
+  const [highlight, setHighlight] = useState<string | null>(safeHex(job.highlight_color))
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const url = jobUrl(jobUrlTemplate, jobNumber)
+
+  const pickHighlight = (hex: string | null) => {
+    setHighlight(hex)
+    setPaletteOpen(false)
+    void setJobHighlight(job.id, hex)
+  }
 
   return (
     <tr ref={rowRef}
-      className={`border-b-2 border-slate-300 odd:bg-white even:bg-slate-100 dark:border-slate-600 dark:odd:bg-slate-900 dark:even:bg-slate-800/60 ${
-        dragging ? 'relative z-10 opacity-90 shadow-lg outline outline-2 outline-indigo-500' : ''
-      }`}>
+      style={highlight ? { backgroundColor: highlight } : undefined}
+      className={`border-b-2 border-slate-300 dark:border-slate-600 ${
+        highlight ? '' : 'odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900 dark:even:bg-slate-800/60'
+      } ${dragging ? 'relative z-10 opacity-90 shadow-lg outline outline-2 outline-indigo-500' : ''}`}>
       <td className="w-56 border-r-2 border-slate-300 px-2 py-1.5 align-top dark:border-slate-600">
         <div className="flex items-start gap-1">
           {canEdit && (
@@ -222,8 +228,29 @@ function GridRow({
                 className="w-24 bg-transparent font-semibold text-indigo-600 outline-none" />
               {url && <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 print:hidden" title="Open job">↗</a>}
               {canEdit && (
-                <button onClick={() => { if (confirm(`Delete "${title}" from this week?`)) void deleteScheduleJob(job.id).then(onChanged) }}
-                  className="ml-auto text-rose-400 hover:text-rose-600 print:hidden"><Trash2 size={12} /></button>
+                <span className="relative ml-auto flex items-center gap-1 print:hidden">
+                  <button data-help="sched-highlight" onClick={() => setPaletteOpen((o) => !o)}
+                    title="Highlight this row" aria-label={`Highlight ${title}`}
+                    className={`rounded p-0.5 ${highlight ? 'text-slate-700' : 'text-slate-400 hover:text-indigo-600'}`}>
+                    <Highlighter size={12} />
+                  </button>
+                  {paletteOpen && (
+                    <span className="absolute left-0 top-5 z-30 flex flex-wrap gap-1 rounded-lg border border-slate-300 bg-white p-1.5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+                      style={{ width: 132 }}>
+                      {ROW_HIGHLIGHTS.map((c) => (
+                        <button key={c.hex} onClick={() => pickHighlight(c.hex)} title={c.label}
+                          aria-label={c.label} style={{ backgroundColor: c.hex }}
+                          className={`h-6 w-6 rounded border ${highlight === c.hex ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-300'}`} />
+                      ))}
+                      <button onClick={() => pickHighlight(null)}
+                        className="mt-0.5 w-full rounded border border-slate-300 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-600">
+                        No highlight
+                      </button>
+                    </span>
+                  )}
+                  <button onClick={() => { if (confirm(`Delete "${title}" from this week?`)) void deleteScheduleJob(job.id).then(onChanged) }}
+                    className="text-rose-400 hover:text-rose-600"><Trash2 size={12} /></button>
+                </span>
               )}
             </div>
           </div>
@@ -240,7 +267,7 @@ function GridRow({
             <div className="flex flex-col gap-0.5">
               {entries.map((e, i) => (
                 <span key={i} className="group inline-flex items-center gap-1 text-[12px] font-semibold leading-tight"
-                  style={{ color: shiftColor(e.shift) }}>
+                  style={{ color: shiftColor(e.shift, shiftColors) }}>
                   {canEdit ? (
                     <button onPointerDown={(ev) => ev.stopPropagation()}
                       onClick={(ev) => onEditEntry(d, i, ev.currentTarget)}
@@ -272,8 +299,9 @@ function GridRow({
   )
 }
 
-function CellEditor({ roster, shiftOptions, division, onShiftsChanged, top, left, up, onAdd, onClose, existing, onRemove }: {
-  roster: string[]; shiftOptions: string[]; division: string; top: number; left: number; up: boolean
+function CellEditor({ roster, shiftOptions, shiftColors, division, onShiftsChanged, top, left, up, onAdd, onClose, existing, onRemove }: {
+  roster: string[]; shiftOptions: string[]; shiftColors: Record<string, string>
+  division: string; top: number; left: number; up: boolean
   onAdd: (e: GridCell) => void; onClose: () => void; onShiftsChanged: () => void
   existing?: GridCell; onRemove?: () => void
 }) {
@@ -282,7 +310,9 @@ function CellEditor({ roster, shiftOptions, division, onShiftsChanged, top, left
   // settings page. Local copy keeps the popover responsive while it saves.
   const [manage, setManage] = useState(false)
   const [shifts, setShifts] = useState(shiftOptions)
+  const [colors, setColors] = useState<Record<string, string>>(shiftColors)
   const [newShift, setNewShift] = useState('')
+  const [newColor, setNewColor] = useState(SHIFT_COLORS[0].hex)
   const [name, setName] = useState(existing?.name ?? '')
   const [shift, setShift] = useState(existing?.shift ?? shiftOptions[0] ?? '')
   const ref = useRef<HTMLDivElement>(null)
@@ -296,17 +326,19 @@ function CellEditor({ roster, shiftOptions, division, onShiftsChanged, top, left
     }
   }, [onClose])
   const add = () => { if (name.trim()) onAdd({ name: name.trim(), shift }) }
-  const saveShifts = (next: string[]) => {
+  const saveShifts = (next: string[], nextColors: Record<string, string> = colors) => {
     setShifts(next)
+    setColors(nextColors)
     if (shift && !next.includes(shift)) setShift(next[0] ?? '')
-    void setShiftOptions(division, next).then(onShiftsChanged)
+    void setShiftOptions(division, next, nextColors).then(onShiftsChanged)
   }
   const addShift = () => {
     const v = newShift.trim()
     if (!v || shifts.includes(v)) { setNewShift(''); return }
     setNewShift('')
-    saveShifts([...shifts, v])
+    saveShifts([...shifts, v], { ...colors, [v]: newColor })
   }
+  const recolor = (name: string, hex: string) => saveShifts(shifts, { ...colors, [name]: hex })
   // Fixed layer so the scroll container can never clip it; flips above the cell
   // when there isn't room below.
   const phone = typeof window !== 'undefined' && window.innerWidth < 640
@@ -324,11 +356,21 @@ function CellEditor({ roster, shiftOptions, division, onShiftsChanged, top, left
           </p>
           <div className="mb-1.5 flex flex-col gap-1">
             {shifts.map((sn) => (
-              <span key={sn} className="flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                {sn}
-                <button onClick={() => saveShifts(shifts.filter((x) => x !== sn))} aria-label={`Remove ${sn}`}
-                  className="ml-auto p-0.5 text-slate-400 hover:text-rose-500"><X size={13} /></button>
-              </span>
+              <div key={sn} className="rounded bg-slate-100 px-2 py-1 dark:bg-slate-800">
+                <span className="flex items-center gap-1 text-xs font-semibold"
+                  style={{ color: shiftColor(sn, colors) }}>
+                  {sn}
+                  <button onClick={() => saveShifts(shifts.filter((x) => x !== sn))} aria-label={`Remove ${sn}`}
+                    className="ml-auto p-0.5 text-slate-400 hover:text-rose-500"><X size={13} /></button>
+                </span>
+                <span className="mt-1 flex flex-wrap gap-1">
+                  {SHIFT_COLORS.map((c) => (
+                    <button key={c.hex} onClick={() => recolor(sn, c.hex)} title={c.label} aria-label={`${sn} in ${c.label}`}
+                      style={{ backgroundColor: c.hex }}
+                      className={`h-4 w-4 rounded-full ${shiftColor(sn, colors) === c.hex ? 'ring-2 ring-slate-900 ring-offset-1 dark:ring-slate-100' : ''}`} />
+                  ))}
+                </span>
+              </div>
             ))}
             {shifts.length === 0 && (
               <span className="text-[11px] text-slate-400">No shift notes. Names will show without one.</span>
@@ -342,6 +384,14 @@ function CellEditor({ roster, shiftOptions, division, onShiftsChanged, top, left
             <button onClick={addShift} disabled={!newShift.trim()}
               className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">Add</button>
           </div>
+          <span className="mb-1.5 flex flex-wrap items-center gap-1">
+            <span className="mr-0.5 text-[10px] font-medium text-slate-400">Colour</span>
+            {SHIFT_COLORS.map((c) => (
+              <button key={c.hex} onClick={() => setNewColor(c.hex)} title={c.label} aria-label={`New note in ${c.label}`}
+                style={{ backgroundColor: c.hex }}
+                className={`h-4 w-4 rounded-full ${newColor === c.hex ? 'ring-2 ring-slate-900 ring-offset-1 dark:ring-slate-100' : ''}`} />
+            ))}
+          </span>
           <p className="mb-1.5 text-[10px] leading-snug text-slate-400">
             Applies to every team in this department. Names already scheduled keep the note they were given.
           </p>
@@ -394,19 +444,21 @@ function CellEditor({ roster, shiftOptions, division, onShiftsChanged, top, left
 
 export function buildGridCopy(
   teamName: string, jobs: GridJob[], weekStart: string, jobUrlTemplate: string | null,
+  shiftColors: Record<string, string> = {},
 ): { html: string; plain: string } {
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const cell = 'border:1px solid #000;padding:4px 7px;font-family:Arial,sans-serif;font-size:12px;vertical-align:top;'
   const head = `<td style="${cell}background:#333;color:#fff;font-weight:bold;">Job</td>` +
     DAY_NAMES.map((dn, d) => `<td style="${cell}background:#333;color:#fff;text-align:center;font-weight:bold;white-space:nowrap;">${dn} ${mmdd(shiftDate(weekStart, d))}</td>`).join('')
   const rows = jobs.map((j, ri) => {
-    const grey = ri % 2 === 1
+    const tint = safeHex(j.highlight_color)
+    const bg = tint ? `background:${tint};` : (ri % 2 === 1 ? 'background:#f0f0f0;' : '')
     const url = jobUrl(jobUrlTemplate, j.job_number)
-    const jobCell = `<td style="${cell}${grey ? 'background:#f0f0f0;' : ''}"><b>${esc(j.title)}</b>${j.job_number ? `<br><span style="font-size:11px;">Job#${url ? `<a href="${url}">${esc(j.job_number)}</a>` : esc(j.job_number)}</span>` : ''}</td>`
+    const jobCell = `<td style="${cell}${bg}"><b>${esc(j.title)}</b>${j.job_number ? `<br><span style="font-size:11px;">Job#${url ? `<a href="${url}">${esc(j.job_number)}</a>` : esc(j.job_number)}</span>` : ''}</td>`
     const dayCells = Array.from({ length: 7 }, (_, d) => {
       const entries = j.cells?.[d] ?? []
-      const inner = entries.map((e) => `<span style="color:${shiftColor(e.shift)};font-weight:bold;">${esc(e.name)}${e.shift ? ` (${esc(e.shift)})` : ''}</span>`).join('<br>')
-      return `<td style="${cell}${grey ? 'background:#f0f0f0;' : ''}text-align:center;">${inner || '&nbsp;'}</td>`
+      const inner = entries.map((e) => `<span style="color:${shiftColor(e.shift, shiftColors)};font-weight:bold;">${esc(e.name)}${e.shift ? ` (${esc(e.shift)})` : ''}</span>`).join('<br>')
+      return `<td style="${cell}${bg}text-align:center;">${inner || '&nbsp;'}</td>`
     }).join('')
     return `<tr>${jobCell}${dayCells}</tr>`
   }).join('')

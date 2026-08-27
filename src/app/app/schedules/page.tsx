@@ -38,7 +38,7 @@ export default async function SchedulesPage({ searchParams }: {
     supabase.from('companies').select('schedule_job_url_template, plan').eq('id', profile.company_id).single(),
     supabase.from('schedule_directory').select('id, title, job_number, division')
       .eq('company_id', profile.company_id).order('title'),
-    supabase.from('schedule_department_settings').select('division, style, shift_options')
+    supabase.from('schedule_department_settings').select('division, style, shift_options, shift_colors')
       .eq('company_id', profile.company_id),
   ])
 
@@ -58,11 +58,14 @@ export default async function SchedulesPage({ searchParams }: {
   const jobUrlTemplate = (company?.schedule_job_url_template as string | null) ?? null
   // Per-department style + shift options ('' = the default department).
   const DEFAULT_SHIFTS = ['Days', 'Nights', 'Travel Day', 'As needed']
-  const styleByDivision = new Map<string, { style: 'crew' | 'grid'; shiftOptions: string[] }>()
+  const styleByDivision = new Map<string, {
+    style: 'crew' | 'grid'; shiftOptions: string[]; shiftColors: Record<string, string>
+  }>()
   for (const d of deptSettings ?? []) {
     styleByDivision.set((d.division as string | null) ?? '', {
       style: (d.style as string) === 'grid' ? 'grid' : 'crew',
       shiftOptions: ((d.shift_options as string[] | null) ?? DEFAULT_SHIFTS),
+      shiftColors: ((d.shift_colors as Record<string, string> | null) ?? {}),
     })
   }
 
@@ -90,7 +93,7 @@ export default async function SchedulesPage({ searchParams }: {
   // Fetch the WHOLE week (every team) in one pass: the selected team's board
   // renders from it, and "Copy all" gets every other team's schedule too.
   const { data: jobRows } = await supabase.from('schedule_jobs')
-    .select('id, title, job_number, shift_label, sort_order, superintendent_id')
+    .select('id, title, job_number, shift_label, sort_order, superintendent_id, highlight_color')
     .eq('company_id', profile.company_id).eq('week_start', weekStart)
     .order('sort_order')
   const ids = (jobRows ?? []).map((j) => j.id)
@@ -132,6 +135,7 @@ export default async function SchedulesPage({ searchParams }: {
       allWeek={allWeek}
       scheduleStyle={styleByDivision.get(division)?.style ?? 'crew'}
       shiftOptions={styleByDivision.get(division)?.shiftOptions ?? DEFAULT_SHIFTS}
+      shiftColors={styleByDivision.get(division)?.shiftColors ?? {}}
     />
   )
 }
