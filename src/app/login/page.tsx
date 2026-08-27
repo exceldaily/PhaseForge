@@ -3,28 +3,55 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Sora, Manrope } from 'next/font/google'
+import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google'
 import { ArrowRight, Lock, Mail } from 'lucide-react'
+import { SALES_EMAIL } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { GantticLogo } from '@/components/branding/GantticLogo'
 import { ForceLightTheme } from '@/components/layout/ForceLightTheme'
 import { getFriendlyAuthError, normalizeAuthEmail } from '@/lib/auth/password'
 
-const sora    = Sora({ subsets: ['latin'], weight: ['700', '800'] })
-const manrope = Manrope({ subsets: ['latin'], weight: ['300', '400', '500', '600'] })
+const display = Archivo({ subsets: ['latin'], weight: ['600', '700', '800'] })
+const body    = IBM_Plex_Sans({ subsets: ['latin'], weight: ['300', '400', '500', '600'] })
+const mono    = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'] })
+
+/** Plex Mono via the class is awkward inside inline styles, so use its var. */
+const monoStack = 'var(--pf-mono), ui-monospace, monospace'
 
 // ── Static data ──────────────────────────────────────────────────────────
 const CAPS = [
-  { n: '01', tag: 'SCHEDULE',    title: 'Gantt Timeline',        body: 'Drag-and-drop phase scheduling from mobilization to closeout. Zoom from day view to quarter view, set dependencies, and see your entire project on one screen. Push phases to Google Calendar and keep them in sync.', specs: ['Day · Week · Month · Quarter zoom', 'Phase dependencies & milestones', 'Google Calendar sync'] },
-  { n: '02', tag: 'DRAWINGS',    title: 'Construction Plans',    body: 'Drop a full plan set — or a stack of individual sheets — and PhaseForge splits it, reads the title blocks, and builds a navigable drawing index. A purpose-built viewer replaces squinting at PDFs in a browser tab.', specs: ['Auto sheet number & discipline detection', 'Revisions with superseded warnings', 'Overlay compare · markups · pins'] },
-  { n: '03', tag: 'CHANGE ORDER', title: 'Change Order Control', body: 'Every CO from pricing through customer-portal approval to billing, on one board. Always know who owns it internally, who you are waiting on, how long it has sat, and whether it was ever actually submitted.', specs: ['Internal owner + waiting-on tracking', 'Portal tracking & confirmation numbers', 'Approved-but-not-billed alerts'] },
-  { n: '04', tag: 'QA / FIELD',  title: 'Punch Lists',           body: 'Log punch and QA items on-site with photos, assign them to a trade, and track each one to closed from your phone. Import an existing list from a PDF or spreadsheet and the photos come with it.', specs: ['Issue & completion photo pairs', 'PDF / Excel import with photos', 'Printable field report'] },
-  { n: '05', tag: 'CREW',        title: 'Weekly Schedules',      body: 'Build each crew\'s week, then copy it straight into an email as a clean formatted table your team can actually read. Departments can run the layout that fits how they work.', specs: ['Per-department schedule layouts', 'One-click copy for email', 'Job numbers link to your systems'] },
-  { n: '06', tag: 'SERVICE',     title: 'Dispatch & Quotes',     body: 'Run service calls on a live board with priorities, ETAs, and on-call rotation. Send vendor quote requests from your own Gmail and track every reply against the job.', specs: ['Service call board with ETA alerts', 'Vendor RFQs from your own inbox', 'Reply tracking per request'] },
-  { n: '07', tag: 'KANBAN',      title: 'Project Boards',        body: 'Kanban boards with columns built around your stages, not somebody else\'s. Scope visibility by team so field crews see their boards and office staff see theirs.', specs: ['Custom stage columns', 'Team-scoped visibility', 'Custom field configurator'] },
-  { n: '08', tag: 'REPORTING',   title: 'Reports & Analytics',   body: 'Portfolio dashboards, phase progress, and printable summaries for owner updates, bank draws, and internal reviews. Export to PDF straight from the browser.', specs: ['Printable PDF export', 'Portfolio & completion tracking', 'Role-scoped access'] },
+  { n: '01', tag: 'SCHEDULE', title: 'Gantt Timeline', body: 'Every phase from mobilization to closeout on one screen. Drag a bar to move it, drag its edge to change the duration, and everything downstream shifts with it if you want it to. Zoom out to a quarter when the owner asks about the whole job. Push it all to Google Calendar so the field sees the same dates you do.', specs: ['Day, week, month and quarter views', 'Dependencies and milestones', 'Google Calendar sync'] },
+  { n: '02', tag: 'DRAWINGS', title: 'Construction Plans', body: 'Drop in the whole set. It splits the pages, reads the title blocks, and gives you a drawing index you can actually navigate. Upload a revised sheet and the old one is superseded, not overwritten, so you can still see what changed and when.', specs: ['Sheet numbers and disciplines read automatically', 'Revision history with supersede warnings', 'Overlay compare, markups, pins'] },
+  { n: '03', tag: 'CHANGE ORDERS', title: 'Change Order Control', body: 'Pricing, submission, approval, billing. One board, and at any moment you know who owns it on your side, who you are waiting on, how many days it has sat there, and whether it ever actually got submitted. That last one catches more money than the rest combined.', specs: ['Owner and waiting on, tracked separately', 'Portal confirmation numbers', 'Alerts on approved work you have not billed'] },
+  { n: '04', tag: 'FIELD', title: 'Punch Lists', body: 'Log items on site with a photo, assign the trade, close them out from your phone. Already have a list in a PDF from the GC? Import it and the photos come across with it.', specs: ['Before and after photo pairs', 'Import from PDF or Excel', 'Printable field report'] },
+  { n: '05', tag: 'CREW', title: 'Weekly Schedules', body: 'Build the week, then copy it into an email as a clean table your crews will actually read instead of squinting at a screenshot. Departments that work differently get a layout that fits how they work.', specs: ['A layout per department', 'One tap to copy for email', 'Job numbers link straight to your systems'] },
+  { n: '06', tag: 'SERVICE', title: 'Dispatch and Quotes', body: 'Service calls on a live board with priorities, ETAs, and the on call rotation. Vendor quote requests go out from your own Gmail, not a noreply address nobody answers, and every reply lands back on the job.', specs: ['Call board with ETA alerts', 'RFQs from your own inbox', 'Replies tracked per request'] },
+  { n: '07', tag: 'BOARDS', title: 'Project Boards', body: 'Columns named after your stages, not somebody else\'s idea of a workflow. Scope each board by team so the field sees field work and the office sees everything.', specs: ['Up to fifteen custom stages', 'Visibility scoped by team', 'Choose which fields show on a card'] },
+  { n: '08', tag: 'REPORTING', title: 'Reports and Analytics', body: 'Portfolio dashboards and printable summaries for owner updates, bank draws, and the Monday morning review. Export to PDF straight from the browser.', specs: ['Print or PDF from the browser', 'Portfolio and completion tracking', 'Access scoped by role'] },
 ]
+
+// Business Plus has no price to check out with, so the card writes an email.
+// Prefilled subject and opener so a reply is not starting from nothing.
+const PLUS_MAILTO = `mailto:${SALES_EMAIL}?subject=${encodeURIComponent('Business Plus enquiry')}` +
+  `&body=${encodeURIComponent([
+    'We are looking at Business Plus.',
+    '',
+    'Company:',
+    'Roughly how many people:',
+    'What we would want built around how we work:',
+    '',
+  ].join(String.fromCharCode(10)))}`
+
+const TIERS = [
+  { name: 'Free',       price: '$0',      unit: '',         who: 'Kicking the tires',        points: ['1 board', '5 projects', '3 people'] },
+  { name: 'Individual', price: '$3',      unit: '/mo',      who: 'One person, own jobs',     points: ['10 boards', 'Unlimited projects', 'Schedules and calendar sync'] },
+  { name: 'Pro',        price: '$49',     unit: '/mo',      who: 'A growing crew',           points: ['Up to 25 people', 'Everything in Individual', 'Print and reports'], popular: true },
+  { name: 'Business',   price: '$199',    unit: '/mo',      who: 'The whole company',        points: ['Unlimited people', 'Trade and division filters', 'Priority support'] },
+  { name: 'Business Plus', price: "Let's talk", unit: '',   who: 'Built around your process', contact: true,
+    points: ['Everything in Business', 'Fields, stages and forms built to your process', 'Your terminology, your integrations', 'Onboarding for your crews'] },
+]
+
 
 const GANTT = [
   { label: 'Site Mobilization',  s: 0,  w: 14, pct: 100, done: true  },
@@ -83,7 +110,12 @@ export default function LoginPage() {
   })
 
   return (
-    <div className={`${manrope.className} pf-page`} style={{ backgroundColor: '#080F1A', color: '#D4DCE8', minHeight: '100vh' }}>
+    <div className={`${body.className} ${mono.className} pf-page`}
+      style={{
+        backgroundColor: '#080F1A', color: '#D4DCE8', minHeight: '100vh',
+        fontFamily: body.style.fontFamily,
+        ['--pf-mono' as string]: mono.style.fontFamily,
+      } as React.CSSProperties}>
       <ForceLightTheme />
 
       {/* ── Global keyframes ── */}
@@ -97,6 +129,9 @@ export default function LoginPage() {
         @keyframes pf-fade  { from{opacity:0} to{opacity:1} }
         @keyframes pf-blink { 0%,100%{opacity:.5} 50%{opacity:1} }
         @keyframes pf-pulse { 0%,100%{opacity:.45; transform:scale(1)} 50%{opacity:1; transform:scale(1.25)} }
+        .pf-tiers { grid-template-columns: 1fr; }
+        @media (min-width: 640px)  { .pf-tiers { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1100px) { .pf-tiers { grid-template-columns: repeat(5, 1fr); } }
         @media (prefers-reduced-motion: reduce) {
           .pf-page *, .pf-page *::before, .pf-page *::after {
             animation-duration: 0.01ms !important;
@@ -120,7 +155,7 @@ export default function LoginPage() {
             <GantticLogo variant="lockup" width={188} priority alt="PhaseForge" />
           </div>
           <div className="hidden items-center gap-8 md:flex" style={{ fontSize: '13px', fontWeight: 500, color: '#9FB4CC' }}>
-            {[['#capabilities', 'Capabilities'], ['#timeline', 'Timeline'], ['#workflow', 'Workflow'], ['#signin', 'Sign in']].map(([href, label]) => (
+            {[['#capabilities', 'Capabilities'], ['#workflow', 'Workflow'], ['#pricing', 'Pricing'], ['#signin', 'Sign in']].map(([href, label]) => (
               <a key={href} href={href}
                 style={{ transition: 'color 200ms' }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#FFFFFF')}
@@ -186,7 +221,7 @@ export default function LoginPage() {
         {/* Coordinate ghost text */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none', userSelect: 'none',
-          fontFamily: 'monospace', fontSize: '10px', color: '#1A3A5C',
+          fontFamily: monoStack, fontSize: '10px', color: '#1A3A5C',
           animation: 'pf-coord 10s ease-in-out infinite',
         }}>
           <span style={{ position: 'absolute', left: '3%',  top: '21%' }}>X:0240</span>
@@ -209,14 +244,14 @@ export default function LoginPage() {
           {/* Eyebrow */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', marginBottom: '32px', ...ent(0, 600) }}>
             <div style={{ height: '1px', width: '20px', backgroundColor: '#D8891C' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.20em' }}>
+            <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#D8891C', letterSpacing: '0.20em' }}>
               CONSTRUCTION PROJECT MANAGEMENT
             </span>
             <div style={{ height: '1px', width: '20px', backgroundColor: '#D8891C' }} />
           </div>
 
           {/* Headline */}
-          <h1 className={sora.className} style={{
+          <h1 className={display.className} style={{
             fontSize: 'clamp(3.2rem, 6vw, 5.6rem)',
             fontWeight: 800, lineHeight: 0.96,
             letterSpacing: '-0.025em',
@@ -235,8 +270,8 @@ export default function LoginPage() {
             marginLeft: 'auto', marginRight: 'auto',
             ...ent(350, 700),
           }}>
-            Schedules, drawings, punch lists, change orders, and dispatch —
-            built for construction, not adapted from it.
+            Schedules, drawings, punch lists, change orders, and dispatch.
+            Built for construction instead of bent into shape for it.
           </p>
 
           {/* CTAs */}
@@ -267,7 +302,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* ── Product screenshot — rises from below CTAs ── */}
+        {/* Product screenshot, rises from below the CTAs */}
         <div style={{
           position: 'relative', zIndex: 1,
           maxWidth: '1200px', margin: '0 auto', padding: '0 32px',
@@ -302,7 +337,7 @@ export default function LoginPage() {
               </div>
               <div style={{
                 flex: 1, maxWidth: '340px', margin: '0 auto',
-                fontFamily: 'monospace', fontSize: '10.5px', color: '#5A7590',
+                fontFamily: monoStack, fontSize: '10.5px', color: '#5A7590',
                 backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
                 borderRadius: '6px', padding: '4px 12px', textAlign: 'center',
                 letterSpacing: '0.04em',
@@ -314,10 +349,10 @@ export default function LoginPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/login-bg.png"
-              alt="PhaseForge — where plans become progress"
+              alt="PhaseForge, where plans become progress"
               style={{ width: '100%', display: 'block' }}
             />
-            {/* Live activity chips — restrained, honest indicators */}
+            {/* Live activity chips, restrained and honest indicators */}
             <div style={{
               position: 'absolute', top: '58px', right: '18px',
               display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end',
@@ -366,9 +401,9 @@ export default function LoginPage() {
           {/* Section label */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '64px' }}>
             <div style={{ height: '1px', width: '28px', backgroundColor: '#D8891C' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>CAPABILITIES</span>
+            <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>CAPABILITIES</span>
             <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(255,255,255,0.07)' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#2D4458' }}>01 — {String(CAPS.length).padStart(2, '0')}</span>
+            <span style={{ fontFamily: monoStack, fontSize: '10px', color: '#2D4458' }}>01 / {String(CAPS.length).padStart(2, '0')}</span>
           </div>
 
           {/* Engineering panel list */}
@@ -385,12 +420,12 @@ export default function LoginPage() {
                 }}>
                 {/* Number */}
                 <div>
-                  <p className={sora.className} style={{ fontSize: '42px', fontWeight: 800, color: 'rgba(255,255,255,0.05)', lineHeight: 1 }}>{n}</p>
-                  <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#D8891C', letterSpacing: '0.16em', marginTop: '6px' }}>{tag}</p>
+                  <p className={display.className} style={{ fontSize: '42px', fontWeight: 800, color: 'rgba(255,255,255,0.05)', lineHeight: 1 }}>{n}</p>
+                  <p style={{ fontFamily: monoStack, fontSize: '10px', color: '#D8891C', letterSpacing: '0.16em', marginTop: '6px' }}>{tag}</p>
                 </div>
                 {/* Title + body */}
                 <div>
-                  <h3 className={sora.className} style={{ fontSize: '19px', fontWeight: 700, color: '#EEF2F7', marginBottom: '12px' }}>{title}</h3>
+                  <h3 className={display.className} style={{ fontSize: '19px', fontWeight: 700, color: '#EEF2F7', marginBottom: '12px' }}>{title}</h3>
                   <p style={{ fontSize: '14px', lineHeight: 1.75, color: '#6B8099' }}>{body}</p>
                 </div>
                 {/* Specs */}
@@ -398,7 +433,7 @@ export default function LoginPage() {
                   {specs.map(s => (
                     <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div style={{ width: '18px', height: '1px', backgroundColor: '#D8891C', flexShrink: 0 }} />
-                      <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#5A7590' }}>{s}</span>
+                      <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#5A7590' }}>{s}</span>
                     </div>
                   ))}
                 </div>
@@ -415,11 +450,11 @@ export default function LoginPage() {
         <div className="mx-auto max-w-7xl px-6">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '48px' }}>
             <div style={{ height: '1px', width: '28px', backgroundColor: '#D8891C' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>TIMELINE DEMO</span>
+            <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>TIMELINE DEMO</span>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 md:items-end md:gap-16" style={{ marginBottom: '40px' }}>
-            <h2 className={sora.className} style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.1 }}>
+            <h2 className={display.className} style={{ fontSize: 'clamp(2rem, 3.5vw, 2.8rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.1 }}>
               Complete schedule<br />visibility, from day one.
             </h2>
             <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B8099' }}>
@@ -438,7 +473,7 @@ export default function LoginPage() {
             {/* Month row */}
             <div style={{ display: 'flex', paddingLeft: '200px', marginBottom: '14px' }}>
               {['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT'].map(m => (
-                <div key={m} style={{ flex: 1, textAlign: 'center', fontFamily: 'monospace', fontSize: '9px', color: '#2A4060', letterSpacing: '0.12em' }}>{m}</div>
+                <div key={m} style={{ flex: 1, textAlign: 'center', fontFamily: monoStack, fontSize: '9px', color: '#2A4060', letterSpacing: '0.12em' }}>{m}</div>
               ))}
             </div>
 
@@ -447,7 +482,7 @@ export default function LoginPage() {
               {GANTT.map(({ label, s, w, pct, done }, i) => (
                 <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
                   <div style={{ flexShrink: 0, width: '200px', paddingRight: '16px' }}>
-                    <p style={{ fontFamily: 'monospace', fontSize: '11px', color: done ? '#8A9BB0' : '#566880', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</p>
+                    <p style={{ fontFamily: monoStack, fontSize: '11px', color: done ? '#8A9BB0' : '#566880', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</p>
                   </div>
                   <div style={{ flex: 1, position: 'relative', height: '22px' }}>
                     {/* Track */}
@@ -474,7 +509,7 @@ export default function LoginPage() {
                     }} />
                   </div>
                   <div style={{ flexShrink: 0, width: '44px', textAlign: 'right', paddingLeft: '12px' }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: '10px', color: done ? '#D8891C' : pct > 0 ? '#F2B94B' : '#2D4060' }}>
+                    <span style={{ fontFamily: monoStack, fontSize: '10px', color: done ? '#D8891C' : pct > 0 ? '#F2B94B' : '#2D4060' }}>
                       {pct}%
                     </span>
                   </div>
@@ -491,7 +526,7 @@ export default function LoginPage() {
                 opacity: ganttOn ? 1 : 0,
                 transition: 'opacity 400ms 900ms ease',
               }}>
-                <span style={{ fontFamily: 'monospace', fontSize: '9px', color: '#D8891C', letterSpacing: '0.12em', animation: 'pf-blink 2.5s ease-in-out infinite' }}>TODAY</span>
+                <span style={{ fontFamily: monoStack, fontSize: '9px', color: '#D8891C', letterSpacing: '0.12em', animation: 'pf-blink 2.5s ease-in-out infinite' }}>TODAY</span>
               </div>
             </div>
           </div>
@@ -499,15 +534,15 @@ export default function LoginPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════
-          WORKFLOW — one connected operating system
+          WORKFLOW / one connected operating system
       ════════════════════════════════════════════════════ */}
       <section id="workflow" style={{ padding: '96px 0' }}>
         <div className="mx-auto max-w-7xl px-6">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
             <div style={{ height: '1px', width: '28px', backgroundColor: '#D8891C' }} />
-            <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>WORKFLOW</span>
+            <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>WORKFLOW</span>
           </div>
-          <h2 className={sora.className} style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.15, marginBottom: '48px', maxWidth: '560px' }}>
+          <h2 className={display.className} style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.15, marginBottom: '48px', maxWidth: '560px' }}>
             One operating system,<br />from first plan to final closeout.
           </h2>
 
@@ -526,8 +561,8 @@ export default function LoginPage() {
                 borderRadius: '12px',
                 padding: '22px 18px',
               }}>
-                <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#D8891C', letterSpacing: '0.16em', marginBottom: '10px' }}>{n}</p>
-                <p className={sora.className} style={{ fontSize: '16px', fontWeight: 700, color: '#EEF2F7', marginBottom: '8px' }}>{title}</p>
+                <p style={{ fontFamily: monoStack, fontSize: '10px', color: '#D8891C', letterSpacing: '0.16em', marginBottom: '10px' }}>{n}</p>
+                <p className={display.className} style={{ fontSize: '16px', fontWeight: 700, color: '#EEF2F7', marginBottom: '8px' }}>{title}</p>
                 <p style={{ fontSize: '12px', lineHeight: 1.65, color: '#6B8099' }}>{body}</p>
                 {i < 4 && (
                   <div className="hidden lg:block" style={{
@@ -542,7 +577,7 @@ export default function LoginPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════
-          PLATFORM — beyond a Gantt tool
+          PLATFORM / beyond a Gantt tool
       ════════════════════════════════════════════════════ */}
       <section style={{ backgroundColor: '#060C14', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '88px 0' }}>
         <div className="mx-auto max-w-7xl px-6">
@@ -550,14 +585,14 @@ export default function LoginPage() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
                 <div style={{ height: '1px', width: '28px', backgroundColor: '#D8891C' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>PLATFORM</span>
+                <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>PLATFORM</span>
               </div>
-              <h2 className={sora.className} style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.15, marginBottom: '18px' }}>
+              <h2 className={display.className} style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.15, marginBottom: '18px' }}>
                 Built as an operations platform, not a point tool.
               </h2>
               <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B8099' }}>
                 Projects are the start. PhaseForge grows with the way service and
-                construction companies actually run — the office plans, the field
+                construction companies actually run. The office plans, the field
                 executes, the paperwork keeps up.
               </p>
             </div>
@@ -577,7 +612,7 @@ export default function LoginPage() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                     <div style={{ width: '14px', height: '1px', backgroundColor: '#D8891C' }} />
-                    <p className={sora.className} style={{ fontSize: '14px', fontWeight: 700, color: '#EEF2F7' }}>{title}</p>
+                    <p className={display.className} style={{ fontSize: '14px', fontWeight: 700, color: '#EEF2F7' }}>{title}</p>
                   </div>
                   <p style={{ fontSize: '12px', lineHeight: 1.65, color: '#6B8099' }}>{body}</p>
                 </div>
@@ -586,6 +621,83 @@ export default function LoginPage() {
           </div>
         </div>
       </section>
+      {/* ════════════════════════════════════════════════════
+          PRICING
+      ════════════════════════════════════════════════════ */}
+      <section id="pricing" style={{ backgroundColor: '#060C14', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '96px 0' }}>
+        <div className="mx-auto max-w-7xl px-6">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ height: '1px', width: '20px', backgroundColor: '#D8891C' }} />
+            <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#D8891C', letterSpacing: '0.2em' }}>PRICING</span>
+          </div>
+          <h2 className={display.className} style={{ fontSize: 'clamp(1.8rem, 3vw, 2.6rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.15, maxWidth: '620px' }}>
+            One rate per tier. However many people you put on it.
+          </h2>
+          <p style={{ marginTop: '14px', fontSize: '15px', lineHeight: 1.75, color: '#6B8099', maxWidth: '540px' }}>
+            No charging by the seat, so putting the whole field crew on it costs the same as putting three people on it.
+          </p>
+
+          <div style={{ display: 'grid', gap: '16px', marginTop: '48px' }} className="pf-tiers">
+            {TIERS.map((t) => (
+              <div key={t.name} style={{
+                position: 'relative',
+                display: 'flex', flexDirection: 'column',
+                padding: '26px 22px',
+                borderRadius: '10px',
+                border: t.contact ? '1px solid rgba(216,137,28,0.45)' : '1px solid rgba(255,255,255,0.07)',
+                backgroundColor: t.contact ? 'rgba(216,137,28,0.05)' : 'rgba(255,255,255,0.015)',
+              }}>
+                {t.popular && (
+                  <span style={{
+                    position: 'absolute', top: '-9px', left: '22px',
+                    fontFamily: monoStack, fontSize: '9px', letterSpacing: '0.18em',
+                    padding: '3px 8px', borderRadius: '3px',
+                    backgroundColor: '#D8891C', color: '#0B1220', fontWeight: 500,
+                  }}>MOST PICKED</span>
+                )}
+                <p className={display.className} style={{ fontSize: '15px', fontWeight: 700, color: '#EEF2F7', letterSpacing: '0.01em' }}>{t.name}</p>
+                <p style={{ fontSize: '11px', color: '#546A80', marginTop: '3px', minHeight: '30px' }}>{t.who}</p>
+                <p style={{ marginTop: '10px', marginBottom: '18px' }}>
+                  <span className={display.className} style={{ fontSize: t.contact ? '22px' : '30px', fontWeight: 800, color: t.contact ? '#F2B94B' : '#EEF2F7' }}>{t.price}</span>
+                  {t.unit && <span style={{ fontSize: '13px', color: '#546A80', marginLeft: '3px' }}>{t.unit}</span>}
+                </p>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '9px', flex: 1 }}>
+                  {t.points.map((p) => (
+                    <li key={p} style={{ display: 'flex', gap: '9px', fontSize: '12.5px', lineHeight: 1.5, color: '#8FA3B8' }}>
+                      <span style={{ color: '#D8891C', flexShrink: 0 }}>+</span>{p}
+                    </li>
+                  ))}
+                </ul>
+                {t.contact ? (
+                  <a href={PLUS_MAILTO} style={{
+                    marginTop: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    padding: '11px 16px', borderRadius: '7px', fontSize: '13px', fontWeight: 600,
+                    background: 'linear-gradient(135deg, #D8891C 0%, #A86210 100%)', color: '#fff', textDecoration: 'none',
+                  }}>
+                    <Mail size={14} /> Tell us what you need
+                  </a>
+                ) : (
+                  <Link href="/signup" style={{
+                    marginTop: '22px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '11px 16px', borderRadius: '7px', fontSize: '13px', fontWeight: 500,
+                    border: '1px solid rgba(255,255,255,0.13)', color: '#A8B8CC', textDecoration: 'none',
+                  }}>
+                    Start free
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <p style={{ marginTop: '26px', fontSize: '12.5px', color: '#546A80' }}>
+            Business Plus is quoted per company because the work is scoped per company. Write to{' '}
+            <a href={PLUS_MAILTO} style={{ color: '#D8891C', textDecoration: 'underline' }}>customersupport@phase-forge.com</a>{' '}
+            and tell us how you run jobs. We scope it, quote it, and build it.
+          </p>
+        </div>
+      </section>
+
+
 
       {/* ════════════════════════════════════════════════════
           FINAL CTA
@@ -598,7 +710,7 @@ export default function LoginPage() {
           pointerEvents: 'none',
         }} />
         <div className="relative mx-auto max-w-3xl px-6 text-center">
-          <h2 className={sora.className} style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.12 }}>
+          <h2 className={display.className} style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.12 }}>
             Build with clarity.<br />
             <span style={{ color: '#F2B94B' }}>Deliver with control.</span>
           </h2>
@@ -640,9 +752,9 @@ export default function LoginPage() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
                 <div style={{ height: '1px', width: '24px', backgroundColor: '#D8891C' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>ACCESS</span>
+                <span style={{ fontFamily: monoStack, fontSize: '11px', color: '#D8891C', letterSpacing: '0.18em' }}>ACCESS</span>
               </div>
-              <h2 className={sora.className} style={{ fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.1, marginBottom: '20px' }}>
+              <h2 className={display.className} style={{ fontSize: 'clamp(2rem, 3vw, 2.8rem)', fontWeight: 800, color: '#EEF2F7', lineHeight: 1.1, marginBottom: '20px' }}>
                 Sign in to<br />your workspace.
               </h2>
               <p style={{ fontSize: '14px', lineHeight: 1.8, color: '#6B8099', maxWidth: '360px', marginBottom: '36px' }}>
@@ -650,9 +762,9 @@ export default function LoginPage() {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {[
-                  ['Data encrypted at rest and in transit', 'Supabase-backed storage with row-level security'],
-                  ['No per-seat fees on team plans',        'One flat rate per plan tier — no per-user billing'],
-                  ['Works on desktop and mobile',           'Full-featured iOS and Android app available'],
+                  ['Data encrypted at rest and in transit', 'Postgres storage with row level security on every table'],
+                  ['No per seat fees on team plans',      'One flat rate per tier, however many people you have'],
+                  ['Works on desktop and mobile',           'There is a real iOS and Android app, not a shrunken website'],
                 ].map(([t, s]) => (
                   <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                     <div style={{ marginTop: '7px', width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#D8891C', flexShrink: 0 }} />
@@ -668,7 +780,7 @@ export default function LoginPage() {
                 <Link href="/signup" style={{ color: '#D8891C', fontWeight: 600, textDecoration: 'none', transition: 'color 200ms' }}
                   onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#F2B94B')}
                   onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#D8891C')}>
-                  Start free — no card required.
+                  Start free. No card required.
                 </Link>
               </p>
             </div>
@@ -738,8 +850,8 @@ export default function LoginPage() {
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', backgroundColor: '#050A10', padding: '40px 0' }}>
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 px-6 sm:flex-row">
           <GantticLogo variant="lockup" width={148} alt="PhaseForge" />
-          <p style={{ fontFamily: 'monospace', fontSize: '10px', color: '#1E3050', letterSpacing: '0.08em' }}>
-            © 2026 PhaseForge · Built for serious construction.
+          <p style={{ fontFamily: monoStack, fontSize: '10px', color: '#1E3050', letterSpacing: '0.08em' }}>
+            © 2026 PhaseForge / Built for serious construction.
           </p>
           <div style={{ display: 'flex', gap: '24px', fontSize: '12px', color: '#3A5070' }}>
             {[['Privacy', '/privacy'], ['Contact', 'mailto:customersupport@phase-forge.com'], ['Sign up', '/signup']].map(([l, h]) => (
