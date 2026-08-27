@@ -22,6 +22,7 @@ import {
   assignOwner, updateCoFields, addRevision, recordCheck, addCoNote, archiveCo,
 } from '../actions'
 import { MoveStageModal } from '../ChangeOrdersClient'
+import { RelatedItems } from '@/components/links/RelatedItems'
 
 interface Member { id: string; full_name: string; role: string }
 interface CoEvent {
@@ -139,6 +140,14 @@ export function CoDetailClient({
           <RevisionsCard co={co} revisions={revisions} memberName={memberName} canEdit={canEdit}
             revising={revising} setRevising={setRevising} onChanged={() => router.refresh()} />
           <BillingCard co={co} canEdit={isManager} onSaved={() => router.refresh()} />
+          <RelatedItems
+            entityType="change_order"
+            entityId={co.id}
+            entityLabel={co.co_label ?? `CO ${co.co_number}`}
+            projectId={co.project_id}
+            canEdit={canEdit}
+            derived={project ? [{ relation: 'Belongs to', label: project.name, sublabel: project.job_number ? `Job ${project.job_number}` : null, href: `/app/projects/${project.id}` }] : []}
+          />
           {isAdmin && !co.archived_at && (
             <button onClick={async () => { if (confirm(`Archive ${co.co_label}? It stays in history but leaves the pipeline.`)) { await archiveCo(co.id); router.push('/app/change-orders') } }}
               className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-rose-600">

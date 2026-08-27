@@ -13,6 +13,7 @@ import {
 } from '@/app/app/projects/[id]/intelActions'
 import type { Phase } from '@/types/app'
 import type { ScheduleDependency } from '@/lib/schedule/engine'
+import { RelatedItems } from '@/components/links/RelatedItems'
 
 export interface PhaseScheduleIntel {
   allPhases: Phase[]
@@ -182,6 +183,14 @@ export function PhaseScheduleSection({
           })}
         </div>
       )}
+      <RelatedItems
+        entityType="phase"
+        entityId={phase.id}
+        entityLabel={phase.name}
+        projectId={projectId}
+        canEdit={canEdit}
+        className="mt-3 border-slate-100 p-3"
+      />
     </div>
   )
 }
