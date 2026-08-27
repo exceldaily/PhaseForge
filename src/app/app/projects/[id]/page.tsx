@@ -4,8 +4,9 @@ import { redirect, notFound } from 'next/navigation'
 import { ProjectDetailShell } from './ProjectDetailShell'
 import { canUsePrintAndReports } from '@/lib/constants'
 import { Phase, Profile, Project, ProjectAttachment, PunchItem } from '@/types/app'
+import { loadCommandCenter } from '@/lib/commandCenter'
 
-const VALID_TABS = new Set(['gantt', 'tasks', 'punch', 'activity', 'files'])
+const VALID_TABS = new Set(['overview', 'gantt', 'tasks', 'punch', 'activity', 'files'])
 
 export default async function ProjectDetailPage({
   params,
@@ -88,6 +89,11 @@ export default async function ProjectDetailPage({
 
   const canEdit = !['member', 'viewer'].includes(profile.role)
 
+  // Everything the Overview tab shows, computed once server-side.
+  const commandCenter = await loadCommandCenter(
+    supabase, { ...project, phases: undefined } as Project, phases, rawPunchItems,
+  )
+
   const { data: company } = await supabase
     .from('companies')
     .select('plan')
@@ -106,7 +112,8 @@ export default async function ProjectDetailPage({
       companyId={profile.company_id}
       canEdit={canEdit}
       canPrint={canPrint}
-      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'gantt' | 'tasks' | 'punch' | 'activity' | 'files') : 'gantt'}
+      commandCenter={commandCenter}
+      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files') : 'overview'}
     />
   )
 }

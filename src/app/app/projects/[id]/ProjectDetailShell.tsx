@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, GanttChartSquare, CheckSquare,
   Activity, Paperclip, Edit, MoreHorizontal,
-  MapPin, Calendar, User, Flag, ClipboardList, Map, Layers, FileDiff,
+  MapPin, Calendar, User, Flag, ClipboardList, Map, Layers, FileDiff, LayoutDashboard,
 } from 'lucide-react'
 import { TransferToBoardModal } from '@/components/projects/TransferToBoardModal'
 import { GanttChart } from '@/components/gantt/GanttChart'
@@ -16,13 +16,15 @@ import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
 import { ActivityTimeline } from '@/components/projects/ActivityTimeline'
 import { ProjectAttachments } from '@/components/projects/ProjectAttachments'
 import { PunchListTab } from '@/components/punch/PunchListTab'
+import { CommandCenter } from '@/components/projects/CommandCenter'
+import type { CommandCenterData } from '@/lib/commandCenter'
 import { PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/constants'
 import { formatDate } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
 import { Phase, Profile, Project, ProjectPriority, ActivityLog, ProjectAttachment, PunchItem } from '@/types/app'
 import { cn } from '@/lib/utils'
 
-type Tab = 'gantt' | 'tasks' | 'punch' | 'activity' | 'files'
+type Tab = 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files'
 
 interface ProjectDetailShellProps {
   project: Project & { phases: Phase[] }
@@ -34,10 +36,12 @@ interface ProjectDetailShellProps {
   companyId: string
   canEdit: boolean
   canPrint: boolean
+  commandCenter: CommandCenterData
   initialTab?: Tab
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'overview', label: 'Overview',   icon: <LayoutDashboard size={15} /> },
   { id: 'gantt',    label: 'Gantt',      icon: <GanttChartSquare size={15} /> },
   { id: 'tasks',    label: 'Tasks',      icon: <CheckSquare size={15} /> },
   { id: 'punch',    label: 'Punch List', icon: <ClipboardList size={15} /> },
@@ -47,8 +51,8 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export function ProjectDetailShell({
   project, members, activityLogs, attachments, punchItems, currentUserId, companyId,
-  canEdit, canPrint,
-  initialTab = 'gantt',
+  canEdit, canPrint, commandCenter,
+  initialTab = 'overview',
 }: ProjectDetailShellProps) {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [showMenu, setShowMenu] = useState(false)
@@ -170,6 +174,11 @@ export function ProjectDetailShell({
             >
               {tab.icon}
               {tab.label}
+              {tab.id === 'overview' && commandCenter.intel.health.attention.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                  {commandCenter.intel.health.attention.length}
+                </span>
+              )}
               {tab.id === 'tasks' && project.phases.length > 0 && (
                 <span className="ml-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
                   {project.phases.length}
@@ -201,6 +210,19 @@ export function ProjectDetailShell({
       </div>
 
       {/* ── Tab content ── */}
+
+      {/* OVERVIEW / COMMAND CENTER */}
+      {activeTab === 'overview' && (
+        <div className="flex-1 overflow-y-auto bg-slate-50">
+          <CommandCenter
+            project={project}
+            data={commandCenter}
+            members={members}
+            activityLogs={activityLogs}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        </div>
+      )}
 
       {/* GANTT — fills remaining height */}
       {isGantt && (

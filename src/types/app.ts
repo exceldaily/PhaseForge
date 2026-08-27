@@ -174,6 +174,10 @@ export interface ActivityLog {
   actor_id: string
   action: string
   payload: Record<string, unknown>
+  entity_type?: string | null
+  entity_id?: string | null
+  entity_label?: string | null
+  reason?: string | null
   created_at: string
   actor?: Profile
 }
