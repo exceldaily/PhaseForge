@@ -562,7 +562,7 @@ export function SchedulesClient({
             canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
             reorder={reorder}
             onChanged={() => router.refresh()}
-            reportCells={(jobId, cells) => report(jobId, { cells })}
+            reportJob={(jobId, patch) => report(jobId, patch)}
           />
         ) : (
         <div className="schedule-print-root flex-1 bg-slate-100 p-3 sm:p-4 md:overflow-y-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">

@@ -72,6 +72,7 @@ export async function setJobHighlight(id: string, color: string | null) {
     const { error } = await supabase.from('schedule_jobs')
       .update({ highlight_color: hex }).eq('id', id).eq('company_id', companyId)
     if (error) return { error: error.message }
+    revalidatePath(PATH)
     return { ok: true }
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }

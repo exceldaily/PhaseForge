@@ -35,7 +35,7 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
 
 export function GridSchedule({
   teamName, weekStart, jobs, roster, shiftOptions, shiftColors, division, canEdit, jobUrlTemplate,
-  onChanged, reportCells, reorder, zoom = 1,
+  onChanged, reportJob, reorder, zoom = 1,
 }: {
   teamName: string
   weekStart: string
@@ -47,7 +47,7 @@ export function GridSchedule({
   canEdit: boolean
   jobUrlTemplate: string | null
   onChanged: () => void
-  reportCells: (jobId: string, cells: Record<number, GridCell[]>) => void
+  reportJob: (jobId: string, patch: { cells?: Record<number, GridCell[]>; highlight_color?: string | null }) => void
   /** Row reorder state, owned by the page so both layouts share one order. */
   reorder: RowReorder<GridJob>
   zoom?: number
@@ -72,7 +72,7 @@ export function GridSchedule({
     setCells((cur) => {
       const forJob = { ...(cur[jobId] ?? {}), [day]: entries }
       const next = { ...cur, [jobId]: forJob }
-      reportCells(jobId, forJob)
+      reportJob(jobId, { cells: forJob })
       return next
     })
     void setGridCell(jobId, day, entries)
@@ -132,6 +132,7 @@ export function GridSchedule({
             ) : reorder.ordered.map((job) => (
               <GridRow key={job.id} job={job} cells={cells[job.id] ?? {}} canEdit={canEdit}
                 shiftColors={shiftColors}
+                onHighlight={(hex) => reportJob(job.id, { highlight_color: hex })}
                 rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
                 dragging={reorder.dragId === job.id}
                 jobUrlTemplate={jobUrlTemplate} onChanged={onChanged}
@@ -172,7 +173,7 @@ export function GridSchedule({
 
 function GridRow({
   job, cells, canEdit, jobUrlTemplate, onChanged, onRemove, onOpenEditor, onEditEntry, onCellDown, onCellEnter,
-  shiftColors, rowRef, gripProps, dragging,
+  shiftColors, onHighlight, rowRef, gripProps, dragging,
 }: {
   job: GridJob; cells: Record<number, GridCell[]>; canEdit: boolean
   jobUrlTemplate: string | null; onChanged: () => void
@@ -182,6 +183,7 @@ function GridRow({
   onCellDown: (day: number) => void
   onCellEnter: (day: number) => void
   shiftColors: Record<string, string>
+  onHighlight: (hex: string | null) => void
   rowRef: (el: HTMLElement | null) => void
   gripProps: React.ComponentProps<'button'>
   dragging: boolean
@@ -198,9 +200,13 @@ function GridRow({
   const url = jobUrl(jobUrlTemplate, jobNumber)
 
   const pickHighlight = (hex: string | null) => {
-    setHighlight(hex)
+    // Tapping the colour a row already has clears it, so switching back is the
+    // same gesture as switching on.
+    const next = hex === highlight ? null : hex
+    setHighlight(next)
     setPaletteOpen(false)
-    void setJobHighlight(job.id, hex)
+    onHighlight(next)
+    void setJobHighlight(job.id, next)
   }
 
   return (
@@ -231,7 +237,8 @@ function GridRow({
                 <span className="relative ml-auto flex items-center gap-1 print:hidden">
                   <button data-help="sched-highlight" onClick={() => setPaletteOpen((o) => !o)}
                     title="Highlight this row" aria-label={`Highlight ${title}`}
-                    className={`rounded p-0.5 ${highlight ? 'text-slate-700' : 'text-slate-400 hover:text-indigo-600'}`}>
+                    style={highlight ? { color: '#0f172a' } : undefined}
+                    className={`rounded p-0.5 ${highlight ? 'bg-white/70' : 'text-slate-400 hover:text-indigo-600'}`}>
                     <Highlighter size={12} />
                   </button>
                   {paletteOpen && (
@@ -242,9 +249,18 @@ function GridRow({
                           aria-label={c.label} style={{ backgroundColor: c.hex }}
                           className={`h-6 w-6 rounded border ${highlight === c.hex ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-300'}`} />
                       ))}
-                      <button onClick={() => pickHighlight(null)}
-                        className="mt-0.5 w-full rounded border border-slate-300 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-600">
-                        No highlight
+                      {/* Back to normal. Sits in the swatch row as the "no
+                          colour" option, and is the pressed one when the row
+                          has no highlight, so the way back is always visible. */}
+                      <button onClick={() => pickHighlight(null)} title="No highlight" aria-label="No highlight"
+                        className={`relative h-6 w-6 overflow-hidden rounded border bg-white ${
+                          highlight ? 'border-slate-300' : 'border-slate-900 ring-1 ring-slate-900'
+                        }`}>
+                        <span className="absolute left-1/2 top-1/2 h-[1px] w-8 -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-rose-500" />
+                      </button>
+                      <button onClick={() => pickHighlight(null)} disabled={!highlight}
+                        className="mt-0.5 w-full rounded border border-slate-300 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:border-slate-600">
+                        Back to normal
                       </button>
                     </span>
                   )}
