@@ -52,6 +52,7 @@ export const SECTIONS: GuideSection[] = [
       { heading: 'Where it is', text: 'Every page in the app has a ? button in the top bar, next to your name. It opens a panel on the right with the notes for that exact page — Schedules help on Schedules, Plans help on Plans. Press ? on the keyboard to open it, Escape to close.' },
       { heading: 'Label the buttons', text: 'On the busier pages the panel offers "Label the buttons on this page". Switch it on and numbered tags appear right on top of the real controls, with a matching numbered list in the panel telling you what each one does. Switch it off, or move to another page, and the labels disappear.' },
       { heading: 'The same words as the guide', text: 'The panel shows the relevant slices of this guide, so nothing can drift out of date between the two. When something in the app changes, it changes here and in the panel at the same time.' },
+      { heading: 'While a page loads', text: 'Clicking anything shows immediate feedback: a thin progress bar runs across the top of the app and the destination page sketches itself in grey while the data loads, so nobody wonders whether their tap registered.' },
       { heading: 'New people', text: 'Point a new hire at the ? on each page rather than a training doc. The welcome tour on this page covers the big picture; the panel covers the screen in front of them.' },
     ],
   },

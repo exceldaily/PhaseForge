@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { FirstRunTour } from '@/components/onboarding/WelcomeTour'
+import { RouteProgress } from './RouteProgress'
+import { Suspense } from 'react'
 import { Profile } from '@/types/app'
 
 interface AppShellProps {
@@ -38,6 +40,10 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
 
   return (
     <div className="pf-shell flex h-dvh overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors print:block print:h-auto print:overflow-visible">
+      {/* useSearchParams needs a Suspense boundary in a client layout. */}
+      <Suspense fallback={null}>
+        <RouteProgress />
+      </Suspense>
       <Sidebar
         isSuperAdmin={isSuperAdmin}
         canUseReports={canUseReports}
