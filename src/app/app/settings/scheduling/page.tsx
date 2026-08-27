@@ -5,6 +5,7 @@ import { canUseCalendarSync } from '@/lib/constants'
 import { googleConfigured } from '@/lib/scheduling/google'
 import { UpgradeGate } from '@/components/billing/UpgradeGate'
 import { SchedulingClient } from './SchedulingClient'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,8 +15,7 @@ export default async function SchedulingSettingsPage() {
   if (!user) redirect('/login')
   const { data: profile } = await supabase
     .from('profiles').select('company_id, ops_role, role').eq('id', user.id).single()
-  const isAdmin = ['owner', 'admin'].includes(profile?.ops_role ?? '') ||
-    ['owner', 'admin'].includes(profile?.role ?? '')
+  const isAdmin = canEditCompanyData(profile)
   if (!profile?.company_id || !isAdmin) redirect('/app/settings')
 
   const [{ data: company }, connProbe] = await Promise.all([

@@ -3,6 +3,7 @@ import { activeTrade } from '@/lib/tradeFilter'
 import { redirect, notFound } from 'next/navigation'
 import { BoardKanban } from './BoardKanban'
 import { Board, BoardColumn, Project } from '@/types/app'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export default async function BoardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -39,7 +40,7 @@ export default async function BoardPage({ params }: { params: Promise<{ id: stri
   const columns = [...board.board_columns].sort((a, b) => a.sort_order - b.sort_order)
 
   const canEdit = ['owner', 'admin', 'manager'].includes(profile.role)
-  const canAdmin = ['owner', 'admin'].includes(profile.role)
+  const canAdmin = canEditCompanyData(profile)
   const memberMap = Object.fromEntries((membersRes.data ?? []).map(m => [m.id, m.full_name]))
 
   // Punch counts per project for the optional card button (fail-soft if not migrated).

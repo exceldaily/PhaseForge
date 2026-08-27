@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 import { PunchStatus } from '@/types/app'
+import { canEditCompanyData } from '@/lib/permissions'
 
 const PUNCH_BUCKET = 'project-attachments'
 const EDITOR_ROLES = ['owner', 'admin', 'manager']
@@ -365,8 +366,8 @@ export async function bulkDeletePunchItems(punchIds: string[]): Promise<ActionRe
     const { data: profile } = await supabase
       .from('profiles').select('company_id, role').eq('id', user.id).single()
     if (!profile?.company_id) throw new Error('No organization')
-    if (!['owner', 'admin'].includes(profile.role)) {
-      throw new Error('Only owners and admins can delete punch items.')
+    if (!canEditCompanyData(profile)) {
+      throw new Error('Only managers and up can delete punch items.')
     }
 
     // Only items in the caller's company — a forged id can't reach across orgs.
@@ -413,8 +414,8 @@ export async function deletePunchItem(punchId: string): Promise<ActionResult> {
     if (!profile?.company_id || profile.company_id !== item.company_id) {
       throw new Error('Not authorized for this item')
     }
-    if (!['owner', 'admin'].includes(profile.role)) {
-      throw new Error('Only owners and admins can delete punch items.')
+    if (!canEditCompanyData(profile)) {
+      throw new Error('Only managers and up can delete punch items.')
     }
 
     const paths = [item.issue_photo_path, item.completion_photo_path].filter(Boolean) as string[]

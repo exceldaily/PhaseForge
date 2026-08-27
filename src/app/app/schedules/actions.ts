@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { canUseSchedules } from '@/lib/constants'
+import { canEditCompanyData } from '@/lib/permissions'
 
 const PATH = '/app/schedules'
 
@@ -12,8 +13,7 @@ async function ctx() {
   if (!user) throw new Error('Not signed in')
   const { data: p } = await supabase
     .from('profiles').select('company_id, ops_role, role, companies(plan)').eq('id', user.id).single()
-  const isManager = ['owner', 'admin', 'manager', 'dispatcher'].includes(p?.ops_role ?? '') ||
-    ['owner', 'admin'].includes(p?.role ?? '')
+  const isManager = canEditCompanyData(p)
   if (!p?.company_id) throw new Error('No organization')
   const plan = (p.companies as { plan?: string } | null)?.plan
   if (!canUseSchedules(plan)) throw new Error('Schedules requires a paid plan')

@@ -5,6 +5,7 @@ import type {
   CallNote, CallWithRelations, Customer, DispatchAsset, DispatchFormField, PriorityLevel, Store, Vendor,
 } from '@/lib/dispatch/types'
 import type { OnCallParticipant, OnCallSettings } from '@/lib/dispatch/onCall'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export interface DispatchContext {
   allowed: boolean
@@ -25,8 +26,7 @@ export async function getDispatchContext(): Promise<DispatchContext> {
   if (!p?.company_id) return { allowed: false, canEdit: false, companyId: null }
   const co = p.companies as { plan?: string; dispatch_enabled?: boolean } | null
   const allowed = canUseTickets(co?.plan) || Boolean(co?.dispatch_enabled)
-  const canEdit = ['owner', 'admin', 'manager', 'dispatcher'].includes(p.ops_role ?? '') ||
-    ['owner', 'admin'].includes(p.role ?? '')
+  const canEdit = canEditCompanyData(p)
   return { allowed, canEdit, companyId: p.company_id }
 }
 

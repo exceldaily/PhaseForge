@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { CoDetailClient } from './CoDetailClient'
 import type { ChangeOrderRow } from '@/lib/changeOrders'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export const metadata = { title: 'Change Order — PhaseForge' }
 
@@ -37,7 +38,7 @@ export default async function CoDetailPage({ params }: { params: Promise<{ id: s
       members={members ?? []}
       currentUserId={profile.id}
       isManager={['owner', 'admin', 'manager'].includes(profile.role)}
-      isAdmin={['owner', 'admin'].includes(profile.role)}
+      isAdmin={canEditCompanyData(profile)}
     />
   )
 }

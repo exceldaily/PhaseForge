@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { coStage, CO_STAGE_MAP } from '@/lib/changeOrders'
+import { canEditCompanyData } from '@/lib/permissions'
 
 const PATH = '/app/change-orders'
 
@@ -488,7 +489,7 @@ export async function recordCheck(coId: string, nextFollowUp: string | null, not
 export async function archiveCo(coId: string, restore = false): Promise<Result> {
   try {
     const { supabase, userId, companyId, role } = await ctx()
-    if (!['owner', 'admin'].includes(role)) return { success: false, error: 'Owners and admins only' }
+    if (!canEditCompanyData({ role })) return { success: false, error: 'Managers and up only' }
     const { error } = await supabase.from('change_orders').update({
       archived_at: restore ? null : new Date().toISOString(),
       updated_by: userId, updated_at: new Date().toISOString(),

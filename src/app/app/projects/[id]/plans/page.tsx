@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { loadPlansData } from '@/lib/plans/queries.server'
 import { PlansHome } from './PlansHome'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,7 @@ export default async function ProjectPlansPage({ params }: { params: Promise<{ i
       companyId={data.companyId}
       userId={data.userId}
       canManage={data.canManage}
-      isAdmin={['owner', 'admin'].includes(data.role)}
+      isAdmin={canEditCompanyData(data)}
       sheets={data.sheets}
       sets={data.sets}
       lastVisitAt={data.lastVisitAt}

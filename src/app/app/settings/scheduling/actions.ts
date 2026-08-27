@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { canUseCalendarSync } from '@/lib/constants'
 import { gcal, refreshAccessToken, encryptToken, decryptToken } from '@/lib/scheduling/google'
+import { canEditCompanyData } from '@/lib/permissions'
 
 const PATH = '/app/settings/scheduling'
 
@@ -13,8 +14,7 @@ async function requireAdmin() {
   if (!user) throw new Error('Not signed in')
   const { data: p } = await supabase
     .from('profiles').select('company_id, ops_role, role, companies(plan)').eq('id', user.id).single()
-  const isAdmin = ['owner', 'admin'].includes(p?.ops_role ?? '') ||
-    ['owner', 'admin'].includes(p?.role ?? '')
+  const isAdmin = canEditCompanyData(p)
   if (!p?.company_id || !isAdmin) throw new Error('Admins only')
   // Plan gates only sync-forward actions; disconnect / dismissing pending
   // changes stay available so a downgraded org isn't locked in.

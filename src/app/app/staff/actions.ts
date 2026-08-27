@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireModule } from '@/lib/operations/server'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export async function upsertStaffDetails(profileId: string, patch: {
   division_id?: string | null
@@ -12,7 +13,7 @@ export async function upsertStaffDetails(profileId: string, patch: {
   notes?: string | null
 }) {
   const ctx = await requireModule('staff')
-  if (!['owner', 'admin'].includes(ctx.opsRole) && profileId !== ctx.userId) {
+  if (!canEditCompanyData({ ops_role: ctx.opsRole, role: ctx.role }) && profileId !== ctx.userId) {
     return { error: 'Not allowed.' }
   }
   const supabase = await createClient()

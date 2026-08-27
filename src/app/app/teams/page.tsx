@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { TeamsClient } from './TeamsClient'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export default async function TeamsPage() {
   const supabase = await createClient()
@@ -26,7 +27,7 @@ export default async function TeamsPage() {
       .order('name'),
   ])
 
-  const canEdit = ['owner', 'admin'].includes(profile.role)
+  const canEdit = canEditCompanyData(profile)
 
   return (
     <TeamsClient

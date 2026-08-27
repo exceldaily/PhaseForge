@@ -7,6 +7,7 @@ import { checkBoardLimit } from '@/lib/planLimits'
 import { BOARD_COLUMN_MIN, BOARD_COLUMN_MAX, DEFAULT_BOARD_COLUMNS, KANBAN_COLUMNS } from '@/lib/constants'
 import { validateHexColor } from '@/lib/utils'
 import { logger } from '@/lib/logger'
+import { EDITOR_ROLES } from '@/lib/permissions'
 
 // Supabase/Postgres errors are plain objects, not Error instances, so a bare
 // `err.message` check swallows them into a generic fallback. Pull out whatever
@@ -191,7 +192,7 @@ export async function updateBoard(boardId: string, updates: { name?: string; des
 
 export async function updateBoardCustomization(boardId: string, visibleFields: string[], customStages: string[]) {
   try {
-    const { supabase } = await requireRole(['owner', 'admin'])
+    const { supabase } = await requireRole([...EDITOR_ROLES])
     const { error } = await supabase
       .from('boards')
       .update({
@@ -212,7 +213,7 @@ export async function updateBoardCustomization(boardId: string, visibleFields: s
 
 export async function deleteBoard(boardId: string) {
   try {
-    const { supabase, companyId } = await requireRole(['owner', 'admin'])
+    const { supabase, companyId } = await requireRole([...EDITOR_ROLES])
     const { data: board } = await supabase.from('boards').select('is_default').eq('id', boardId).single()
     if (board?.is_default) throw new Error('Cannot delete the default board')
     await supabase.from('boards').delete().eq('id', boardId).eq('company_id', companyId)
@@ -279,7 +280,7 @@ export async function updateBoardColumn(columnId: string, updates: { name?: stri
 
 export async function deleteBoardColumn(columnId: string, boardId: string) {
   try {
-    const { supabase } = await requireRole(['owner', 'admin'])
+    const { supabase } = await requireRole([...EDITOR_ROLES])
 
     const { count } = await supabase
       .from('board_columns')
@@ -349,7 +350,7 @@ export async function moveProjectToColumn(projectId: string, columnId: string) {
 
 export async function addBoardTeam(boardId: string, teamId: string) {
   try {
-    const { supabase } = await requireRole(['owner', 'admin'])
+    const { supabase } = await requireRole([...EDITOR_ROLES])
     await supabase.from('board_teams').insert({ board_id: boardId, team_id: teamId })
     revalidatePath(`/app/boards/${boardId}/settings`)
     return { success: true }
@@ -361,7 +362,7 @@ export async function addBoardTeam(boardId: string, teamId: string) {
 
 export async function removeBoardTeam(boardId: string, teamId: string) {
   try {
-    const { supabase } = await requireRole(['owner', 'admin'])
+    const { supabase } = await requireRole([...EDITOR_ROLES])
     await supabase.from('board_teams').delete().eq('board_id', boardId).eq('team_id', teamId)
     revalidatePath(`/app/boards/${boardId}/settings`)
     return { success: true }

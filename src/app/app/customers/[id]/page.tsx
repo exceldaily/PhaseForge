@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireModule } from '@/lib/operations/server'
 import { createClient } from '@/lib/supabase/server'
 import { CustomerDetailClient } from './CustomerDetailClient'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,7 +53,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         activity={activity ?? []}
         divisions={divisions ?? []}
         canWrite={['owner', 'admin', 'dispatcher', 'project_manager'].includes(ctx.opsRole)}
-        canDelete={['owner', 'admin'].includes(ctx.opsRole)}
+        canDelete={canEditCompanyData({ ops_role: ctx.opsRole, role: ctx.role })}
       />
     </div>
   )

@@ -3,6 +3,7 @@ import { loadPlansData } from '@/lib/plans/queries.server'
 import { createClient } from '@/lib/supabase/server'
 import { PlanViewerShell } from '@/components/plans/PlanViewerShell'
 import type { PlanViewState } from '@/types/plans'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,7 +58,7 @@ export default async function PlanSheetPage({
       currentUserId={data.userId}
       canManage={data.canManage}
       canMarkup={true}
-      isAdmin={['owner', 'admin'].includes(data.role)}
+      isAdmin={canEditCompanyData(data)}
     />
   )
 }

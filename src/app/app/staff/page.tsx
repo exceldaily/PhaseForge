@@ -1,6 +1,7 @@
 import { requireModule } from '@/lib/operations/server'
 import { createClient } from '@/lib/supabase/server'
 import { StaffClient } from './StaffClient'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export default async function StaffPage() {
         certs={certs ?? []}
         divisions={divisions ?? []}
         calls={calls ?? []}
-        canWrite={['owner', 'admin'].includes(ctx.opsRole)}
+        canWrite={canEditCompanyData({ ops_role: ctx.opsRole, role: ctx.role })}
       />
     </div>
   )

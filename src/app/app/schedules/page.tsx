@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canUseSchedules } from '@/lib/constants'
 import { UpgradeGate } from '@/components/billing/UpgradeGate'
 import { SchedulesClient } from './SchedulesClient'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,8 +30,7 @@ export default async function SchedulesPage({ searchParams }: {
   const { data: profile } = await supabase
     .from('profiles').select('company_id, ops_role, role').eq('id', user.id).single()
   if (!profile?.company_id) redirect('/app/dashboard')
-  const canEdit = ['owner', 'admin', 'manager', 'dispatcher'].includes(profile.ops_role ?? '') ||
-    ['owner', 'admin'].includes(profile.role ?? '')
+  const canEdit = canEditCompanyData(profile)
 
   const [{ data: sups }, { data: company }, { data: directory }, { data: deptSettings }] = await Promise.all([
     supabase.from('superintendents').select('id, name, roster, division')

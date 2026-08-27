@@ -204,7 +204,7 @@ export const ROLE_LABELS: Record<string, string> = {
 export const ROLE_DESCRIPTIONS: Record<string, string> = {
   owner:   'Full access · Billing · Team & user management',
   admin:   'Manage teams · Manage projects · Manage users',
-  manager: 'Create projects · Assign tasks · Manage workload',
+  manager: 'Full editing on all company data · Cannot change roles or billing',
   member:  'View assigned projects · Update tasks · Track progress',
   viewer:  'View assigned projects · Update tasks · Track progress',
 }

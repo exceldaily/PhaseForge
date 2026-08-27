@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 import type { MarkupElement, PlanSetType } from '@/types/plans'
+import { canEditCompanyData } from '@/lib/permissions'
 
 type Result<T = undefined> = { success: true; data?: T } | { success: false; error: string }
 
@@ -222,7 +223,7 @@ export async function setCurrentRevision(projectId: string, sheetId: string, rev
 export async function deleteSheets(projectId: string, sheetIds: string[]): Promise<Result> {
   try {
     const { supabase, user, profile } = await requireUser()
-    if (!['owner', 'admin'].includes(profile.role)) throw new Error('Only admins can delete drawings')
+    if (!canEditCompanyData(profile)) throw new Error('Only managers and up can delete drawings')
     const admin = createAdminClient()
 
     const { data: sheets } = await supabase.from('plan_sheets')

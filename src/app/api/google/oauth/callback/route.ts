@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { exchangeCode, encryptToken } from '@/lib/scheduling/google'
+import { canEditCompanyData } from '@/lib/permissions'
 
 // Completes OAuth: exchanges the code, stores ENCRYPTED tokens on the org's
 // connection row. Refresh token never leaves the server.
@@ -24,8 +25,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.redirect(new URL('/login', req.url))
   const { data: profile } = await supabase
     .from('profiles').select('company_id, ops_role, role').eq('id', user.id).single()
-  const isAdmin = ['owner', 'admin'].includes(profile?.ops_role ?? '') ||
-    ['owner', 'admin'].includes(profile?.role ?? '')
+  const isAdmin = canEditCompanyData(profile)
   if (!profile?.company_id || !isAdmin) {
     settings.searchParams.set('error', 'admin_only')
     return NextResponse.redirect(settings)

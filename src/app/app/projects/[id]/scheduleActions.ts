@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canUseCalendarSync } from '@/lib/constants'
 import { pushPhase, removePhaseEvent, pullLinkedEvents } from '@/lib/scheduling/syncCore'
 import { swapSuperintendentLabels } from '@/lib/scheduling/calendarEvent'
+import { canEditCompanyData } from '@/lib/permissions'
 
 async function ctx() {
   const supabase = await createClient()
@@ -13,7 +14,7 @@ async function ctx() {
   const { data: p } = await supabase
     .from('profiles').select('company_id, ops_role, role, companies(plan)').eq('id', user.id).single()
   const isManager = ['owner', 'admin', 'manager', 'dispatcher'].includes(p?.ops_role ?? '') ||
-    ['owner', 'admin'].includes(p?.role ?? '')
+    canEditCompanyData(p)
   if (!p?.company_id) throw new Error('No organization')
   // Plan gates only the PUSH direction (see canPush below). Cleanup (unsync /
   // remove events), status reads, and PhaseForge-side edits stay available so

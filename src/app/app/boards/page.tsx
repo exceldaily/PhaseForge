@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { BoardsClient } from './BoardsClient'
 import { getUsageSummary } from '@/lib/planLimits'
 import { Board, BoardColumn } from '@/types/app'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export default async function BoardsPage() {
   const supabase = await createClient()
@@ -40,7 +41,7 @@ export default async function BoardsPage() {
   }
 
   const canEdit = ['owner', 'admin', 'manager'].includes(profile.role)
-  const canAdmin = ['owner', 'admin'].includes(profile.role)
+  const canAdmin = canEditCompanyData(profile)
 
   return (
     <BoardsClient

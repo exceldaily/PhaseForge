@@ -7,6 +7,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { canUseTickets } from '@/lib/constants'
+import { canEditCompanyData } from '@/lib/permissions'
 import type {
   CallStatus, NextAction, NoteCategory, PartStatus, ProposalStatus, Urgency,
 } from '@/lib/dispatch/types'
@@ -25,9 +26,8 @@ async function ctx() {
   const co = p.companies as { plan?: string; dispatch_enabled?: boolean } | null
   if (!canUseTickets(co?.plan) && !co?.dispatch_enabled) throw new Error('Dispatch requires a paid plan')
   // Management: full control incl. deletes, manager notes, store identity.
-  const isManagement = ['owner', 'admin', 'manager', 'dispatcher'].includes(p.ops_role ?? '') ||
-    ['owner', 'admin'].includes(p.role ?? '')
-  const isAdmin = ['owner', 'admin'].includes(p.ops_role ?? '') || ['owner', 'admin'].includes(p.role ?? '')
+  const isManagement = canEditCompanyData(p)
+  const isAdmin = canEditCompanyData(p)
   return { supabase, userId: user.id, companyId: p.company_id, isManagement, isAdmin }
 }
 

@@ -285,6 +285,8 @@ export const SECTIONS: GuideSection[] = [
     href: '/app/teams',
     hrefLabel: 'Open Teams',
     items: [
+      { heading: 'What a Manager can do', text: 'Managers can create, edit, and delete company data everywhere: projects and phases, boards and their columns, the weekly schedules, plans and drawings, punch items, change orders, quotes, customers, and staff details. You do not need to make someone an owner just so they can get their work done.' },
+      { heading: 'What stays with Owners and Admins', text: 'Three things are deliberately out of a manager’s reach: inviting people and changing anyone’s role, billing and the plan, and who can see a private board. A manager who could change roles could simply make themselves an owner, which would make the distinction pointless. Everything else is open to them.' },
       { heading: 'Inviting people', text: 'Settings → Members → Invite by email with a role (member, manager, or admin). Invitees get a branded email, set their own password, and are signed in automatically.' },
       { heading: 'Roles', text: 'Owner and Admin manage everything including billing and roles. Manager creates boards and projects and runs the work. Member works on what\'s assigned. Viewer is read-only. Admins change roles from the Admin Console, and every change is logged.' },
       { heading: 'Teams', text: 'Create color-coded teams (crews, departments), add members, and link projects. Rename or delete teams anytime — deleting a team only removes the grouping, never the people or projects.' },

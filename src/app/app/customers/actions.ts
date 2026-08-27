@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireModule, logOpsActivity } from '@/lib/operations/server'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export async function createCustomer(input: {
   name: string
@@ -84,7 +85,7 @@ export async function updateCustomer(id: string, patch: Record<string, string | 
 // but lose the customer link (FK is ON DELETE SET NULL).
 export async function deleteCustomer(id: string) {
   const ctx = await requireModule('customers')
-  if (!['owner', 'admin'].includes(ctx.opsRole)) {
+  if (!canEditCompanyData({ ops_role: ctx.opsRole, role: ctx.role })) {
     return { error: 'Only organization owners and admins can delete customers.' }
   }
   const supabase = await createClient()

@@ -8,12 +8,22 @@ export interface OpsContext {
   userId: string
   companyId: string
   opsRole: OpsRole
+  /** Workspace role, so a manager with no ops_role is still an editor. */
+  role: string
   enabledModules: ModuleKey[]
 }
 
 // Fetch the operations context for the signed-in user. Redirects to /login when
 // signed out. Never trusts the client: entitlements come straight from the DB
 // (and RLS re-enforces everything at the data layer regardless).
+/** The ops role implied by a workspace role when no ops_role was assigned. */
+function defaultOpsRole(role: string | null | undefined): OpsRole {
+  if (role === 'owner') return 'owner'
+  if (role === 'admin') return 'admin'
+  if (role === 'manager') return 'project_manager'
+  return 'read_only'
+}
+
 export async function getOpsContext(): Promise<OpsContext> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,7 +31,7 @@ export async function getOpsContext(): Promise<OpsContext> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('company_id, ops_role')
+    .select('company_id, ops_role, role')
     .eq('id', user.id)
     .single()
 
@@ -35,7 +45,12 @@ export async function getOpsContext(): Promise<OpsContext> {
   return {
     userId: user.id,
     companyId: profile.company_id,
-    opsRole: (profile.ops_role ?? 'read_only') as OpsRole,
+    // Someone who was never given an ops_role fell through to 'read_only',
+    // which locked managers (and even owners) out of every operations module
+    // until an admin set a second role on them. Map the workspace role across
+    // instead, and only fall back to read_only when neither field says more.
+    opsRole: (profile.ops_role ?? defaultOpsRole(profile.role)) as OpsRole,
+    role: profile.role ?? '',
     enabledModules: (modules ?? [])
       .filter((m) => m.enabled)
       .map((m) => m.module_key as ModuleKey),

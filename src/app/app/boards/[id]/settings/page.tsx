@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { BoardSettingsClient } from './BoardSettingsClient'
 import { Board, BoardColumn } from '@/types/app'
+import { canEditCompanyData } from '@/lib/permissions'
 
 export default async function BoardSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -14,7 +15,7 @@ export default async function BoardSettingsPage({ params }: { params: Promise<{ 
 
   // Managers can edit board details & columns; viewers/members can't.
   if (!['owner', 'admin', 'manager'].includes(profile.role)) redirect(`/app/boards/${id}`)
-  const canAdmin = ['owner', 'admin'].includes(profile.role)
+  const canAdmin = canEditCompanyData(profile)
 
   const [boardRes, teamsRes, boardTeamsRes] = await Promise.all([
     supabase.from('boards').select('*, board_columns(*)').eq('id', id).eq('company_id', profile.company_id).single(),

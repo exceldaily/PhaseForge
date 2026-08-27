@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { canUseCalendarSync } from '@/lib/constants'
 import { googleConfigured, oauthStartUrl } from '@/lib/scheduling/google'
+import { canEditCompanyData } from '@/lib/permissions'
 
 // Admin-only: begins the Google OAuth consent flow for the org connection.
 export async function GET(req: NextRequest) {
@@ -12,8 +13,7 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles').select('ops_role, role, companies(plan)').eq('id', user.id).single()
-  const isAdmin = ['owner', 'admin'].includes(profile?.ops_role ?? '') ||
-    ['owner', 'admin'].includes(profile?.role ?? '')
+  const isAdmin = canEditCompanyData(profile)
   if (!isAdmin) {
     return NextResponse.redirect(new URL('/app/settings/scheduling?error=admin_only', req.url))
   }
