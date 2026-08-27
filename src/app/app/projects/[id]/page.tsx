@@ -3,10 +3,31 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { ProjectDetailShell } from './ProjectDetailShell'
 import { canUsePrintAndReports } from '@/lib/constants'
-import { Phase, Profile, Project, ProjectAttachment, PunchItem } from '@/types/app'
+import { ActivityLog, Phase, Profile, Project, ProjectAttachment, PunchItem } from '@/types/app'
 import { loadCommandCenter } from '@/lib/commandCenter'
 
 const VALID_TABS = new Set(['overview', 'gantt', 'tasks', 'punch', 'activity', 'files'])
+
+/** One sentence for a co_events row, in the timeline's plain voice. */
+function describeCoEvent(
+  eventType: string, coNumber: number | undefined,
+  field: string | null, oldValue: string | null, newValue: string | null, note: string | null,
+): string {
+  const co = coNumber != null ? `CO ${coNumber}` : 'a change order'
+  switch (eventType) {
+    case 'created': return `created ${co}`
+    case 'stage_change': return `moved ${co}${oldValue ? ` from ${oldValue}` : ''}${newValue ? ` to ${newValue}` : ''}`
+    case 'amount_change': return `changed the amount on ${co}${oldValue || newValue ? ` (${oldValue ?? '—'} → ${newValue ?? '—'})` : ''}`
+    case 'approval': return `recorded approval on ${co}${newValue ? ` (${newValue})` : ''}`
+    case 'billing': return `updated billing on ${co}`
+    case 'revision': return `added a revision to ${co}`
+    case 'follow_up': return `set a follow-up on ${co}`
+    case 'owner_change': return `reassigned ${co}${newValue ? ` to ${newValue}` : ''}`
+    case 'note': return `noted on ${co}: ${note ?? ''}`.trim()
+    case 'system': return `updated ${co}${note ? `: ${note}` : ''}`
+    default: return `${eventType.replace(/_/g, ' ')} on ${co}`
+  }
+}
 
 export default async function ProjectDetailPage({
   params,
@@ -89,6 +110,39 @@ export default async function ProjectDetailPage({
 
   const canEdit = !['member', 'viewer'].includes(profile.role)
 
+  // Change-order history lives in co_events (its own single write path);
+  // UNION it into the timeline feed at read time rather than double-writing.
+  const { data: projectCos } = await supabase.from('change_orders')
+    .select('id, co_number').eq('project_id', id).limit(200)
+  let coEvents: ActivityLog[] = []
+  if (projectCos?.length) {
+    const { data: events } = await supabase.from('co_events')
+      .select('id, company_id, co_id, actor_id, event_type, field, old_value, new_value, note, created_at')
+      .in('co_id', projectCos.map((c) => c.id))
+      .order('created_at', { ascending: false })
+      .limit(50)
+    const coNumber = new Map(projectCos.map((c) => [c.id, c.co_number]))
+    coEvents = (events ?? []).map((e) => ({
+      id: `co-${e.id}`,
+      company_id: e.company_id,
+      project_id: id,
+      phase_id: null,
+      actor_id: e.actor_id,
+      action: 'co_event',
+      payload: {
+        summary: describeCoEvent(e.event_type, coNumber.get(e.co_id), e.field, e.old_value, e.new_value, e.note),
+      },
+      entity_type: 'change_order',
+      entity_id: e.co_id,
+      entity_label: `CO ${coNumber.get(e.co_id) ?? ''}`.trim(),
+      reason: null,
+      created_at: e.created_at,
+    }))
+  }
+  const mergedLogs = [...(activityRes.data ?? []), ...coEvents]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 80)
+
   // Everything the Overview tab shows, computed once server-side.
   const commandCenter = await loadCommandCenter(
     supabase, { ...project, phases: undefined } as Project, phases, rawPunchItems,
@@ -105,7 +159,7 @@ export default async function ProjectDetailPage({
     <ProjectDetailShell
       project={{ ...project, phases }}
       members={(membersRes.data ?? []) as Profile[]}
-      activityLogs={activityRes.data ?? []}
+      activityLogs={mergedLogs}
       attachments={attachments}
       punchItems={punchItems}
       currentUserId={user.id}

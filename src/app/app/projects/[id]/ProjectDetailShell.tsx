@@ -277,7 +277,7 @@ export function ProjectDetailShell({
       {activeTab === 'activity' && (
         <div className="flex-1 overflow-hidden">
           <div className="max-w-3xl mx-auto h-full flex flex-col p-6">
-            <h2 className="text-sm font-semibold text-slate-700 mb-4">Project Edit History</h2>
+            <h2 className="text-sm font-semibold text-slate-700 mb-4">Project timeline</h2>
             <ActivityTimeline logs={activityLogs} members={Object.fromEntries(members.map(m => [m.id, m.full_name]))} />
           </div>
         </div>

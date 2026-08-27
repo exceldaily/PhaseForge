@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 import { PunchStatus } from '@/types/app'
 import { canEditCompanyData } from '@/lib/permissions'
+import { logActivity } from '@/lib/activity/log'
 
 const PUNCH_BUCKET = 'project-attachments'
 const EDITOR_ROLES = ['owner', 'admin', 'manager']
@@ -128,6 +129,12 @@ export async function createPunchItem(
         link: `/app/projects/${projectId}?tab=punch`,
       })
     }
+
+    await logActivity(admin, {
+      companyId: project.company_id, projectId, actorId: user.id,
+      action: 'punch_created', entityType: 'punch_item', entityId: punchId,
+      entityLabel: `#${nextNumber}${data.title ? ` ${data.title.trim()}` : ''}`,
+    })
 
     revalidatePath(`/app/projects/${projectId}`)
     return { success: true }
@@ -285,6 +292,12 @@ export async function completePunchItem(
         link: `/app/projects/${item.project_id}?tab=punch`,
       })
     }
+
+    await logActivity(admin, {
+      companyId: item.company_id, projectId: item.project_id, actorId: user.id,
+      action: 'punch_completed', entityType: 'punch_item', entityId: punchId,
+      entityLabel: `#${item.number}`,
+    })
 
     revalidatePath(`/app/projects/${item.project_id}`)
     return { success: true }

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingLinksColumnError, isMissingShowPunchColumnError } from '@/lib/projectAudit'
 import { logger } from '@/lib/logger'
+import { logActivity } from '@/lib/activity/log'
 
 // ── Phase creation ────────────────────────────────────────────────────────
 
@@ -347,11 +348,13 @@ export async function updateProject(projectId: string, updates: Record<string, u
     }
 
     if (Object.keys(changes).length > 0) {
-      await supabase.from('activity_logs').insert({
-        company_id: (oldProject as Record<string, unknown>).company_id,
-        project_id: projectId,
-        actor_id: user.id,
+      await logActivity(supabase, {
+        companyId: String((oldProject as Record<string, unknown>).company_id),
+        projectId,
+        actorId: user.id,
         action: 'project_updated',
+        entityType: 'project',
+        entityId: projectId,
         payload: changes,
       })
     }

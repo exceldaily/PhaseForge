@@ -67,7 +67,7 @@ export const PAGE_HELP: PageHelp[] = [
   {
     match: /^\/app\/projects\/[^/]+$/,
     title: 'Project detail',
-    sectionIds: ['projects', 'phases', 'punch', 'plans', 'change-orders'],
+    sectionIds: ['command-center', 'projects', 'phases', 'punch', 'plans', 'change-orders'],
     pins: [
       { key: 'project-tabs', label: 'Tabs', text: 'Everything about the job lives here: schedule, plans, punch list, change orders, and files. Swipe the row on a phone.' },
     ],
@@ -93,6 +93,8 @@ export const PAGE_HELP: PageHelp[] = [
     title: 'Board',
     sectionIds: ['boards', 'projects'],
     pins: [
+      { key: 'board-density', label: 'Card size', text: 'Compact, Standard, or Detailed cards. Your pick is remembered.' },
+      { key: 'board-sort', label: 'Sort', text: 'How cards order inside each column. Smart Priority puts the project that needs eyes first on top.' },
       { key: 'board-column-add', label: 'Add column', text: 'Columns are your stages. Add up to fifteen and name them whatever your process calls them.' },
       { key: 'board-settings', label: 'Board settings', text: 'Rename the board, set who can see it, and choose which fields show on the cards.' },
     ],
@@ -165,6 +167,7 @@ export const PAGE_HELP: PageHelp[] = [
     sectionIds: ['gantt', 'phases'],
     pins: [
       { key: 'gantt-undo', label: 'Undo / redo', text: 'Steps back through bar moves, resizes, and percent changes you made on the chart. Ctrl+Z and Ctrl+Shift+Z work too.' },
+      { key: 'gantt-schedule', label: 'Schedule menu', text: 'Baseline, critical path, lookahead, and the compare view live here.' },
       { key: 'gantt-zoom', label: 'Time scale', text: 'Day, week, month, or quarter. Wider scales fit more of the job on screen.' },
       { key: 'gantt-print', label: 'Print', text: 'Prints the chart to paper or PDF for a job trailer wall. Paid plans.' },
     ],
