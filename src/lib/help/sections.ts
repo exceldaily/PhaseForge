@@ -62,6 +62,7 @@ export const SECTIONS: GuideSection[] = [
     title: 'Getting Started',
     summary: 'The 5-minute path from empty workspace to a working schedule.',
     items: [
+      { heading: 'Explore before signing up', text: 'The public welcome page includes a sample project schedule: select a phase to see its progress, trade, and next handoff. Expand the platform capabilities or choose a step in the five-stage workflow to learn more. These examples use demo data and do not change real projects. Pause motion stops the welcome animation; reduced-motion device settings are also respected. Existing members can use Sign in at the top of the page.' },
       { heading: '1. Check your board', text: 'Your company starts with a default board. Boards hold projects — open Boards in the sidebar to see yours. Create more boards to separate divisions, clients, or types of work, and choose who sees each one: everyone, specific teams, or just you.' },
       { heading: '2. Add projects', text: 'Use + New Project for one at a time, or Import Schedule on the Projects page to bring in a whole Excel workbook — each tab becomes a project with its phases, and everything lands on your default board.' },
       { heading: '3. Invite your team', text: 'Settings → Members → Invite. Teammates get an email link, set a password, and land in your workspace with the role you chose.' },
