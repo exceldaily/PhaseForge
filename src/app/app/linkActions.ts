@@ -9,36 +9,10 @@ import { createClient } from '@/lib/supabase/server'
 import { canEditCompanyData } from '@/lib/permissions'
 import { logActivity } from '@/lib/activity/log'
 
-export type LinkEntityType =
-  | 'project' | 'phase' | 'change_order' | 'punch_item' | 'plan_sheet' | 'quote_pricing'
-
-export type LinkType =
-  | 'related_to' | 'caused_by' | 'impacts' | 'generated_from' | 'blocked_by'
-  | 'resolves' | 'schedule_impact' | 'cost_impact' | 'follow_up_to'
-
-export const LINK_TYPE_LABELS: Record<LinkType, string> = {
-  related_to: 'Related to',
-  caused_by: 'Caused by',
-  impacts: 'Impacts',
-  generated_from: 'Generated from',
-  blocked_by: 'Blocked by',
-  resolves: 'Resolves',
-  schedule_impact: 'Schedule impact',
-  cost_impact: 'Cost impact',
-  follow_up_to: 'Follow-up to',
-}
-
-export interface LinkedItem {
-  linkId: string
-  linkType: LinkType
-  /** Whether this entity is the target (outbound) or source (inbound). */
-  direction: 'out' | 'in'
-  entityType: LinkEntityType
-  entityId: string
-  label: string
-  sublabel: string | null
-  href: string
-}
+import {
+  LINK_TYPE_LABELS,
+  type LinkCandidate, type LinkEntityType, type LinkType, type LinkedItem,
+} from '@/lib/links'
 
 const VALID_TYPES = new Set<string>(['project', 'phase', 'change_order', 'punch_item', 'plan_sheet', 'quote_pricing'])
 const VALID_LINKS = new Set<string>(Object.keys(LINK_TYPE_LABELS))
@@ -131,13 +105,6 @@ export async function listLinks(entityType: LinkEntityType, entityId: string): P
 }
 
 /* ── Search targets for the picker ────────────────────────────────────────── */
-
-export interface LinkCandidate {
-  entityType: LinkEntityType
-  entityId: string
-  label: string
-  sublabel: string | null
-}
 
 export async function searchLinkTargets(query: string, typeFilter?: LinkEntityType): Promise<LinkCandidate[]> {
   const { supabase } = await ctx()

@@ -313,14 +313,22 @@ export function PricingDetailClient({ sheet, lines: initial }: { sheet: PricingS
                 const file = e.target.files?.[0]
                 e.target.value = ''
                 if (!file) return
+                if (file.size > 10 * 1024 * 1024) {
+                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB.`)
+                  return
+                }
                 const fd = new FormData()
                 fd.set('file', file); fd.set('pricingId', sheet.id)
                 start(async () => {
                   setError(null); setNote(null)
-                  const res = await importLinesFromPdf(fd)
-                  if (!res.ok) { setError(res.error ?? 'Could not read that PDF.'); return }
-                  setNote(res.found > 0 ? `Added ${res.found} line${res.found === 1 ? '' : 's'}.` : 'No line items could be read off that one.')
-                  router.refresh()
+                  try {
+                    const res = await importLinesFromPdf(fd)
+                    if (!res.ok) { setError(res.error ?? 'Could not read that PDF.'); return }
+                    setNote(res.found > 0 ? `Added ${res.found} line${res.found === 1 ? '' : 's'}.` : 'No line items could be read off that one.')
+                    router.refresh()
+                  } catch {
+                    setError('The upload did not go through. If the PDF is large, compress it and try again.')
+                  }
                 })
               }}
             />

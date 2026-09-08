@@ -72,13 +72,23 @@ export function PricingList({ pricings }: { pricings: PricingListItem[] }) {
                 const file = e.target.files?.[0]
                 e.target.value = ''
                 if (!file) return
+                if (file.size > 10 * 1024 * 1024) {
+                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB. Try a compressed export, or paste the quote text instead.`)
+                  return
+                }
                 const fd = new FormData()
                 fd.set('file', file)
                 start(async () => {
                   setError(null); setNote(null)
-                  const res = await createPricingFromPdf(fd)
-                  if (res.ok) open(res.pricingId, res.found)
-                  else setError(res.error ?? 'Could not read that PDF.')
+                  try {
+                    const res = await createPricingFromPdf(fd)
+                    if (res.ok) open(res.pricingId, res.found)
+                    else setError(res.error ?? 'Could not read that PDF.')
+                  } catch {
+                    // A rejected upload (size cap, dropped connection) never
+                    // reaches the action; without this catch it failed silently.
+                    setError('The upload did not go through. If the PDF is large, compress it or paste the quote text instead.')
+                  }
                 })
               }}
             />

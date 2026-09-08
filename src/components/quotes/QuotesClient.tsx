@@ -129,13 +129,21 @@ export function QuotesClient({ quotes, pricings, vendors, gmailEmail, hasSignatu
                 const file = e.target.files?.[0]
                 e.target.value = ''
                 if (!file) return
+                if (file.size > 10 * 1024 * 1024) {
+                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB. Paste the form text instead.`)
+                  return
+                }
                 const fd = new FormData()
                 fd.set('file', file)
                 start(async () => {
                   setError(null)
-                  const res = await createQuoteFromPdf(fd)
-                  if (res.ok && 'quoteId' in res && res.quoteId) router.push(`/app/quotes/${res.quoteId}`)
-                  else setError(('error' in res ? res.error : null) ?? 'Could not read that PDF.')
+                  try {
+                    const res = await createQuoteFromPdf(fd)
+                    if (res.ok && 'quoteId' in res && res.quoteId) router.push(`/app/quotes/${res.quoteId}`)
+                    else setError(('error' in res ? res.error : null) ?? 'Could not read that PDF.')
+                  } catch {
+                    setError('The upload did not go through. If the PDF is large, compress it or paste the form text instead.')
+                  }
                 })
               }}
             />

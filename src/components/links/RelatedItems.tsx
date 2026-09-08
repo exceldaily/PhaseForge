@@ -8,11 +8,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowDown, Link2, Plus, Search, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createLink, deleteLink, listLinks, searchLinkTargets } from '@/app/app/linkActions'
 import {
-  createLink, deleteLink, listLinks, searchLinkTargets,
   LINK_TYPE_LABELS,
   type LinkCandidate, type LinkEntityType, type LinkType, type LinkedItem,
-} from '@/app/app/linkActions'
+} from '@/lib/links'
 
 export interface DerivedRelation {
   label: string
