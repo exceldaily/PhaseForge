@@ -49,6 +49,9 @@ async function withPdfJs(buf: Buffer): Promise<string> {
     data: new Uint8Array(buf),
     stopAtErrors: false, // keep going through damaged xref tables
     disableFontFace: true,
+    // XFA documents (Adobe LiveCycle vendor quote templates) expose no page
+    // text at all unless this is on; harmless for ordinary PDFs.
+    enableXfa: true,
     verbosity: 0,
   })
   try {
@@ -68,6 +71,31 @@ async function withPdfJs(buf: Buffer): Promise<string> {
       }
       out += pageText + '\n'
     }
+
+    // Fillable-form quotes (AcroForm) keep their words in FIELD VALUES, not
+    // page content — getTextContent sees blank pages, and the caller then
+    // tells the user their perfectly good PDF "looks like a scan". Pull the
+    // field values and append them as "label: value" lines so both the loose
+    // form parser and the vendor-quote line parser have something to chew on.
+    try {
+      const fields = await doc.getFieldObjects()
+      if (fields) {
+        const lines: string[] = []
+        for (const [name, objs] of Object.entries(fields)) {
+          for (const f of objs as { value?: unknown }[]) {
+            const v = f?.value
+            const text = Array.isArray(v)
+              ? v.join(' ')
+              : typeof v === 'string' || typeof v === 'number' ? String(v) : ''
+            if (text.trim()) lines.push(`${name}: ${text.trim()}`)
+          }
+        }
+        if (lines.length) out += '\n' + lines.join('\n') + '\n'
+      }
+    } catch {
+      // Form fields are a bonus; failing to read them never blocks page text.
+    }
+
     return out
   } finally {
     await task.destroy()

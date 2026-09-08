@@ -7,7 +7,12 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: {
     // Mirror tsconfig's "@/*" so units that import app modules test as-is.
-    alias: { '@': path.resolve(__dirname, 'src') },
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      // The real package throws outside React Server Components, which would
+      // make server-only libs untestable; tests get a no-op.
+      'server-only': path.resolve(__dirname, 'src/lib/testing/server-only-stub.ts'),
+    },
   },
   test: {
     exclude: ['**/node_modules/**', '**/e2e/**', '**/.next/**'],
