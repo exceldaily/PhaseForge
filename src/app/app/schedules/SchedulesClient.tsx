@@ -744,37 +744,10 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
     void deleteScheduleJob(job.id).then(onChanged)
   }
 
-  // Columns: only the people on this job this week, roster order first, then
-  // anyone typed in who is not on the roster. Everyone else on the crew stays
-  // out of the way behind the Add person button, so a 20-person roster does
-  // not turn every day into a wall of empty chips.
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const weekNames = new Set(Object.values(days).flat())
-  const columns = [
-    ...roster.filter((n) => weekNames.has(n)),
-    ...[...weekNames].filter((n) => !roster.includes(n)),
-  ]
-  const longest = columns.reduce((m, n) => Math.max(m, n.length), 5)
-  const colPx = Math.min(200, Math.max(76, Math.ceil(longest * 7 + 30)))
-  const notOnJob = roster.filter((n) => !columns.includes(n))
-  // A newly added person joins the days the job already runs; on an empty
-  // job that means Monday to Friday.
-  const runDays = Array.from({ length: 7 }, (_, d) => d).filter((d) => (days[d] ?? []).length > 0)
-  const joinDays = runDays.length ? runDays : [1, 2, 3, 4, 5]
-  const addPerson = (name: string) => {
-    setPickerOpen(false)
-    const next = { ...days }
-    for (const d of joinDays) next[d] = [...new Set([...(days[d] ?? []), name])]
-    setDays(next)
-    report(job.id, { days: next })
-    for (const d of joinDays) void setDayTechs(job.id, d, next[d])
-  }
-  const removePerson = (name: string) => {
-    const next = Object.fromEntries(Array.from({ length: 7 }, (_, d) => [d, (days[d] ?? []).filter((t) => t !== name)]))
-    setDays(next)
-    report(job.id, { days: next })
-    void setWeekTech(job.id, name, false)
-  }
+  // Day rows show only who is on that day; the + at the end of a row opens
+  // the rest of the crew for that day. The This week row keeps the whole
+  // roster as the one-tap way to put someone on all seven days.
+  const [openDay, setOpenDay] = useState<number | null>(null)
 
   return (
     <div ref={rowRef}
@@ -811,92 +784,73 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
         )}
       </div>
 
-      {/* One column per person on this job, days down the side. Tap a cell to
-          put someone on or take them off that day, drag down a column to fill
-          several, the header chip toggles the whole week. */}
-      <div className="overflow-x-auto">
+      {/* This week: the whole roster, one tap puts someone on all seven days.
+          Day rows: only who is on that day, plus a + to add from the crew. */}
       <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/40 print:hidden">
-            <th className="w-32 border-r border-slate-200 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700">
-              {canEdit ? 'This week' : 'Crew'}
-            </th>
-            {columns.map((name) => (
-              <th key={name} style={{ width: colPx, minWidth: colPx }} className="px-1 py-1.5 text-center align-middle font-normal">
-                {canEdit ? (
-                  <span className="group relative inline-flex w-full items-center justify-center">
-                    <Chip name={name} small fill on={onAllDays(name)} onClick={() => toggleWeek(name)} />
-                    <button onClick={() => removePerson(name)} aria-label={`Take ${name} off this job`} title="Take off this job"
-                      className="absolute -right-1 -top-1.5 hidden rounded-full bg-white p-0.5 text-slate-400 shadow ring-1 ring-slate-200 hover:text-rose-500 group-hover:block pointer-coarse:block dark:bg-slate-800 dark:ring-slate-600">
-                      <X size={10} />
-                    </button>
-                  </span>
-                ) : <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{name}</span>}
-              </th>
-            ))}
-            {canEdit && (
-              <th className="relative px-2 py-1.5 text-left align-middle font-normal">
-                <button onClick={() => setPickerOpen((o) => !o)} data-help="sched-add-person"
-                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium hover:border-indigo-400 hover:text-indigo-600 ${
-                    columns.length ? 'border-slate-300 text-slate-500 dark:border-slate-600' : 'border-indigo-300 text-indigo-600'}`}>
-                  <UserPlus size={11} /> {columns.length ? 'Add person' : 'Add people to this job'}
-                </button>
-                {pickerOpen && (
-                  <div className="absolute left-2 top-9 z-30 w-56 rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-600 dark:bg-slate-900">
-                    <p className="px-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                      Joins {runDays.length ? 'the days this job runs' : 'Mon to Fri'}
-                    </p>
-                    <div className="max-h-64 overflow-y-auto">
-                      {notOnJob.length === 0 && <p className="px-1.5 py-1 text-xs text-slate-400">Everyone on the crew is already on this job.</p>}
-                      {notOnJob.map((n) => (
-                        <button key={n} onClick={() => addPerson(n)}
-                          className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-slate-800">{n}</button>
-                      ))}
-                    </div>
-                    <button onClick={() => setPickerOpen(false)} className="mt-1 w-full rounded border border-slate-200 py-1 text-[11px] text-slate-500 hover:bg-slate-50 dark:border-slate-600">Close</button>
-                  </div>
-                )}
-              </th>
-            )}
-            <th className="w-full" />
-          </tr>
-        </thead>
         <tbody>
+          {canEdit && roster.length > 0 && (
+            <tr className="border-b border-slate-200 bg-indigo-50/50 dark:border-slate-700 dark:bg-indigo-950/20 print:hidden">
+              <td className="w-32 border-r border-slate-200 px-3 py-2 align-top text-[11px] font-semibold uppercase tracking-wide text-indigo-400 dark:border-slate-700">
+                This week
+              </td>
+              <td className="px-2 py-1.5">
+                <div className="flex flex-wrap gap-1">
+                  {roster.map((name) => (
+                    <Chip key={name} name={name} small on={onAllDays(name)} onClick={() => toggleWeek(name)} />
+                  ))}
+                </div>
+              </td>
+            </tr>
+          )}
           {Array.from({ length: 7 }, (_, d) => {
             const assigned = days[d] ?? []
+            const offToday = roster.filter((n) => !assigned.includes(n))
             return (
               <tr key={d} onPointerEnter={() => dragEnterRow(d)} className={`border-b border-slate-200 last:border-0 dark:border-slate-700 ${d % 2 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/40 print:bg-slate-100'}`}>
-                <td className="w-32 border-r border-slate-200 px-3 py-1.5 align-middle text-[13px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <td className="w-32 border-r border-slate-200 px-3 py-2 align-top text-[13px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">
                   {DAY_NAMES[d]} {mmdd(shiftDate(weekStart, d))}
                 </td>
-                {columns.map((name) => {
-                  const on = assigned.includes(name)
-                  return (
-                    <td key={name} style={{ width: colPx, minWidth: colPx }} className="px-1 py-1 text-center align-middle print:hidden">
-                      {canEdit ? (
-                        <button onPointerDown={() => startDrag(d, name)}
-                          title={on ? `${name} is on ${DAY_NAMES[d]}. Tap to take off, or drag down the column to fill.` : `Put ${name} on ${DAY_NAMES[d]}`}
-                          className={`block w-full select-none truncate rounded-md px-2 py-1 text-[12px] font-semibold transition-colors pointer-fine:[touch-action:none] pointer-coarse:py-1.5 ${on
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-300 hover:bg-indigo-50 hover:text-indigo-400 dark:text-slate-600 dark:hover:bg-slate-800'}`}>
-                          {on ? name : '·'}
+                <td className="px-2 py-1.5">
+                  {canEdit ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {assigned.map((name) => (
+                        <button key={name} onPointerDown={() => startDrag(d, name)}
+                          title={`${name} is on ${DAY_NAMES[d]}. Tap to take off, or drag down to fill more days.`}
+                          className="select-none rounded-full bg-indigo-600 px-3 py-1 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 pointer-fine:[touch-action:none] pointer-coarse:py-1.5 print:hidden">
+                          {name}
                         </button>
-                      ) : (
-                        <span className={`block truncate rounded-md px-2 py-1 text-[12px] font-semibold ${on ? 'bg-indigo-600 text-white' : 'text-slate-300'}`}>{on ? name : '·'}</span>
+                      ))}
+                      {assigned.length === 0 && openDay !== d && (
+                        <span className="text-[11px] italic text-slate-300 print:hidden">nobody yet</span>
                       )}
-                    </td>
-                  )
-                })}
-                <td colSpan={canEdit ? 2 : 1} className="px-2 align-middle">
-                  {/* Print: plain names instead of cells. */}
-                  <span className="hidden text-[12px] font-medium print:inline">{assigned.join(', ') || '—'}</span>
+                      <button onClick={() => setOpenDay(openDay === d ? null : d)} data-help="sched-add-person"
+                        aria-label={openDay === d ? 'Close' : `Add someone to ${DAY_NAMES[d]}`}
+                        title={openDay === d ? 'Close' : 'Add someone to this day'}
+                        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed transition-colors print:hidden ${
+                          openDay === d ? 'border-indigo-400 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40' : 'border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600'}`}>
+                        {openDay === d ? <X size={11} /> : <Plus size={11} />}
+                      </button>
+                      {openDay === d && (
+                        <div className="mt-1 flex w-full flex-wrap items-center gap-1 border-t border-dashed border-slate-200 pt-1.5 dark:border-slate-700 print:hidden">
+                          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Add</span>
+                          {offToday.map((name) => (
+                            <Chip key={name} name={name} small on={false} onClick={() => addToDay(d, name)} />
+                          ))}
+                          {offToday.length === 0 && <span className="text-[11px] text-slate-400">Everyone on the crew is already on this day.</span>}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="px-1 text-slate-800 dark:text-slate-100">{assigned.join(', ') || '—'}</span>
+                  )}
+                  {/* Print shows plain names, not pills */}
+                  <span className="hidden font-medium print:inline">{canEdit ? (assigned.join(', ') || '—') : ''}</span>
                 </td>
               </tr>
             )
           })}
         </tbody>
       </table>
-      </div>
     </div>
   )
 }
