@@ -744,16 +744,37 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
     void deleteScheduleJob(job.id).then(onChanged)
   }
 
-  // One fixed column per name, sized to the longest name on this job, so the
-  // "This week" row and every day row wrap at the same points and each
-  // person's chip sits directly under itself all the way down. The grid
-  // fills whatever width the sheet has, so a wide screen means more columns
-  // per line, not more white space.
-  const everyName = [...new Set([...roster, ...Object.values(days).flat()])]
-  const longest = everyName.reduce((m, n) => Math.max(m, n.length), 4)
-  const chipColPx = Math.min(176, Math.max(64, Math.ceil(longest * 6.8 + 28)))
-  const chipGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${chipColPx}px, 1fr))`, gap: 4 }
-  const extraNames = (assigned: string[]) => assigned.filter((n) => !roster.includes(n))
+  // Columns: only the people on this job this week, roster order first, then
+  // anyone typed in who is not on the roster. Everyone else on the crew stays
+  // out of the way behind the Add person button, so a 20-person roster does
+  // not turn every day into a wall of empty chips.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const weekNames = new Set(Object.values(days).flat())
+  const columns = [
+    ...roster.filter((n) => weekNames.has(n)),
+    ...[...weekNames].filter((n) => !roster.includes(n)),
+  ]
+  const longest = columns.reduce((m, n) => Math.max(m, n.length), 5)
+  const colPx = Math.min(200, Math.max(76, Math.ceil(longest * 7 + 30)))
+  const notOnJob = roster.filter((n) => !columns.includes(n))
+  // A newly added person joins the days the job already runs; on an empty
+  // job that means Monday to Friday.
+  const runDays = Array.from({ length: 7 }, (_, d) => d).filter((d) => (days[d] ?? []).length > 0)
+  const joinDays = runDays.length ? runDays : [1, 2, 3, 4, 5]
+  const addPerson = (name: string) => {
+    setPickerOpen(false)
+    const next = { ...days }
+    for (const d of joinDays) next[d] = [...new Set([...(days[d] ?? []), name])]
+    setDays(next)
+    report(job.id, { days: next })
+    for (const d of joinDays) void setDayTechs(job.id, d, next[d])
+  }
+  const removePerson = (name: string) => {
+    const next = Object.fromEntries(Array.from({ length: 7 }, (_, d) => [d, (days[d] ?? []).filter((t) => t !== name)]))
+    setDays(next)
+    report(job.id, { days: next })
+    void setWeekTech(job.id, name, false)
+  }
 
   return (
     <div ref={rowRef}
@@ -790,57 +811,92 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
         )}
       </div>
 
-      {/* "This week" quick-assign row */}
-      {/* Day grid — "This week" is the FIRST table row (not a separate flex
-          block) so its name column starts at the same x as every weekday row;
-          otherwise the header names sit left of the day names and look ragged. */}
+      {/* One column per person on this job, days down the side. Tap a cell to
+          put someone on or take them off that day, drag down a column to fill
+          several, the header chip toggles the whole week. */}
+      <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/40 print:hidden">
+            <th className="w-32 border-r border-slate-200 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700">
+              {canEdit ? 'This week' : 'Crew'}
+            </th>
+            {columns.map((name) => (
+              <th key={name} style={{ width: colPx, minWidth: colPx }} className="px-1 py-1.5 text-center align-middle font-normal">
+                {canEdit ? (
+                  <span className="group relative inline-flex w-full items-center justify-center">
+                    <Chip name={name} small fill on={onAllDays(name)} onClick={() => toggleWeek(name)} />
+                    <button onClick={() => removePerson(name)} aria-label={`Take ${name} off this job`} title="Take off this job"
+                      className="absolute -right-1 -top-1.5 hidden rounded-full bg-white p-0.5 text-slate-400 shadow ring-1 ring-slate-200 hover:text-rose-500 group-hover:block pointer-coarse:block dark:bg-slate-800 dark:ring-slate-600">
+                      <X size={10} />
+                    </button>
+                  </span>
+                ) : <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{name}</span>}
+              </th>
+            ))}
+            {canEdit && (
+              <th className="relative px-2 py-1.5 text-left align-middle font-normal">
+                <button onClick={() => setPickerOpen((o) => !o)} data-help="sched-add-person"
+                  className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium hover:border-indigo-400 hover:text-indigo-600 ${
+                    columns.length ? 'border-slate-300 text-slate-500 dark:border-slate-600' : 'border-indigo-300 text-indigo-600'}`}>
+                  <UserPlus size={11} /> {columns.length ? 'Add person' : 'Add people to this job'}
+                </button>
+                {pickerOpen && (
+                  <div className="absolute left-2 top-9 z-30 w-56 rounded-lg border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-600 dark:bg-slate-900">
+                    <p className="px-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      Joins {runDays.length ? 'the days this job runs' : 'Mon to Fri'}
+                    </p>
+                    <div className="max-h-64 overflow-y-auto">
+                      {notOnJob.length === 0 && <p className="px-1.5 py-1 text-xs text-slate-400">Everyone on the crew is already on this job.</p>}
+                      {notOnJob.map((n) => (
+                        <button key={n} onClick={() => addPerson(n)}
+                          className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-slate-800">{n}</button>
+                      ))}
+                    </div>
+                    <button onClick={() => setPickerOpen(false)} className="mt-1 w-full rounded border border-slate-200 py-1 text-[11px] text-slate-500 hover:bg-slate-50 dark:border-slate-600">Close</button>
+                  </div>
+                )}
+              </th>
+            )}
+            <th className="w-full" />
+          </tr>
+        </thead>
         <tbody>
-          {canEdit && roster.length > 0 && (
-            <tr className="border-b border-slate-200 bg-indigo-50/50 dark:border-slate-700 dark:bg-indigo-950/20 print:hidden">
-              <td className="w-32 border-r border-slate-200 px-3 py-2 align-top text-[11px] font-semibold uppercase tracking-wide text-indigo-400 dark:border-slate-700">
-                This week
-              </td>
-              <td className="px-2 py-2">
-                <div style={chipGrid}>
-                  {roster.map((name) => (
-                    <Chip key={name} name={name} small fill on={onAllDays(name)} onClick={() => toggleWeek(name)} />
-                  ))}
-                </div>
-              </td>
-            </tr>
-          )}
           {Array.from({ length: 7 }, (_, d) => {
             const assigned = days[d] ?? []
             return (
               <tr key={d} onPointerEnter={() => dragEnterRow(d)} className={`border-b border-slate-200 last:border-0 dark:border-slate-700 ${d % 2 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800/40 print:bg-slate-100'}`}>
-                <td className="w-32 border-r border-slate-200 px-3 py-1.5 align-top text-[13px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <td className="w-32 border-r border-slate-200 px-3 py-1.5 align-middle text-[13px] font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">
                   {DAY_NAMES[d]} {mmdd(shiftDate(weekStart, d))}
                 </td>
-                <td className="px-2 py-1">
-                  {canEdit ? (
-                    <div style={chipGrid}>
-                      {roster.map((name) => (
-                        <Chip key={name} name={name} small fill on={assigned.includes(name)}
-                          onPointerDown={() => startDrag(d, name)} />
-                      ))}
-                      {/* Names not on the roster (legacy/typed) still shown, removable */}
-                      {extraNames(assigned).map((name) => (
-                        <Chip key={name} name={name} small fill on
-                          onPointerDown={() => startDrag(d, name)} />
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="px-1 text-slate-800 dark:text-slate-100">{assigned.join(', ') || '—'}</span>
-                  )}
-                  {/* Print shows plain names, not chips */}
-                  <span className="hidden font-medium print:inline">{canEdit ? (assigned.join(', ') || '—') : ''}</span>
+                {columns.map((name) => {
+                  const on = assigned.includes(name)
+                  return (
+                    <td key={name} style={{ width: colPx, minWidth: colPx }} className="px-1 py-1 text-center align-middle print:hidden">
+                      {canEdit ? (
+                        <button onPointerDown={() => startDrag(d, name)}
+                          title={on ? `${name} is on ${DAY_NAMES[d]}. Tap to take off, or drag down the column to fill.` : `Put ${name} on ${DAY_NAMES[d]}`}
+                          className={`block w-full select-none truncate rounded-md px-2 py-1 text-[12px] font-semibold transition-colors pointer-fine:[touch-action:none] pointer-coarse:py-1.5 ${on
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-300 hover:bg-indigo-50 hover:text-indigo-400 dark:text-slate-600 dark:hover:bg-slate-800'}`}>
+                          {on ? name : '·'}
+                        </button>
+                      ) : (
+                        <span className={`block truncate rounded-md px-2 py-1 text-[12px] font-semibold ${on ? 'bg-indigo-600 text-white' : 'text-slate-300'}`}>{on ? name : '·'}</span>
+                      )}
+                    </td>
+                  )
+                })}
+                <td colSpan={canEdit ? 2 : 1} className="px-2 align-middle">
+                  {/* Print: plain names instead of cells. */}
+                  <span className="hidden text-[12px] font-medium print:inline">{assigned.join(', ') || '—'}</span>
                 </td>
               </tr>
             )
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
