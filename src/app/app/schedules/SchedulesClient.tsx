@@ -37,8 +37,9 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
 
 interface WeekTeam { id: string; name: string; division: string | null; roster: string[]; jobs: Job[] }
 
-// Ctrl+Z goes to the job block that changed most recently.
-let undoOwner: string | null = null
+// Ctrl+Z goes to the job block that changed most recently; the owner is
+// kept on the document so no module variable is written from a component.
+const UNDO_OWNER_ATTR = 'data-pf-undo-owner'
 
 export function SchedulesClient({
   teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
@@ -688,14 +689,14 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
   // gesture (tap, drag, picker add, week toggle). Undo restores the last one
   // and rewrites all seven days, so a whole drag comes back in one step.
   const daysRef = useRef(days)
-  daysRef.current = days
+  useEffect(() => { daysRef.current = days }, [days])
   const history = useRef<Record<number, string[]>[]>([])
   const [undoCount, setUndoCount] = useState(0)
   const snapshot = () => {
     history.current.push({ ...daysRef.current })
     if (history.current.length > 30) history.current.shift()
     setUndoCount(history.current.length)
-    undoOwner = job.id
+    document.body.setAttribute(UNDO_OWNER_ATTR, job.id)
   }
   const undo = () => {
     const prev = history.current.pop()
@@ -706,11 +707,11 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
     for (let d = 0; d < 7; d++) void setDayTechs(job.id, d, prev[d] ?? [])
   }
   const undoRef = useRef(undo)
-  undoRef.current = undo
+  useEffect(() => { undoRef.current = undo })
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z' || e.shiftKey) return
-      if (undoOwner !== job.id) return
+      if (document.body.getAttribute(UNDO_OWNER_ATTR) !== job.id) return
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return
       e.preventDefault()
