@@ -104,7 +104,7 @@ export function PricingDetailClient({ sheet, lines: initial }: { sheet: PricingS
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6 print:p-0">
+    <div className="mx-auto max-w-none space-y-5 p-4 sm:p-6 print:p-0">
       <div className="print:hidden">
         <Link href="/app/quotes?tab=pricing" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
           <ArrowLeft className="h-4 w-4" /> Back to quotes

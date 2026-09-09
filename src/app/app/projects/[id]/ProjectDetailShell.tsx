@@ -244,7 +244,7 @@ export function ProjectDetailShell({
       {/* TASKS */}
       {activeTab === 'tasks' && (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-3 sm:p-6">
+          <div className="max-w-none mx-auto p-3 sm:p-6">
             <PhaseList
               projectId={project.id}
               companyId={companyId}
@@ -260,7 +260,7 @@ export function ProjectDetailShell({
       {/* PUNCH LIST */}
       {activeTab === 'punch' && (
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-3 sm:p-6">
+          <div className="max-w-none mx-auto p-3 sm:p-6">
             <PunchListTab
               project={project}
               items={punchItems}
@@ -276,7 +276,7 @@ export function ProjectDetailShell({
       {/* ACTIVITY */}
       {activeTab === 'activity' && (
         <div className="flex-1 overflow-hidden">
-          <div className="max-w-3xl mx-auto h-full flex flex-col p-6">
+          <div className="max-w-none mx-auto h-full flex flex-col p-6">
             <h2 className="text-sm font-semibold text-slate-700 mb-4">Project timeline</h2>
             <ActivityTimeline logs={activityLogs} members={Object.fromEntries(members.map(m => [m.id, m.full_name]))} />
           </div>

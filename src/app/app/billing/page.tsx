@@ -32,7 +32,7 @@ export default async function BillingPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-none mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Billing</h1>
         <p className="text-slate-600 mt-2">Manage your subscription and billing information</p>

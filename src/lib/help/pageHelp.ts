@@ -124,6 +124,7 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'lodging-find', label: 'Find hotels', text: 'Opens a hotel search near the job with dates, headcount, and rooms filled in.' },
       { key: 'lodging-far', label: 'Only 2+ hours away', text: 'Leaves out anyone whose home is under two hours from the job. People with no address are kept and flagged.' },
       { key: 'lodging-drive', label: 'Check drive times', text: 'Works out each guest\u2019s drive from home to the job again after addresses change.' },
+      { key: 'lodging-job-address', label: 'Job address', text: 'The same address the pin on the Schedules job list holds. Change it in either place and both update, and the drive times re-run.' },
     ],
   },
   {

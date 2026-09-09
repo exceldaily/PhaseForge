@@ -14,7 +14,7 @@ import { formatDate, differenceInDays, parseISO } from '@/lib/dates'
 import { Button } from '@/components/ui/Button'
 import { hotelSearchLinks, roomsFor } from '@/lib/lodging/derive'
 import { formatDrive, needsLodging, type GuestTravel, type StayTravel } from '@/lib/travel/geo'
-import { createStay, deleteStay, deleteWeekStays, generateStaysFromWeek, recomputeTravel, updateStay, type StayStatus } from './actions'
+import { createStay, deleteStay, deleteWeekStays, generateStaysFromWeek, recomputeTravel, setStayJobAddress, updateStay, type StayStatus } from './actions'
 
 export interface TeamOption { id: string; name: string; division: string | null }
 
@@ -37,6 +37,8 @@ export interface StayRow {
   notes: string | null
   status: StayStatus
   travel: StayTravel | null
+  /** The Schedules job-list entry this stay belongs to, when there is one. */
+  job: { id: string; address: string | null; located: boolean } | null
 }
 
 interface LodgingClientProps {
@@ -128,7 +130,7 @@ export function LodgingClient({ stays, teams, teamById, canEdit, today, initialT
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
+    <div className="mx-auto max-w-none space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
@@ -243,6 +245,23 @@ function StayCard({ stay, teamName, canEdit, today, onChanged }: {
     })
   }
   const remove = () => { if (confirm(`Delete the stay for "${s.title}"?`)) void deleteStay({ id: s.id }).then(onChanged) }
+  // Job address: typed here, saved on the Schedules job list, drive times
+  // re-run. Debounced like the other fields, with a "saving" flag because the
+  // geocode plus router round trip takes a second or two.
+  const [jobAddr, setJobAddr] = useState(stay.job?.address ?? '')
+  const [jobSaving, setJobSaving] = useState(false)
+  const saveJobAddress = (v: string) => {
+    setJobAddr(v)
+    debounced('job-address', () => {
+      setJobSaving(true)
+      void setStayJobAddress({ id: stay.id, address: v }).then((r) => {
+        setJobSaving(false)
+        if (!r.ok) return
+        setS((cur) => ({ ...cur, location: r.location, travel: r.travel, job: cur.job ? { ...cur.job, address: v.trim() || null, located: r.located } : cur.job }))
+        onChanged()
+      })
+    })
+  }
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const debounced = (key: string, fn: () => void) => {
     if (timers.current[key]) clearTimeout(timers.current[key])
@@ -318,11 +337,26 @@ function StayCard({ stay, teamName, canEdit, today, onChanged }: {
               )}
             </div>
           )}
+          {/* Job address, shared with the Schedules job list */}
+          {s.job && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs" data-help="lodging-job-address">
+              <MapPin size={12} className={s.job.located ? 'text-emerald-500' : s.job.address ? 'text-amber-500' : 'text-slate-400'} />
+              <span className="font-medium text-slate-600">Job address</span>
+              {canEdit ? (
+                <input value={jobAddr} placeholder="Street, city, state. Saved on the Schedules job list too."
+                  onChange={(e) => saveJobAddress(e.target.value)}
+                  className="min-w-[220px] flex-1 rounded-lg border border-slate-300 px-2 py-1 outline-none focus:border-indigo-400" />
+              ) : <span className="text-slate-600">{s.job.address ?? 'Not set'}</span>}
+              <span className="text-[10px] text-slate-400">
+                {jobSaving ? 'Saving and checking drive times' : s.job.located ? 'On the map, shared with Schedules' : s.job.address ? 'Not found on the map, check the spelling' : 'Set it once here or on the Schedules job list'}
+              </span>
+            </div>
+          )}
           {/* Where to look */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <MapPin size={12} className="text-slate-400" />
             {canEdit ? (
-              <input value={s.location ?? ''} placeholder="Job address, city, or store name to search near"
+              <input value={s.location ?? ''} placeholder={s.job ? 'Search hotels near (defaults to the job address)' : 'Job address, city, or store name to search near'}
                 onChange={(e) => patch({ location: e.target.value }, { location: e.target.value || null })}
                 className="min-w-[220px] flex-1 rounded-lg border border-slate-300 px-2 py-1 outline-none focus:border-indigo-400" />
             ) : <span className="text-slate-600">{s.location ?? 'No location set'}</span>}

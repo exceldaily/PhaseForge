@@ -71,7 +71,7 @@ export function MyWorkClient({ myTech, techs, calls, vendors, assets, priorityLe
 
   return (
     <div className="h-full overflow-y-auto bg-slate-100 p-4 dark:bg-slate-950">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-none">
         <div className="mb-4">
           <h1 className="text-base font-bold text-slate-900 dark:text-slate-100">My Work</h1>
           <p className="text-xs text-slate-500">

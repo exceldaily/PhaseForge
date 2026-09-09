@@ -48,7 +48,7 @@ export function ProjectSkeleton() {
           {Array.from({ length: 6 }, (_, i) => <Block key={i} className="h-8 w-20" />)}
         </div>
       </div>
-      <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-5">
+      <div className="mx-auto max-w-none space-y-4 p-4 sm:p-5">
         <Block className="h-32" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Block className="h-24" /><Block className="h-24" /><Block className="h-24" /><Block className="h-24" />

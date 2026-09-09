@@ -32,7 +32,7 @@ export function PartsClient({ calls, vendors, assets, priorityLevels, formFields
 
   return (
     <div className="h-full overflow-y-auto bg-slate-100 p-4 dark:bg-slate-950">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-none">
         <div className="mb-4">
           <h1 className="text-base font-bold text-slate-900 dark:text-slate-100">Parts &amp; Proposal Pipeline</h1>
           <p className="text-xs text-slate-500">Milestone view of every call moving through quoting, approval, and parts fulfillment</p>

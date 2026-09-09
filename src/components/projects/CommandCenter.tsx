@@ -88,7 +88,7 @@ export function CommandCenter({ project, data, members, activityLogs, onNavigate
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 p-3 sm:p-5">
+    <div className="mx-auto max-w-none space-y-4 p-3 sm:p-5">
 
       {/* ── Header facts ── */}
       <section className="rounded-xl border border-slate-200 bg-white p-4">

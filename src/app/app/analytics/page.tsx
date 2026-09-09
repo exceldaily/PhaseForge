@@ -126,7 +126,7 @@ export default async function AnalyticsPage({
   const maxWorkload = Math.max(...workload.map(w => w.total), 1)
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6 sm:space-y-8">
+    <div className="p-4 sm:p-6 max-w-none mx-auto space-y-6 sm:space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>

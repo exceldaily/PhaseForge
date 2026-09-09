@@ -95,7 +95,7 @@ export function EmployeesClient({ employees, teams, canEdit, toLocate }: Props) 
   const located = employees.filter((e) => e.located).length
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
+    <div className="mx-auto max-w-none space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">

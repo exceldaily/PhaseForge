@@ -54,7 +54,7 @@ export default async function NewProjectPage({
   const backLabel = board?.name ?? 'Projects'
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-none mx-auto">
       <Link href={backHref} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 mb-6 transition-colors">
         <ArrowLeft size={15} /> {backLabel}
       </Link>

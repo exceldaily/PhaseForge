@@ -40,7 +40,7 @@ export default async function OrganizationPage() {
   }, {} as Record<string, typeof members>)
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-8 sm:space-y-10">
+    <div className="p-4 sm:p-6 max-w-none mx-auto space-y-8 sm:space-y-10">
 
       {/* ── Org header ── */}
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">

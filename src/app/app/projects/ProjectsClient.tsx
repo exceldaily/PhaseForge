@@ -60,7 +60,7 @@ export function ProjectsClient({ projects, companyId, currentUserId, canEdit, me
   }, [projects, deferredSearch, statusFilter])
 
   return (
-    <div className={cn('p-4 sm:p-6 space-y-4 sm:space-y-5', view === 'kanban' ? 'max-w-none' : 'max-w-7xl mx-auto')}>
+    <div className={cn('p-4 sm:p-6 space-y-4 sm:space-y-5', view === 'kanban' ? 'max-w-none' : 'max-w-none mx-auto')}>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

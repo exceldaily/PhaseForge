@@ -131,7 +131,7 @@ export function ReportsClient({ projects, members, boards, selectedBoardId }: Re
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-none mx-auto space-y-6">
       {printing && (
         <ReportPrintModal
           reportType={reportType}

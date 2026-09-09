@@ -82,7 +82,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-4 sm:p-6">
+    <div className="mx-auto max-w-none space-y-8 p-4 sm:p-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Scheduling</h1>
         <p className="text-sm text-slate-500">Google Calendar connection, superintendents, and schedule labels.</p>

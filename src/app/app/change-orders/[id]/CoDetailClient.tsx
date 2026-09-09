@@ -71,7 +71,7 @@ export function CoDetailClient({
   const amount = co.approved_amount ?? co.current_amount ?? co.requested_amount
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-4">
+    <div className="max-w-none mx-auto p-4 sm:p-6 space-y-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-slate-400">
         <Link href="/app/change-orders" className="flex items-center gap-1 hover:text-indigo-600"><ArrowLeft size={13} /> Change Orders</Link>

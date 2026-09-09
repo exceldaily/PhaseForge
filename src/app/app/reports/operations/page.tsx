@@ -96,7 +96,7 @@ export default async function OperationsReportsPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-none px-4 py-6 sm:px-6">
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Operations Reports</h1>

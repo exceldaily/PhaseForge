@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canUseSchedules } from '@/lib/constants'
 import { canEditCompanyData } from '@/lib/permissions'
 import { geocodeAddress } from '@/lib/travel/geocode'
+import { syncStaysForJob } from '@/lib/travel/syncStays'
 
 const PATH = '/app/schedules'
 
@@ -233,14 +234,18 @@ export async function setDirectoryAddress(id: string, address: string) {
     if (!isManager) return { error: 'Managers only' }
     const clean = address.trim() || null
     const hit = clean ? await geocodeAddress(clean) : null
-    const { error } = await supabase.from('schedule_directory').update({
+    const { data: entry, error } = await supabase.from('schedule_directory').update({
       address: clean,
       latitude: hit?.lat ?? null, longitude: hit?.lng ?? null,
       geocoded_at: clean ? new Date().toISOString() : null,
       geocode_error: clean && !hit ? 'Address not found' : null,
-    }).eq('id', id).eq('company_id', companyId)
+    }).eq('id', id).eq('company_id', companyId).select('title, job_number').single()
     if (error) return { error: error.message }
+    // Lodging shares this address: open stays for the same job pick it up
+    // and get their drive times worked out again.
+    if (entry) await syncStaysForJob(supabase, companyId, entry, clean)
     revalidatePath(PATH)
+    revalidatePath('/app/lodging')
     return { ok: true }
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }

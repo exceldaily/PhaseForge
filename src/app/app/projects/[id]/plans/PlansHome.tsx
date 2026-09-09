@@ -267,7 +267,7 @@ export function PlansHome({
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24">
       {/* ── Header ── */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-3 pb-2">
+        <div className="max-w-none mx-auto px-3 sm:px-6 pt-3 pb-2">
           <div className="flex items-center gap-2">
             <Link href={`/app/projects/${projectId}`}
               className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0">
@@ -381,7 +381,7 @@ export function PlansHome({
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4">
+      <main className="max-w-none mx-auto px-3 sm:px-6 py-4">
         {/* ── What's new ── */}
         {whatsNew && !whatsNewDismissed && (
           <div className="mb-4 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/40 px-4 py-3 flex items-start gap-3">

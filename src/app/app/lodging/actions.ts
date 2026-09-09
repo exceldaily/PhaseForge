@@ -12,6 +12,8 @@ import { canEditCompanyData } from '@/lib/permissions'
 import { deriveStays, type WeekJob } from '@/lib/lodging/derive'
 import { LODGING_THRESHOLD_MINUTES, needsLodging, type StayTravel } from '@/lib/travel/geo'
 import { computeStayTravel, loadTravelContext, resolveJobPlace } from '@/lib/travel/compute'
+import { geocodeAddress } from '@/lib/travel/geocode'
+import { syncStaysForJob } from '@/lib/travel/syncStays'
 
 const PATH = '/app/lodging'
 
@@ -112,6 +114,36 @@ export async function generateStaysFromWeek(input: { superintendentId: string; w
 
     revalidatePath(PATH)
     return { ok: true as const, created: rows.length, skipped: already.size, local, message: null }
+  } catch (e) { return { ok: false as const, error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+/**
+ * Set the job's address from a stay. The address lives on the Schedules job
+ * list entry (matched by job number, else title), so it is the same address
+ * the schedule pin shows, and every open stay for that job follows.
+ */
+export async function setStayJobAddress(input: { id: string; address: string }) {
+  try {
+    const { supabase, companyId } = await ctx()
+    const { data: s } = await supabase.from('lodging_stays').select('id, title, job_number')
+      .eq('id', input.id).eq('company_id', companyId).single()
+    if (!s) return { ok: false as const, error: 'Stay not found.' }
+    const clean = input.address.trim() || null
+    let dq = supabase.from('schedule_directory').select('id, title, job_number').eq('company_id', companyId)
+    dq = s.job_number?.trim() ? dq.eq('job_number', s.job_number.trim()) : dq.ilike('title', s.title.trim())
+    const { data: entries } = await dq
+    if (!entries?.length) return { ok: false as const, error: 'This stay is not on the Schedules job list, so there is no job to attach the address to. Use the search box below instead.' }
+    const hit = clean ? await geocodeAddress(clean) : null
+    await supabase.from('schedule_directory').update({
+      address: clean, latitude: hit?.lat ?? null, longitude: hit?.lng ?? null,
+      geocoded_at: clean ? new Date().toISOString() : null,
+      geocode_error: clean && !hit ? 'Address not found' : null,
+    }).in('id', entries.map((e) => e.id))
+    await syncStaysForJob(supabase, companyId, entries[0], clean)
+    const { data: fresh } = await supabase.from('lodging_stays').select('location, travel').eq('id', input.id).single()
+    revalidatePath(PATH)
+    revalidatePath('/app/schedules')
+    return { ok: true as const, located: !!hit, location: (fresh?.location as string | null) ?? clean, travel: (fresh?.travel as StayTravel | null) ?? null }
   } catch (e) { return { ok: false as const, error: e instanceof Error ? e.message : 'Failed' } }
 }
 

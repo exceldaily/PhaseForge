@@ -78,7 +78,7 @@ export function QuotesClient({ quotes, pricings, vendors, gmailEmail, hasSignatu
   const completed = quotes.filter((q) => q.status === 'closed')
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
+    <div className="mx-auto max-w-none space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Quotes</h1>
         <p className="mt-1 text-sm text-slate-500">

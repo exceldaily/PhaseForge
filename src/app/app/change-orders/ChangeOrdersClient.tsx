@@ -116,7 +116,7 @@ export function ChangeOrdersClient({
   const myCount = open.filter((c) => c.owner_id === currentUserId).length
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-4">
+    <div className="p-4 sm:p-6 max-w-none mx-auto space-y-4">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0">

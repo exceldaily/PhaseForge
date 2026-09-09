@@ -22,7 +22,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
   const members = membersRaw ?? []
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-6 max-w-none mx-auto space-y-6">
       <Link href={`/app/projects/${id}`} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900">
         <ArrowLeft size={16} /> Back to project
       </Link>

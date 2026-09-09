@@ -77,7 +77,7 @@ export default async function ResourcesPage({
   )
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 max-w-none mx-auto space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Resource Planning</h1>

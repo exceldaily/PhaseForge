@@ -36,7 +36,7 @@ export function InvoiceDetailClient({
   const invNumber = `INV-${String(invoice.invoice_number).padStart(4, '0')}`
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-none px-4 py-6 sm:px-6">
       {/* Screen-only toolbar */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link href="/app/invoices" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400">

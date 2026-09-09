@@ -609,9 +609,11 @@ export function SchedulesClient({
         ) : (
         <div className="schedule-print-root flex-1 bg-slate-100 p-3 sm:p-4 md:overflow-y-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
           <div suppressHydrationWarning style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left', width: `${100 / zoom}%` }}>
-        {/* Wide cap: big rosters (12+ names) need room so day rows keep chips on
-            one line. Print is unaffected — the print root is forced to 7.5in. */}
-        <div className="mx-auto max-w-[1400px] space-y-4">
+        {/* Full width: every job block gets the whole sheet, and the name
+            chips inside sit in fixed columns (see JobBlock) so a name lands in
+            the same spot on every day row. Print is unaffected, the print
+            root is forced to 7.5in. */}
+        <div className="w-full space-y-4">
           <div className="hidden text-center print:block">
             <h1 className="text-lg font-bold">WEEKLY SCHEDULE {mmdd(weekStart)} to {mmdd(weekEnd)}</h1>
             <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{team?.name} Team</p>
@@ -742,6 +744,17 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
     void deleteScheduleJob(job.id).then(onChanged)
   }
 
+  // One fixed column per name, sized to the longest name on this job, so the
+  // "This week" row and every day row wrap at the same points and each
+  // person's chip sits directly under itself all the way down. The grid
+  // fills whatever width the sheet has, so a wide screen means more columns
+  // per line, not more white space.
+  const everyName = [...new Set([...roster, ...Object.values(days).flat()])]
+  const longest = everyName.reduce((m, n) => Math.max(m, n.length), 4)
+  const chipColPx = Math.min(176, Math.max(64, Math.ceil(longest * 6.8 + 28)))
+  const chipGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${chipColPx}px, 1fr))`, gap: 4 }
+  const extraNames = (assigned: string[]) => assigned.filter((n) => !roster.includes(n))
+
   return (
     <div ref={rowRef}
       className={`overflow-hidden rounded-lg border bg-white shadow-sm dark:bg-slate-900 print:break-inside-avoid print:rounded-none print:border-black print:shadow-none ${
@@ -789,9 +802,9 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
                 This week
               </td>
               <td className="px-2 py-2">
-                <div className="flex flex-wrap gap-1">
+                <div style={chipGrid}>
                   {roster.map((name) => (
-                    <Chip key={name} name={name} on={onAllDays(name)} onClick={() => toggleWeek(name)} />
+                    <Chip key={name} name={name} small fill on={onAllDays(name)} onClick={() => toggleWeek(name)} />
                   ))}
                 </div>
               </td>
@@ -806,14 +819,14 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
                 </td>
                 <td className="px-2 py-1">
                   {canEdit ? (
-                    <div className="flex flex-wrap gap-1">
+                    <div style={chipGrid}>
                       {roster.map((name) => (
-                        <Chip key={name} name={name} small on={assigned.includes(name)}
+                        <Chip key={name} name={name} small fill on={assigned.includes(name)}
                           onPointerDown={() => startDrag(d, name)} />
                       ))}
                       {/* Names not on the roster (legacy/typed) still shown, removable */}
-                      {assigned.filter((n) => !roster.includes(n)).map((name) => (
-                        <Chip key={name} name={name} small on
+                      {extraNames(assigned).map((name) => (
+                        <Chip key={name} name={name} small fill on
                           onPointerDown={() => startDrag(d, name)} />
                       ))}
                     </div>
@@ -832,14 +845,17 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
   )
 }
 
-function Chip({ name, on, onClick, onPointerDown, small }: {
+function Chip({ name, on, onClick, onPointerDown, small, fill }: {
   name: string; on: boolean; onClick?: () => void; onPointerDown?: () => void; small?: boolean
+  /** Fill the grid cell: same width for every chip in a column. */
+  fill?: boolean
 }) {
   return (
     <button
       onClick={onClick}
       onPointerDown={onPointerDown}
-      className={`select-none rounded-full font-medium transition-colors print:hidden ${onPointerDown ? 'pointer-fine:[touch-action:none]' : ''} ${small ? 'px-2 py-0.5 pointer-coarse:py-1 text-[11px]' : 'px-2.5 py-1 pointer-coarse:py-1.5 text-xs'} ${on
+      title={name}
+      className={`select-none rounded-full font-medium transition-colors print:hidden ${fill ? 'block w-full truncate text-center' : ''} ${onPointerDown ? 'pointer-fine:[touch-action:none]' : ''} ${small ? 'px-2 py-0.5 pointer-coarse:py-1 text-[11px]' : 'px-2.5 py-1 pointer-coarse:py-1.5 text-xs'} ${on
         ? 'bg-indigo-600 text-white'
         : 'bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:text-slate-600 hover:ring-slate-300 dark:bg-slate-800 dark:ring-slate-700'}`}
     >

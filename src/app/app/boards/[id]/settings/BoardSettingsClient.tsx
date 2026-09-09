@@ -147,7 +147,7 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
+    <div className="p-6 max-w-none mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href={`/app/boards/${board.id}`}

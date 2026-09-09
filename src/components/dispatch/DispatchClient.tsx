@@ -257,7 +257,7 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
             </p>
           </div>
         ) : view === 'list' ? (
-          <div className="mx-auto max-w-6xl space-y-2">
+          <div className="mx-auto max-w-none space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
               {activeSection === 'all' ? SORT_LABEL[sort] : SMART_SECTION_LABELS[activeSection]} ({listCalls.length})
             </p>

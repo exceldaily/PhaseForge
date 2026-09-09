@@ -101,7 +101,7 @@ export function QuoteDetailClient({ quote, vendors, canSend }: {
     })
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 p-6">
+    <div className="mx-auto max-w-none space-y-5 p-6">
       <div>
         <Link href="/app/quotes" className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-700">
           <ArrowLeft className="h-4 w-4" /> Quotes
