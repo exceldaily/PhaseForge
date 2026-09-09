@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, renameRosterMember, updateScheduleJob,
@@ -425,6 +425,11 @@ export function SchedulesClient({
                 </button>
               </>
             )}
+            <a data-help="sched-lodging" href={`/app/lodging?team=${teamId ?? ''}&week=${weekStart}`}
+              title="Beds for the crews on this week"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+              <BedDouble size={13} /> <span className="whitespace-nowrap">Lodging</span>
+            </a>
             <button data-help="sched-copy" onClick={copyForEmail} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <ClipboardCopy size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy for email</span></span>
             </button>

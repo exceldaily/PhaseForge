@@ -105,6 +105,15 @@ export const PAGE_HELP: PageHelp[] = [
     sectionIds: ['boards'],
   },
   {
+    match: /^\/app\/lodging/,
+    title: 'Lodging',
+    sectionIds: ['lodging', 'schedules'],
+    pins: [
+      { key: 'lodging-generate', label: 'Generate', text: 'Pick a team and week; everyone scheduled on each job becomes a guest for those nights.' },
+      { key: 'lodging-find', label: 'Find hotels', text: 'Opens a hotel search near the job with dates, headcount, and rooms filled in.' },
+    ],
+  },
+  {
     match: /^\/app\/schedules$/,
     title: 'Schedules',
     sectionIds: ['schedules'],
@@ -117,6 +126,7 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'sched-highlight', label: 'Highlight', text: 'Tint a row so it stands out. The color carries through to print and to the copied email.' },
       { key: 'sched-projects', label: 'Job list', text: 'Your recurring jobs with their numbers. One tap drops a job onto this week.' },
       { key: 'sched-zoom', label: 'Zoom', text: 'Shrink the sheet to fit a wide week on a phone screen.' },
+      { key: 'sched-lodging', label: 'Lodging', text: 'Jumps to Lodging for this team and week to generate and book the crew\u2019s hotel stays.' },
       { key: 'sched-copy', label: 'Copy for email', text: 'Copies the schedule as a formatted table. Paste straight into Gmail or Outlook.' },
     ],
   },

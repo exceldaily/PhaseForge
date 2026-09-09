@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
+import { BedDouble,
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
@@ -50,6 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/app/boards',   label: 'Boards',   icon: Layers },
       { href: '/app/gantt',    label: 'Gantt',    icon: GanttChartSquare },
       { href: '/app/schedules', label: 'Schedules', icon: CalendarDays, gate: 'schedules' },
+      { href: '/app/lodging',   label: 'Lodging',   icon: BedDouble,    gate: 'schedules' },
     ],
   },
   {

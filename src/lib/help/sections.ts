@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  BadgeDollarSign, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList,
+  BadgeDollarSign, BedDouble, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList,
   Contact, FileDiff, FolderKanban, GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks,
   Map, Radio, ShieldAlert, Upload, UserCircle, UsersRound,
 } from 'lucide-react'
@@ -238,6 +238,20 @@ export const SECTIONS: GuideSection[] = [
       { heading: 'Department schedule style', text: 'Each department can use one of two layouts, chosen from the style dropdown next to the department selector (managers only). "Crew grid" is the default, one block per job with day rows and tap-to-assign crew chips. "Startup grid" is a jobs-down / days-across table where each cell holds one or more people with a shift note (Days, Nights, Travel Day, As needed), ideal for startup crews that move person-by-person rather than as a fixed crew. On the Startup grid, tap a name already in a cell to change the person or shift (Replace) or pull them off that day (Remove); the ✕ beside each name works on touch too. The shift-note list (Days, Nights, Travel Day, As needed) is yours to edit: open any cell picker and hit “Add or remove shift notes” to add your own (Swing, On call, whatever your crews say) or delete ones you never use. The list belongs to the department, so every team under it sees the same choices, and anyone already scheduled keeps the note they were given. Both styles copy-for-email and print. Set it once per department and every team in it uses that layout.' },
       { heading: 'On a phone or tablet', text: 'Everything above works on the phone and installed app: the ✕ beside a name stays visible (no hover needed), tap targets are sized for thumbs, and the person picker lists your whole crew as tap chips instead of relying on a typing dropdown. The name editor docks to the top of the screen so the keyboard never covers it, and the Job list opens from the toolbar with a zoom control if the week is too wide. Press-and-drag to copy a cell across days stays a mouse gesture, so dragging a finger scrolls the schedule the way you would expect.' },
       { heading: 'Who can edit', text: 'Owners, admins, managers, and dispatchers can edit schedules; everyone else sees a read-only view. Schedules is available on Individual, Pro, and Business plans.' },
+    ],
+  },
+  {
+    id: 'lodging',
+    icon: BedDouble,
+    title: 'Lodging',
+    summary: 'Beds for the crews on the weekly schedule: generate a week, book each stay, send the list.',
+    href: '/app/lodging',
+    hrefLabel: 'Open Lodging',
+    items: [
+      { heading: 'Generating a week', text: 'Pick a team and a week and press Generate stays. Every job with anyone scheduled on it becomes a stay: the guests are everyone who appears on that job during the week (both the crew grid and the Startup grid count), check-in is the first scheduled day, and check-out is the morning after the last. Jobs that already have a stay are left alone, so you can regenerate after the schedule changes and only the new jobs come through. Local jobs that do not need beds: just delete the stay or mark it cancelled.' },
+      { heading: 'Finding and booking a hotel', text: 'When the job is linked to a project with an address, the stay already knows where to look. Two buttons open a hotel search near that address with the dates, headcount, and room count (two to a room) already filled in: Hotels on Maps, and Booking.com. Type the hotel name, address, confirmation number, and nightly rate into the stay and it flips to Booked on its own. The estimated total is rate times nights times rooms.' },
+      { heading: 'Sending it out', text: 'Copy for email on any week copies a plain list: each job, its dates and nights, the guests, the hotel and confirmation number, or NOT BOOKED YET if it is still open. Paste it into the crew email. From the Schedules page, the Lodging button jumps straight to that team and week.' },
+      { heading: 'By hand', text: 'Add by hand covers work that never went through the scheduler: a title, dates, guests, and a place to search near. Past stays drop off the working list a week after check-out; Show past stays brings them back.' },
     ],
   },
   {
