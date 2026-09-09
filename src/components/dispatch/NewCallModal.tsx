@@ -280,7 +280,7 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
                 <select className={inputCls} value={storeId} onChange={(e) => handleStoreChange(e.target.value)}>
                   <option value="">No store (customer only)</option>
                   {visibleStores.map((s) => (
-                    <option key={s.id} value={s.id}>#{s.store_number} — {s.store_name}</option>
+                    <option key={s.id} value={s.id}>#{s.store_number} | {s.store_name}</option>
                   ))}
                 </select>
               )}
@@ -316,7 +316,7 @@ export function NewCallModal({ stores, vendors, customers, assets, priorityLevel
                 <select className={inputCls} value={priorityLevelId} onChange={(e) => setPriorityLevelId(e.target.value)}>
                   <option value="" disabled>Select priority level…</option>
                   {customerLevels.map((lvl) => (
-                    <option key={lvl.id} value={lvl.id}>{lvl.code} — {lvl.label}</option>
+                    <option key={lvl.id} value={lvl.id}>{lvl.code} | {lvl.label}</option>
                   ))}
                 </select>
               ) : (

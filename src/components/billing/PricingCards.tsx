@@ -121,7 +121,7 @@ export function PricingCards({
 
   // A quoted plan has no Stripe price; the mailto below is its only path.
   const inquiryHref = (planName: string) => {
-    const subject = `${planName} enquiry${companyName ? ` — ${companyName}` : ''}`
+    const subject = `${planName} enquiry${companyName ? ` | ${companyName}` : ''}`
     const body = [
       `We would like to hear more about ${planName}.`,
       '',
@@ -158,7 +158,7 @@ export function PricingCards({
               <p className="text-sm text-indigo-600 font-medium">Current Plan</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-1 capitalize">{PLAN_LABELS[currentPlan as keyof typeof PLAN_LABELS]}</h3>
               <p className="text-sm text-slate-600 mt-2">
-                Billing cycle: {new Date(billingCycleStart).toLocaleDateString()} — {new Date(billingCycleEnd).toLocaleDateString()}
+                Billing cycle: {new Date(billingCycleStart).toLocaleDateString()} to {new Date(billingCycleEnd).toLocaleDateString()}
               </p>
             </div>
             <Badge className="bg-indigo-100 text-indigo-700">Active</Badge>
@@ -251,7 +251,7 @@ export function PricingCards({
                       Remove members to switch
                     </Button>
                     <p className="text-xs text-slate-500 text-center">
-                      Individual is a solo plan (1 member). Your workspace has {memberCount} active members — remove the others in Settings → Members first.
+                      Individual is a solo plan (1 member). Your workspace has {memberCount} active members, remove the others in Settings → Members first.
                     </p>
                   </div>
                 ) : isUpgrade ? (
@@ -277,7 +277,7 @@ export function PricingCards({
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <p className="text-sm text-slate-700">
           Need the app to match how your company actually works? That is{' '}
-          <span className="font-medium text-slate-900">Business Plus</span> — email{' '}
+          <span className="font-medium text-slate-900">Business Plus</span> ,  email{' '}
           <a href={inquiryHref('Business Plus')} className="font-medium text-indigo-600 underline">
             {SALES_EMAIL}
           </a>{' '}

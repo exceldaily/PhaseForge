@@ -97,7 +97,7 @@ export async function CommandBand({
         </p>
         {attention.length === 0 ? (
           <p className="flex items-center gap-2 py-2 text-sm text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 size={16} /> All clear — nothing overdue or unread.
+            <CheckCircle2 size={16} /> All clear, nothing overdue or unread.
           </p>
         ) : (
           <div className="space-y-1.5">

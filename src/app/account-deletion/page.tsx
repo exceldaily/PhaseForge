@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Account & Data Deletion — PhaseForge',
+  title: 'Account & Data Deletion | PhaseForge',
   description: 'How to request deletion of your PhaseForge account and associated data.',
 }
 
@@ -47,8 +47,8 @@ export default function AccountDeletionPage() {
 
         <h2 className="text-xl font-semibold text-slate-900">What we may retain</h2>
         <p>
-          We may retain a limited set of records where required for legal, tax, or accounting purposes —
-          for example, billing and invoice history — for the period required by law. These records are
+          We may retain a limited set of records where required for legal, tax, or accounting purposes , 
+          for example, billing and invoice history, for the period required by law. These records are
           kept secure and are not used for any other purpose.
         </p>
 

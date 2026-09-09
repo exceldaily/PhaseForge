@@ -129,7 +129,7 @@ export async function commitPlanImport(
         })
         if (sheetErr) {
           if (/duplicate|unique/i.test(sheetErr.message)) {
-            throw new Error(`Sheet ${s.sheetNumber} already exists in this project. Re-run the import — it will be offered as a revision.`)
+            throw new Error(`Sheet ${s.sheetNumber} already exists in this project. Re-run the import, it will be offered as a revision.`)
           }
           throw new Error(`${s.sheetNumber}: ${sheetErr.message}`)
         }

@@ -86,7 +86,7 @@ export function PhaseScheduleSection({
       <div className="mb-3 flex flex-wrap gap-2 text-xs">
         {isCritical ? (
           <span className="rounded-full bg-rose-50 px-2.5 py-1 font-semibold text-rose-600">
-            Critical — 0 days float
+            Critical, 0 days float
           </span>
         ) : float !== null ? (
           <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
@@ -112,7 +112,7 @@ export function PhaseScheduleSection({
         )}
       </div>
       {myPreds.length === 0 && !adding && (
-        <p className="text-[11px] text-slate-400">None — this phase can start any time.</p>
+        <p className="text-[11px] text-slate-400">None, this phase can start any time.</p>
       )}
       <div className="space-y-1">
         {myPreds.map((d) => (
@@ -172,9 +172,9 @@ export function PhaseScheduleSection({
                 </p>
                 {moved && (
                   <p className="mt-0.5 flex items-center gap-1 text-slate-500">
-                    {formatDate(p!.start_date!.from!, 'MMM d')}–{formatDate(p!.end_date!.from!, 'MMM d')}
+                    {formatDate(p!.start_date!.from!, 'MMM d')} to {formatDate(p!.end_date!.from!, 'MMM d')}
                     <ArrowRight size={10} className="text-slate-400" />
-                    {formatDate(p!.start_date!.to!, 'MMM d')}–{formatDate(p!.end_date!.to!, 'MMM d')}
+                    {formatDate(p!.start_date!.to!, 'MMM d')} to {formatDate(p!.end_date!.to!, 'MMM d')}
                   </p>
                 )}
                 {h.reason && <p className="mt-0.5 text-slate-400">Reason: {h.reason}</p>}

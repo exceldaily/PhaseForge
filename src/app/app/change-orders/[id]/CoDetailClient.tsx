@@ -116,7 +116,7 @@ export function CoDetailClient({
         {/* Next action banner */}
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-indigo-100 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/40 px-3 py-2.5">
           <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-500 shrink-0">Next action</span>
-          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 min-w-0 flex-1">{co.next_action ?? 'No next action set — set one so this never stalls.'}</p>
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 min-w-0 flex-1">{co.next_action ?? 'No next action set, set one so this never stalls.'}</p>
           {canEdit && (
             <div className="flex gap-1.5 shrink-0">
               <button onClick={() => setHandoff(true)}
@@ -352,7 +352,7 @@ function SubmissionCard({ co, submissions, memberName, canEdit, onChanged }: {
           <summary className="cursor-pointer text-[11px] text-slate-400">Submission history ({submissions.length})</summary>
           <ul className="mt-1 space-y-1 text-[11px] text-slate-500">
             {submissions.map((s) => (
-              <li key={s.id}>{formatDate(s.submitted_at)} — {s.portal ?? 'portal'} {s.tracking_number ? `· #${s.tracking_number}` : s.no_confirmation ? '· no confirmation #' : ''} {s.amount != null ? `· ${fmtMoney(s.amount)}` : ''}</li>
+              <li key={s.id}>{formatDate(s.submitted_at)} to {s.portal ?? 'portal'} {s.tracking_number ? `· #${s.tracking_number}` : s.no_confirmation ? '· no confirmation #' : ''} {s.amount != null ? `· ${fmtMoney(s.amount)}` : ''}</li>
             ))}
           </ul>
         </details>
@@ -419,7 +419,7 @@ function RevisionsCard({ co, revisions, memberName, canEdit, revising, setRevisi
               {delta != null && delta !== 0 && (
                 <span className={cn('font-semibold', delta > 0 ? 'text-emerald-600' : 'text-rose-600')}>{delta > 0 ? '+' : ''}{fmtMoney(delta)}</span>
               )}
-              {r.reason && <span className="text-slate-500 truncate">— {r.reason}</span>}
+              {r.reason && <span className="text-slate-500 truncate"> to  {r.reason}</span>}
               <span className="ml-auto text-[10px] text-slate-400">{r.created_by ? memberName[r.created_by] ?? '' : ''} {formatDate(r.created_at)}</span>
             </li>
           )
@@ -442,7 +442,7 @@ function BillingCard({ co, canEdit, onSaved }: { co: ChangeOrderRow; canEdit: bo
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
       <div className="flex items-center gap-2">
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100"><DollarSign size={14} className="text-emerald-500" /> Approval &amp; billing</h2>
-        {anb && <span className="rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">APPROVED — NOT BILLED</span>}
+        {anb && <span className="rounded-full bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">APPROVED. NOT BILLED</span>}
       </div>
       <dl className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
         <Dt label="Approved amount" value={fmtMoney(co.approved_amount)} strong={co.approved_amount != null} />

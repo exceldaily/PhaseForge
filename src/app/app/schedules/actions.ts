@@ -158,13 +158,13 @@ export async function setDepartmentStyle(input: {
 // Edit just the shift-note list for a department (Days / Nights / Travel Day
 // / whatever this crew actually calls them). Kept separate from the style
 // setter so editing the list can never flip a department's layout, and an
-// empty list is honoured — some departments do not want shift notes at all.
+// empty list is honored — some departments do not want shift notes at all.
 export async function setShiftOptions(division: string, options: string[], colors?: Record<string, string>) {
   try {
     const { supabase, companyId, isManager } = await ctx()
     if (!isManager) return { error: 'Managers only' }
     const clean = [...new Set((options ?? []).map((s) => s.trim()).filter(Boolean))].slice(0, 20)
-    // Only keep colours for notes that still exist, and only real hex values —
+    // Only keep colors for notes that still exist, and only real hex values —
     // the map is rendered straight into a style attribute.
     const cleanColors: Record<string, string> = {}
     for (const name of clean) {
@@ -359,7 +359,7 @@ export async function copyWeek(superintendentId: string, fromWeekStart: string, 
     const { count } = await supabase.from('schedule_jobs')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId).eq('superintendent_id', superintendentId).eq('week_start', toWeekStart)
-    if ((count ?? 0) > 0) return { error: 'That week already has jobs for this team — delete them first or edit in place.' }
+    if ((count ?? 0) > 0) return { error: 'That week already has jobs for this team, delete them first or edit in place.' }
 
     const { data: jobs } = await supabase.from('schedule_jobs')
       .select('id, title, job_number, shift_label, project_id, sort_order')

@@ -1128,7 +1128,7 @@ function GanttPhaseRow({
             className={cn('pointer-events-none absolute rounded-sm border',
               drifted ? 'border-slate-400/70 bg-slate-300/30' : 'border-slate-300/50 bg-slate-200/20')}
             style={{ left: b.left, width: Math.max(b.width, 6), height: 5, bottom: 3 }}
-            title={`Baseline: ${formatDate(baselineBar.start, 'MMM d')} – ${formatDate(baselineBar.end, 'MMM d')}`}
+            title={`Baseline: ${formatDate(baselineBar.start, 'MMM d')} to ${formatDate(baselineBar.end, 'MMM d')}`}
           />
         )
       })()}

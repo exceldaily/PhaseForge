@@ -160,9 +160,9 @@ export function MoveImpactDialog({ pending, onApply, onCancel }: {
             : <>Change &ldquo;{pending.phase.name}&rdquo; duration?</>}
         </h3>
         <p className="mt-1 text-xs text-slate-500">
-          {formatDate(pending.from.start, 'MMM d')}–{formatDate(pending.from.end, 'MMM d')}
+          {formatDate(pending.from.start, 'MMM d')} to {formatDate(pending.from.end, 'MMM d')}
           <ArrowRight size={11} className="mx-1 inline text-slate-400" />
-          {formatDate(pending.to.start, 'MMM d')}–{formatDate(pending.to.end, 'MMM d')}
+          {formatDate(pending.to.start, 'MMM d')} to {formatDate(pending.to.end, 'MMM d')}
         </p>
 
         {impact.affected.length > 0 && (
@@ -173,7 +173,7 @@ export function MoveImpactDialog({ pending, onApply, onCancel }: {
             </p>
             <ul className="mt-1.5 max-h-28 space-y-0.5 overflow-y-auto text-[11px] text-amber-700">
               {impact.affected.slice(0, 8).map((a) => (
-                <li key={a.id}>{a.name}: +{a.deltaDays}d → {formatDate(a.newStart, 'MMM d')}–{formatDate(a.newEnd, 'MMM d')}</li>
+                <li key={a.id}>{a.name}: +{a.deltaDays}d → {formatDate(a.newStart, 'MMM d')} to {formatDate(a.newEnd, 'MMM d')}</li>
               ))}
               {impact.affected.length > 8 && <li>…and {impact.affected.length - 8} more</li>}
             </ul>
@@ -186,7 +186,7 @@ export function MoveImpactDialog({ pending, onApply, onCancel }: {
         )}
         {impact.affected.length === 0 && impact.completionDeltaDays === 0 && pending.kind === 'move' && (
           <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-            No downstream phases are affected — the slack absorbs it.
+            No downstream phases are affected, the slack absorbs it.
           </p>
         )}
 
@@ -259,7 +259,7 @@ export function LookaheadModal({ projects, depsByProject, onClose }: {
               {weeks}-week lookahead
             </h3>
             <span className="text-xs text-slate-400">
-              {formatDate(today, 'MMM d')} – {formatDate(new Date(new Date(today).getTime() + (weeks * 7 - 1) * 86400000).toISOString().slice(0, 10), 'MMM d')}
+              {formatDate(today, 'MMM d')} to {formatDate(new Date(new Date(today).getTime() + (weeks * 7 - 1) * 86400000).toISOString().slice(0, 10), 'MMM d')}
             </span>
           </div>
           <div className="flex items-center gap-1.5 print:hidden">
@@ -312,7 +312,7 @@ export function LookaheadModal({ projects, depsByProject, onClose }: {
                           )}
                         </td>
                         <td className="py-1.5 pr-2 tabular-nums text-slate-500">
-                          {formatDate(r.phase.start_date, 'M/d')}–{formatDate(r.phase.end_date, 'M/d')}
+                          {formatDate(r.phase.start_date, 'M/d')} to {formatDate(r.phase.end_date, 'M/d')}
                         </td>
                         <td className="py-1.5 pr-2 text-slate-500">{STATE_LABEL[r.state]}</td>
                         <td className="truncate py-1.5 pr-2 text-slate-500">{full?.assigned_trade ?? '—'}</td>

@@ -21,7 +21,7 @@ export function ProjectPreview() {
     <div className={styles.console} id="project-preview">
       <div className={styles.consoleBar}><span><CircleDot size={15} /> PROJECT EXPLORER</span><span className={styles.sample}>SAMPLE PROJECT</span></div>
       <div className={styles.consoleHeading}>
-        <div><p className={styles.micro}>COMMERCIAL / PF–024</p><h2>Northline medical center</h2><p>One project. Every moving part.</p></div>
+        <div><p className={styles.micro}>COMMERCIAL / PF to 024</p><h2>Northline medical center</h2><p>One project. Every moving part.</p></div>
         <span className={styles.projectStatus}><span /> In construction</span>
       </div>
       <div className={styles.consoleMetrics}>
@@ -58,7 +58,7 @@ export function FirstVisitHero({ headingClass }: { headingClass: string }) {
       <div className={styles.heroCopy}>
         <p className={styles.eyebrow}><span /> BUILT FOR THE WAY YOU BUILD</p>
         <h1 className={headingClass} id="welcome-title" tabIndex={-1}>Big plans.<br />Moving parts.<br /><em>One clear view.</em></h1>
-        <p className={styles.heroIntro}>Bring the job together. Schedules, drawings, crews, and change orders — connected from the first plan to the final punch.</p>
+        <p className={styles.heroIntro}>Bring the job together. Schedules, drawings, crews, and change orders, connected from the first plan to the final punch.</p>
         <div className={styles.actions}><Link href="/signup" className={styles.primary}>Start building free <ArrowRight size={18} /></Link><a href="#capabilities" className={styles.secondary}>Explore the platform <ArrowDown size={16} /></a></div>
         <p className={styles.reassurance}><Check size={15} /> No card required <span>·</span> Start with your first project</p>
         <div className={styles.heroNote}><span>01 / PLAN → BUILD → DELIVER</span><p>Less chasing updates.<br /><strong>More moving the job forward.</strong></p></div>

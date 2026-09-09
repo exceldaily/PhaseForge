@@ -4,7 +4,7 @@ import { activeTrade } from '@/lib/tradeFilter'
 import { ChangeOrdersClient } from './ChangeOrdersClient'
 import type { ChangeOrderRow } from '@/lib/changeOrders'
 
-export const metadata = { title: 'Change Orders — PhaseForge' }
+export const metadata = { title: 'Change Orders | PhaseForge' }
 
 export default async function ChangeOrdersPage() {
   const supabase = await createClient()

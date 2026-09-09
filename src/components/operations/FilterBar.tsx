@@ -137,7 +137,7 @@ export function FilterBar({
               onChange={(e) => set(`${def.key}_from`, e.target.value)}
               className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             />
-            –
+             to 
             <input
               type="date"
               value={filters[`${def.key}_to`] ?? ''}

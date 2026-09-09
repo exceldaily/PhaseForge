@@ -70,7 +70,7 @@ export async function updateVendor(input: {
     return { ok: false, error: error.code === '23505' ? 'Another vendor already uses that email.' : error.message }
   }
   if (!data || data.length === 0) {
-    return { ok: false, error: 'That vendor no longer exists — refresh the page and try again.' }
+    return { ok: false, error: 'That vendor no longer exists, refresh the page and try again.' }
   }
   revalidatePath(PATH)
   return { ok: true }
@@ -84,7 +84,7 @@ export async function deleteVendor(input: { id: string }) {
     .select('id')
   if (error) return { ok: false, error: error.message }
   if (!data || data.length === 0) {
-    return { ok: false, error: 'That vendor no longer exists — refresh the page and try again.' }
+    return { ok: false, error: 'That vendor no longer exists, refresh the page and try again.' }
   }
   revalidatePath(PATH)
   return { ok: true }
@@ -125,7 +125,7 @@ export async function createQuoteFromPdf(formData: FormData) {
   }
   // Genuinely no text = a scanned image. Nothing to parse, so say so plainly.
   if (text.replace(/\s+/g, ' ').trim().length < 20) {
-    return { ok: false, error: 'That PDF has no readable text — it looks like a scan or photo. Paste the form text instead (or run OCR on it first).' }
+    return { ok: false, error: 'That PDF has no readable text, it looks like a scan or photo. Paste the form text instead (or run OCR on it first).' }
   }
   // Strict template first (best field detection), then a tolerant pass so a
   // different form layout still produces an editable quote rather than a wall.
@@ -137,7 +137,7 @@ export async function createQuoteFromPdf(formData: FormData) {
 export async function createQuoteFromText(input: { text: string }) {
   const raw = input.text ?? ''
   if (raw.replace(/\s+/g, ' ').trim().length < 20) {
-    return { ok: false, error: 'Paste a bit more of the form text — there is not enough here to read.' }
+    return { ok: false, error: 'Paste a bit more of the form text, there is not enough here to read.' }
   }
   const form = parseQuoteForm(raw) ?? parseQuoteFormLoose(raw)
   return insertQuote(form)
@@ -232,7 +232,7 @@ export async function sendQuoteToVendors(input: {
   ])
   if (!quote) return { ok: false, sent: 0, failed: 0, error: 'Quote not found.' }
   if (!gmail) {
-    return { ok: false, sent: 0, failed: 0, error: 'Connect your Gmail on this page first — quotes send from your own address.' }
+    return { ok: false, sent: 0, failed: 0, error: 'Connect your Gmail on this page first, quotes send from your own address.' }
   }
   const { data: vendors } = await supabase
     .from('quote_vendors').select('*').eq('company_id', companyId).in('id', input.vendorIds)
@@ -267,7 +267,7 @@ export async function sendQuoteToVendors(input: {
     await supabase.from('quote_requests').update({ status: 'sent' }).eq('id', quote.id).eq('company_id', companyId)
   }
   revalidatePath(PATH)
-  return { ok: failed === 0, sent, failed, error: failed > 0 ? `${failed} send${failed === 1 ? '' : 's'} failed — see vendor list.` : undefined }
+  return { ok: failed === 0, sent, failed, error: failed > 0 ? `${failed} send${failed === 1 ? '' : 's'} failed, see vendor list.` : undefined }
 }
 
 /**

@@ -130,7 +130,7 @@ export function QuotesClient({ quotes, pricings, vendors, gmailEmail, hasSignatu
                 e.target.value = ''
                 if (!file) return
                 if (file.size > 10 * 1024 * 1024) {
-                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB. Paste the form text instead.`)
+                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB, the limit is 10 MB. Paste the form text instead.`)
                   return
                 }
                 const fd = new FormData()
@@ -157,7 +157,7 @@ export function QuotesClient({ quotes, pricings, vendors, gmailEmail, hasSignatu
           <div className="mt-3 space-y-2">
             <textarea
               rows={8} value={pasteText} onChange={(e) => setPasteText(e.target.value)}
-              placeholder="Paste the whole form text — PO number, trade, job number, items…"
+              placeholder="Paste the whole form text. PO number, trade, job number, items…"
               className={inputCls}
             />
             {error && <p className="text-sm font-medium text-rose-600">{error}</p>}
@@ -213,7 +213,7 @@ function GmailCard({ gmailEmail, hasSignature, oauthError, justConnected }: {
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-slate-900">Connect your Gmail to send quotes</p>
             <p className="text-sm text-slate-600">
-              Quotes send from your own email address. Each teammate connects their own account — nothing is shared.
+              Quotes send from your own email address. Each teammate connects their own account, nothing is shared.
             </p>
           </div>
           <a data-help="quotes-gmail" href="/api/quotes/gmail/start" className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
@@ -391,7 +391,7 @@ function VendorManager({ vendors }: { vendors: VendorItem[] }) {
               </div>
             ),
           )}
-          {items.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No vendors yet — add your quoting list above.</p>}
+          {items.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No vendors yet, add your quoting list above.</p>}
         </div>
         {/* Errors from the Active toggle / Remove live outside the edit row, so
             they need their own slot or a rejected change looks like it worked. */}

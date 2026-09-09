@@ -297,7 +297,7 @@ export function GanttMobileTimeline({ projects, selectedPhaseId, onSelectPhase }
       </div>
 
       <p className="flex-shrink-0 border-t border-slate-200 bg-white px-3 py-1.5 text-center text-[10px] text-slate-400">
-        Swipe to scroll · {format(viewStart, 'MMM d')} – {format(viewEnd, 'MMM d, yyyy')} · tap a bar for details
+        Swipe to scroll · {format(viewStart, 'MMM d')} to {format(viewEnd, 'MMM d, yyyy')} · tap a bar for details
       </p>
     </div>
   )

@@ -351,7 +351,7 @@ export function BoardsClient({ boards, teams, projectCountMap, usage, canEdit, c
                   {/* Visibility */}
                   {board.is_private ? (
                     <p className="mt-3 flex items-center gap-1 text-[10px] font-medium text-slate-500">
-                      <Lock size={10} /> Private — only you
+                      <Lock size={10} /> Private, only you
                     </p>
                   ) : boardTeams.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-1.5">

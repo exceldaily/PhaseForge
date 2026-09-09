@@ -189,7 +189,7 @@ export function QuoteDetailClient({ quote, vendors, canSend }: {
         </div>
         {!canSend && (
           <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-slate-700">
-            Connect your Gmail on the <Link href="/app/quotes" className="text-indigo-600 underline">Quotes page</Link> first —
+            Connect your Gmail on the <Link href="/app/quotes" className="text-indigo-600 underline">Quotes page</Link> first , 
             quotes send from your own address.
           </p>
         )}
@@ -287,7 +287,7 @@ export function QuoteDetailClient({ quote, vendors, canSend }: {
             <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 px-4 py-3">
               {allReplied ? (
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-                  <Check className="h-4 w-4" /> All quotes are in — ready to complete.
+                  <Check className="h-4 w-4" /> All quotes are in, ready to complete.
                 </span>
               ) : (
                 <span className="text-sm text-slate-500">

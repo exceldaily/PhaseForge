@@ -110,7 +110,7 @@ export function ProjectCoClient({ project, cos, members, isManager }: {
       {cos.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-6 py-14 text-center">
           <p className="text-sm font-medium text-slate-500">No change orders on this project yet</p>
-          <p className="mt-1 text-xs text-slate-400">Create the first one — project details fill in automatically.</p>
+          <p className="mt-1 text-xs text-slate-400">Create the first one, project details fill in automatically.</p>
           {isManager && (
             <button onClick={() => setCreating(true)} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">New Change Order</button>
           )}
@@ -179,7 +179,7 @@ function CreateInProject({ project, members, onClose, onCreated }: {
       <div className="w-full max-w-lg rounded-t-2xl sm:rounded-2xl bg-white dark:bg-slate-900 shadow-2xl">
         <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white">New Change Order</h2>
-          <p className="text-[11px] text-slate-400 truncate">{project.name}{project.store_site_id ? ` · Store #${project.store_site_id}` : ''} — project info auto-fills</p>
+          <p className="text-[11px] text-slate-400 truncate">{project.name}{project.store_site_id ? ` · Store #${project.store_site_id}` : ''} ,  project info auto-fills</p>
         </div>
         <div className="px-5 py-4 space-y-2.5">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What changed? (title)" className={inputCls} autoFocus />

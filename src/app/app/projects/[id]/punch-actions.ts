@@ -125,7 +125,7 @@ export async function createPunchItem(
         userId: data.assigned_to,
         companyId: project.company_id,
         title: 'Punch item assigned to you',
-        body: `#${nextNumber} — ${project.name}`,
+        body: `#${nextNumber} | ${project.name}`,
         link: `/app/projects/${projectId}?tab=punch`,
       })
     }
@@ -205,7 +205,7 @@ export async function updatePunchItem(
         userId: updates.assigned_to,
         companyId: item.company_id,
         title: 'Punch item assigned to you',
-        body: `#${item.number} — ${project?.name ?? 'Project'}`,
+        body: `#${item.number} | ${project?.name ?? 'Project'}`,
         link: `/app/projects/${item.project_id}?tab=punch`,
       })
     }
@@ -288,7 +288,7 @@ export async function completePunchItem(
         userId: item.created_by,
         companyId: item.company_id,
         title: 'Punch item completed',
-        body: `#${item.number} — ${project?.name ?? 'Project'}`,
+        body: `#${item.number} | ${project?.name ?? 'Project'}`,
         link: `/app/projects/${item.project_id}?tab=punch`,
       })
     }

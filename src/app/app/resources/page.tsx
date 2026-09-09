@@ -97,7 +97,7 @@ export default async function ResourcesPage({
       {/* Unassigned alert */}
       {unassigned.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-          <p className="text-sm font-semibold text-amber-800 mb-3">{unassigned.length} unassigned phase{unassigned.length !== 1 ? 's' : ''} — no person or trade assigned</p>
+          <p className="text-sm font-semibold text-amber-800 mb-3">{unassigned.length} unassigned phase{unassigned.length !== 1 ? 's' : ''} ,  no person or trade assigned</p>
           <div className="flex flex-wrap gap-2">
             {unassigned.slice(0, 8).map(ph => (
               <span key={ph.id} className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-700">

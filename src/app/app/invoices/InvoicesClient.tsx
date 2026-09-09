@@ -62,7 +62,7 @@ export function InvoicesClient({
     <div>
       <OpsPageHeader
         title="Invoices"
-        subtitle={`Invoice-ready workflow — drafts, PDF generation, and status tracking${readyCalls.length ? ` · ${readyCalls.length} calls ready to invoice` : ''}`}
+        subtitle={`Invoice-ready workflow, drafts, PDF generation, and status tracking${readyCalls.length ? ` · ${readyCalls.length} calls ready to invoice` : ''}`}
         actions={canWrite && <Button size="sm" onClick={() => setCreateOpen(true)}><Plus size={15} /> New Invoice</Button>}
       />
       <FilterBar defs={defs} filters={filters} onChange={setFilters} searchPlaceholder="Search invoices…" />
@@ -162,7 +162,7 @@ function CreateInvoiceModal({
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Customer
           <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            <option value="">—</option>
+            <option value=""> to </option>
             {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>

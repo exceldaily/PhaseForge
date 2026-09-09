@@ -54,7 +54,7 @@ export function PunchImportModal({ projectId, onClose }: Props) {
         // each issue and stitching pairs into one image.
         const rows = await parsePunchPdfClient(file)
         if (!rows.length) {
-          setError('No items found. If this is a scanned (image-only) PDF, its text can\'t be read — add items manually or use the Excel import.')
+          setError('No items found. If this is a scanned (image-only) PDF, its text can\'t be read, add items manually or use the Excel import.')
           setStep('upload')
           return
         }
@@ -169,7 +169,7 @@ export function PunchImportModal({ projectId, onClose }: Props) {
       router.refresh()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      setError(msg || 'Import failed — please try again.')
+      setError(msg || 'Import failed, please try again.')
       setStep('preview')
     }
   }
@@ -198,14 +198,14 @@ export function PunchImportModal({ projectId, onClose }: Props) {
                     <FileSpreadsheet size={16} className="text-emerald-600" />
                     <span className="text-sm font-semibold text-slate-700">Excel (.xlsx)</span>
                   </div>
-                  <p className="text-xs text-slate-500">4 columns: Scope, Description, Location, Photo. Parsed in your browser — no file size limit.</p>
+                  <p className="text-xs text-slate-500">4 columns: Scope, Description, Location, Photo. Parsed in your browser, no file size limit.</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 p-3">
                   <div className="flex items-center gap-2 mb-1.5">
                     <FileText size={16} className="text-rose-600" />
                     <span className="text-sm font-semibold text-slate-700">PDF</span>
                   </div>
-                  <p className="text-xs text-slate-500">Most punch layouts — numbered lists or title-block tables. Descriptions and any embedded photos (1–2 per issue) are pulled in automatically. Scanned image-only PDFs can&apos;t be read.</p>
+                  <p className="text-xs text-slate-500">Most punch layouts, numbered lists or title-block tables. Descriptions and any embedded photos (1 to 2 per issue) are pulled in automatically. Scanned image-only PDFs can&apos;t be read.</p>
                 </div>
               </div>
 
@@ -240,7 +240,7 @@ export function PunchImportModal({ projectId, onClose }: Props) {
           {step === 'preview' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-700">{items.length} items found — review before importing</p>
+                <p className="text-sm font-medium text-slate-700">{items.length} items found, review before importing</p>
                 <button onClick={() => { setItems([]); setStep('upload') }} className="text-xs text-slate-400 hover:text-slate-600">
                   Change file
                 </button>

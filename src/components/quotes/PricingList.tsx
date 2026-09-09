@@ -45,7 +45,7 @@ export function PricingList({ pricings }: { pricings: PricingListItem[] }) {
   const [pending, start] = useTransition()
 
   const open = (id: string, found: number) => {
-    setNote(found > 0 ? null : 'No line items could be read off that one — the sheet is ready to type into.')
+    setNote(found > 0 ? null : 'No line items could be read off that one, the sheet is ready to type into.')
     router.push(`/app/quotes/pricing/${id}`)
   }
 
@@ -73,7 +73,7 @@ export function PricingList({ pricings }: { pricings: PricingListItem[] }) {
                 e.target.value = ''
                 if (!file) return
                 if (file.size > 10 * 1024 * 1024) {
-                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB. Try a compressed export, or paste the quote text instead.`)
+                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB, the limit is 10 MB. Try a compressed export, or paste the quote text instead.`)
                   return
                 }
                 const fd = new FormData()
@@ -113,7 +113,7 @@ export function PricingList({ pricings }: { pricings: PricingListItem[] }) {
           <div className="mt-3 space-y-2">
             <textarea
               rows={8} value={pasteText} onChange={(e) => setPasteText(e.target.value)}
-              placeholder="Paste the quote — one line item per line, with its price at the end."
+              placeholder="Paste the quote, one line item per line, with its price at the end."
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <Button size="sm" disabled={pending || pasteText.trim().length < 20} onClick={() =>

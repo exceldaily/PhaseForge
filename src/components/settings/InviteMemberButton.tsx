@@ -54,9 +54,9 @@ export function InviteMemberButton({ companyId }: { companyId: string }) {
           <form onSubmit={handleInvite} className="space-y-4">
             <Input id="inv-email" type="email" label="Email address" placeholder="colleague@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
             <Select id="inv-role" label="Role" value={role} onChange={e => setRole(e.target.value)}>
-              <option value="member">Member — view projects &amp; update tasks</option>
-              <option value="manager">Manager — create projects &amp; assign tasks</option>
-              <option value="admin">Admin — manage teams, projects &amp; users</option>
+              <option value="member">Member, view projects &amp; update tasks</option>
+              <option value="manager">Manager, create projects &amp; assign tasks</option>
+              <option value="admin">Admin, manage teams, projects &amp; users</option>
             </Select>
             {error && <p className="text-sm text-rose-600">{error}</p>}
             <div className="flex gap-2 pt-2">

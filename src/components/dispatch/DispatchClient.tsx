@@ -177,7 +177,7 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
             </select>
             <select className={selectCls} value={filters.storeId} onChange={(e) => set('storeId', e.target.value)}>
               <option value="">All stores</option>
-              {stores.map((s) => <option key={s.id} value={s.id}>#{s.store_number} — {s.store_name}</option>)}
+              {stores.map((s) => <option key={s.id} value={s.id}>#{s.store_number} | {s.store_name}</option>)}
             </select>
             <select className={selectCls} value={filters.status} onChange={(e) => set('status', e.target.value as CallStatus | '')}>
               <option value="">Any status</option>
@@ -252,7 +252,7 @@ export function DispatchClient({ stores, vendors, customers, assets, priorityLev
             <Radio size={36} className="mx-auto text-slate-300" />
             <p className="mt-3 text-sm font-medium text-slate-600 dark:text-slate-300">Set up Dispatch</p>
             <p className="mt-1 text-sm text-slate-400">
-              Add your customers, stores, and techs first — open <b>Manage</b> above. Then create
+              Add your customers, stores, and techs first, open <b>Manage</b> above. Then create
               service calls and this becomes your prioritized dispatch queue.
             </p>
           </div>

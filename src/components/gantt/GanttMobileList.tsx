@@ -69,7 +69,7 @@ export function GanttMobileList({ projects, onSelectPhase, selectedPhaseId }: Ga
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-900">{project.name}</p>
                 <p className="text-xs text-slate-400">
-                  {formatDate(project.start_date, 'MMM d')} – {formatDate(project.end_date, 'MMM d, yyyy')}
+                  {formatDate(project.start_date, 'MMM d')} to {formatDate(project.end_date, 'MMM d, yyyy')}
                   {project.customer_name ? ` · ${project.customer_name}` : ''}
                 </p>
               </div>
@@ -116,7 +116,7 @@ export function GanttMobileList({ projects, onSelectPhase, selectedPhaseId }: Ga
                           </span>
                         </div>
                         <p className="text-xs text-slate-400">
-                          {formatDate(phase.start_date, 'MMM d')} – {formatDate(phase.end_date, 'MMM d, yyyy')}
+                          {formatDate(phase.start_date, 'MMM d')} to {formatDate(phase.end_date, 'MMM d, yyyy')}
                         </p>
                       </div>
                       <Badge className="flex-shrink-0 text-[10px]">

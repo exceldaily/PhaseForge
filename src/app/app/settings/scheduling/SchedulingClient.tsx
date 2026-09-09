@@ -94,10 +94,10 @@ export function SchedulingClient({ configured, connection, superintendents, labe
           <button onClick={dismissIntro} title="Dismiss" className="absolute right-3 top-3 text-sky-400 hover:text-sky-600"><X size={15} /></button>
           <p className="mb-2 flex items-center gap-1.5 font-semibold"><Info size={15} /> How calendar scheduling works</p>
           <ul className="list-disc space-y-1.5 pl-5">
-            <li>{'Every project phase becomes an event on a Google Calendar you pick. Move or resize that event in Google, and the phase dates update here automatically — the two always stay in step.'}</li>
+            <li>{'Every project phase becomes an event on a Google Calendar you pick. Move or resize that event in Google, and the phase dates update here automatically, the two always stay in step.'}</li>
             <li><strong>{'Superintendents '}</strong>{'are your field leads. Assign one to a project and all of that project’s events show up in their color, so you can tell whose jobs are whose at a glance.'}</li>
-            <li><strong>{'Schedule labels '}</strong>{'are optional tags for grouping work — a crew, a division, or a person (for example “Refrigeration” or “Night Crew”). A label can send its events to a different calendar, set the event color, or invite someone by email.'}</li>
-            <li><strong>{'Your calendar is safe. '}</strong>{'Nothing is written until you connect a Google account and choose a calendar, and PhaseForge only ever touches events it created — never your personal or existing events.'}</li>
+            <li><strong>{'Schedule labels '}</strong>{'are optional tags for grouping work, a crew, a division, or a person (for example “Refrigeration” or “Night Crew”). A label can send its events to a different calendar, set the event color, or invite someone by email.'}</li>
+            <li><strong>{'Your calendar is safe. '}</strong>{'Nothing is written until you connect a Google account and choose a calendar, and PhaseForge only ever touches events it created, never your personal or existing events.'}</li>
           </ul>
         </div>
       )}
@@ -116,7 +116,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
         <section className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
           <h2 className="mb-1 text-sm font-semibold text-indigo-900 dark:text-indigo-200">Set up calendar scheduling</h2>
           <p className="mb-4 text-xs text-indigo-700/70 dark:text-indigo-300/70">
-            Four quick steps — each one takes under a minute. Your calendar is never written to until you finish step 2, and only the calendar you pick is ever touched.
+            Four quick steps, each one takes under a minute. Your calendar is never written to until you finish step 2, and only the calendar you pick is ever touched.
           </p>
           <ol className="space-y-2">
             <SetupStep
@@ -130,7 +130,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
               n={2}
               done={Boolean(connected && connection?.target_calendar_id)}
               label="Choose which calendar PhaseForge writes to"
-              hint="Use a dedicated schedule calendar — not someone's personal one"
+              hint="Use a dedicated schedule calendar, not someone's personal one"
               action={connected && !connection?.target_calendar_id ? <Button size="sm" variant="outline" onClick={loadCalendars}>Pick calendar</Button> : null}
             />
             <SetupStep
@@ -144,7 +144,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
               n={4}
               done={labels.length > 0}
               label="Create your schedule labels"
-              hint='Tags like "Refrigeration" or "Night Crew" — each maps to an event color, calendar, and invites'
+              hint='Tags like "Refrigeration" or "Night Crew", each maps to an event color, calendar, and invites'
               action={labels.length === 0 ? <Button size="sm" variant="outline" onClick={() => setEditLabel('new')}>Add one</Button> : null}
             />
           </ol>
@@ -191,7 +191,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
                     {connection!.target_calendar_name}
                   </span>
                 ) : (
-                  <span className="text-sm text-amber-600">Not selected — events cannot sync yet</span>
+                  <span className="text-sm text-amber-600">Not selected, events cannot sync yet</span>
                 )}
               </div>
               <Button size="sm" variant="outline" onClick={loadCalendars}>
@@ -238,7 +238,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
                       })}
                       className="rounded-full border border-slate-300 px-3 py-1 text-xs hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600"
                     >
-                      {c.name}{c.primary ? ' (primary — not recommended for testing)' : ''}
+                      {c.name}{c.primary ? ' (primary, not recommended for testing)' : ''}
                     </button>
                   ))}
                 </div>
@@ -256,14 +256,14 @@ export function SchedulingClient({ configured, connection, superintendents, labe
           </h2>
           <p className="mb-3 text-xs text-amber-700/70 dark:text-amber-300/70">
             Someone edited or deleted these events directly in Google Calendar. PhaseForge stays the source of
-            truth — choose to restore the PhaseForge version or accept the Google change.
+            truth, choose to restore the PhaseForge version or accept the Google change.
           </p>
           <div className="space-y-2">
             {pendingChanges.map((c) => (
               <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm dark:bg-slate-900">
                 <span className="flex-1 min-w-0 text-slate-700 dark:text-slate-200">
                   <span className="font-medium">{c.projectName ?? 'Unknown project'}</span>
-                  {c.phaseName && <> — {c.phaseName}</>}
+                  {c.phaseName && <> | {c.phaseName}</>}
                   <span className="ml-2 text-xs text-slate-400">
                     {c.changeType === 'deleted'
                       ? 'event was deleted in Google'
@@ -305,7 +305,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
         </h2>
         <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
           Paste your job-tracker URL with <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{'{job}'}</code> where the job
-          number goes. Then every Job# on the Schedules page — and in the copied-for-email table — becomes a clickable link.
+          number goes. Then every Job# on the Schedules page, and in the copied-for-email table, becomes a clickable link.
           Leave blank for plain numbers.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -317,7 +317,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
               const res = await setScheduleJobUrlTemplate(jobUrlDraft)
               setJobUrlSaving(false)
               if ('error' in res && res.error) setError(res.error)
-              else { setJobUrlMsg('Saved — Job# links are live on the schedule.'); router.refresh() }
+              else { setJobUrlMsg('Saved. Job# links are live on the schedule.'); router.refresh() }
             })}>
             Save link
           </Button>
@@ -337,7 +337,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
           <Button size="sm" onClick={() => setEditSup('new')}><Plus size={14} /> Add</Button>
         </div>
         {superintendents.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">No superintendents yet — add your field leads here, then select them on projects and phases.</p>
+          <p className="py-4 text-center text-sm text-slate-400">No superintendents yet, add your field leads here, then select them on projects and phases.</p>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {superintendents.map((s) => (
@@ -369,7 +369,7 @@ export function SchedulingClient({ configured, connection, superintendents, labe
           <Button size="sm" onClick={() => setEditLabel('new')}><Plus size={14} /> Add</Button>
         </div>
         {labels.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">No schedule labels yet — tags like &quot;Refrigeration&quot;, &quot;Night Crew&quot;, or a person&apos;s name. Each label can map to a calendar, event color, and attendee.</p>
+          <p className="py-4 text-center text-sm text-slate-400">No schedule labels yet, tags like &quot;Refrigeration&quot;, &quot;Night Crew&quot;, or a person&apos;s name. Each label can map to a calendar, event color, and attendee.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {labels.map((l) => (
@@ -546,7 +546,7 @@ function LabelForm({ label, superintendents, onDone }: { label: SchLabel | null;
       <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
         Linked superintendent (optional)
         <select name="superintendent_id" defaultValue={label?.superintendent_id ?? ''} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-          <option value="">—</option>
+          <option value=""> to </option>
           {superintendents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
       </label>

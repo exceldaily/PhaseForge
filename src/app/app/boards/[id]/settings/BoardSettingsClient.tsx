@@ -297,9 +297,9 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
           <h2 className="text-sm font-semibold text-slate-900">Visibility &amp; Privacy</h2>
           <p className="text-xs text-slate-400 mt-0.5">
             {isPrivate
-              ? 'Private — only the board creator and owners/admins can see this board.'
+              ? 'Private, only the board creator and owners/admins can see this board.'
               : assignedTeamIds.size === 0
-                ? 'No teams assigned — this board is visible to all organization members.'
+                ? 'No teams assigned, this board is visible to all organization members.'
                 : `Visible only to members of ${assignedTeamIds.size} team${assignedTeamIds.size !== 1 ? 's' : ''}. Owners and Admins always see all boards.`}
           </p>
         </div>
@@ -323,7 +323,7 @@ export function BoardSettingsClient({ board, columns: initialColumns, teams, ass
         </button>
 
         <p className="text-[11px] text-slate-400">
-          Linking teams below grants those members access too — useful when a board should be private from the wider company but shared with a specific team.
+          Linking teams below grants those members access too, useful when a board should be private from the wider company but shared with a specific team.
         </p>
 
         {teams.length === 0 ? (

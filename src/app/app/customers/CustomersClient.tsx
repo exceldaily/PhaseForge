@@ -290,7 +290,7 @@ export function CustomersClient({
                             ? 'text-rose-500'
                             : 'text-slate-500'
                         )}>{a.warranty_end}</span>
-                      ) : <span className="text-slate-400">—</span>}
+                      ) : <span className="text-slate-400"> to </span>}
                     </td>
                   </tr>
                 ))}
@@ -346,7 +346,7 @@ function CreateCustomerModal({ open, onClose, divisions }: { open: boolean; onCl
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Type
             <select value={customerType} onChange={(e) => setCustomerType(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">—</option>
+              <option value=""> to </option>
               <option value="commercial">Commercial</option>
               <option value="residential">Residential</option>
               <option value="government">Government</option>
@@ -371,7 +371,7 @@ function CreateCustomerModal({ open, onClose, divisions }: { open: boolean; onCl
             customer and their "Home" service location. */}
         {customerType === 'residential' && (
           <div className="space-y-3 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
-            <p className="text-xs font-medium text-indigo-700">Home address — creates the service location automatically</p>
+            <p className="text-xs font-medium text-indigo-700">Home address, creates the service location automatically</p>
             <Input name="address" label="Street address" placeholder="123 Main St" />
             <div className="grid grid-cols-3 gap-3">
               <Input name="city" label="City" />
@@ -384,7 +384,7 @@ function CreateCustomerModal({ open, onClose, divisions }: { open: boolean; onCl
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Division
             <select name="division_id" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">—</option>
+              <option value=""> to </option>
               {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
@@ -450,7 +450,7 @@ function CreateLocationModal({ open, onClose, customers, divisions }: {
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Division
             <select name="division_id" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">—</option>
+              <option value=""> to </option>
               {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
@@ -523,7 +523,7 @@ function CreateAssetModal({ open, onClose, customers, locations }: {
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Trade
             <select name="trade_category" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">—</option>
+              <option value=""> to </option>
               <option value="hvac">HVAC</option>
               <option value="refrigeration">Refrigeration</option>
               <option value="electrical">Electrical</option>

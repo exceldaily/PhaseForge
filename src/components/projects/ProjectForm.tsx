@@ -451,7 +451,7 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
       <section className="space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Links</h3>
-          <p className="mt-1 text-xs text-slate-400">Quick links to plan sets, store info, permit portals, spec sheets — anything you want one tap away.</p>
+          <p className="mt-1 text-xs text-slate-400">Quick links to plan sets, store info, permit portals, spec sheets, anything you want one tap away.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input

@@ -101,7 +101,7 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
                     className="text-slate-300 hover:text-rose-500"><Trash2 size={13} /></button>
                 </div>
               ))}
-              {stores.length === 0 && <p className="py-4 text-center text-xs text-slate-400">No stores yet — add your locations above.</p>}
+              {stores.length === 0 && <p className="py-4 text-center text-xs text-slate-400">No stores yet, add your locations above.</p>}
             </div>
           </div>
         )}
@@ -139,7 +139,7 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
             <p className="text-xs text-slate-500">
               This list is shared with the{' '}
               <Link href="/app/customers" className="font-medium text-indigo-600 hover:underline">Customers page</Link>
-              {' '}— add a customer in either place and it shows up in both. Priority scales below are Dispatch-specific.
+              {' '},  add a customer in either place and it shows up in both. Priority scales below are Dispatch-specific.
             </p>
             <div className="flex gap-2">
               <input className={inputCls} placeholder="Customer / chain name (e.g. ALDI)" value={cName} onChange={(e) => setCName(e.target.value)} />
@@ -165,7 +165,7 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
                   </div>
                 </div>
               ))}
-              {customers.length === 0 && <p className="py-2 text-center text-xs text-slate-400">No customers yet — they group stores and carry priority scales (P1, P2…).</p>}
+              {customers.length === 0 && <p className="py-2 text-center text-xs text-slate-400">No customers yet, they group stores and carry priority scales (P1, P2…).</p>}
             </div>
             {customers.length > 0 && (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -195,7 +195,7 @@ export function ManageModal({ stores, vendors, customers, priorityLevels, formFi
           <div className="space-y-3">
             <p className="text-xs text-slate-500">
               Extra fillable blanks on the New Service Call card. Add what your workflow needs
-              (PO #, Landlord contact, Asset tag…) — removing one keeps values already saved on calls.
+              (PO #, Landlord contact, Asset tag…), removing one keeps values already saved on calls.
             </p>
             <div className="flex gap-2">
               <input className={inputCls} placeholder="Field label" value={fLabel} onChange={(e) => setFLabel(e.target.value)} />

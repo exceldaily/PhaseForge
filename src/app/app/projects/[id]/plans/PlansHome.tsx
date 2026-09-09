@@ -195,7 +195,7 @@ export function PlansHome({
       } else if (kind === 'print') {
         await printSheets(targets, progress)
       } else {
-        const name = window.prompt('Package name', `${projectName} — Construction Set`)
+        const name = window.prompt('Package name', `${projectName} Construction Set`)
         if (!name) { setDlState(null); return }
         await downloadPackage({ sheets: targets, projectName, packageName: name, onProgress: progress })
       }
@@ -430,7 +430,7 @@ export function PlansHome({
             <h2 className="mt-4 text-base font-semibold text-slate-900 dark:text-white">No plans yet</h2>
             <p className="mt-1 text-sm text-slate-500 max-w-md mx-auto">
               Drag your construction drawing set here to get started. PhaseForge splits
-              multi-sheet PDF packages into individual drawings automatically — sheet numbers,
+              multi-sheet PDF packages into individual drawings automatically, sheet numbers,
               titles and disciplines are detected for you.
             </p>
             {canManage ? (

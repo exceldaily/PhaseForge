@@ -162,14 +162,14 @@ export function ProjectCalendarSyncBar({ projectId }: { projectId: string }) {
                   const res = await setProjectSuperintendent(projectId, id)
                   if (res?.error) setError(res.error)
                   else if (res?.ok) {
-                    setMsg(res.repushed ? `Superintendent set — updated ${res.repushed} calendar event${res.repushed === 1 ? '' : 's'}.` : 'Superintendent set.')
+                    setMsg(res.repushed ? `Superintendent set, updated ${res.repushed} calendar event${res.repushed === 1 ? '' : 's'}.` : 'Superintendent set.')
                     refresh()
                   }
                 })
               }}
               className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             >
-              <option value="">—</option>
+              <option value=""> to </option>
               {status.superintendents.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
@@ -195,7 +195,7 @@ export function ProjectCalendarSyncBar({ projectId }: { projectId: string }) {
                     res.datesApplied ? `${res.datesApplied} date change${res.datesApplied === 1 ? '' : 's'} from Google` : null,
                     res.queued ? `${res.queued} change${res.queued === 1 ? '' : 's'} awaiting review` : null,
                   ].filter(Boolean)
-                  setMsg(bits.length ? `Synced — ${bits.join(', ')}.` : 'Already up to date.')
+                  setMsg(bits.length ? `Synced, ${bits.join(', ')}.` : 'Already up to date.')
                   refresh()
                 }
               })

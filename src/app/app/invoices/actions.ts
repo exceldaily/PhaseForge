@@ -46,7 +46,7 @@ export async function createInvoice(input: {
       await supabase.from('invoice_items').insert({
         company_id: ctx.companyId,
         invoice_id: data.id,
-        description: `Call #${call.call_number} — ${call.title}`,
+        description: `Call #${call.call_number} | ${call.title}`,
         quantity: 1,
         unit_price: 0,
         call_id: call.id,

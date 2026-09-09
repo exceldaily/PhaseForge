@@ -142,7 +142,7 @@ export function PhaseSyncSection({ phaseId }: { phaseId: string }) {
 
       <div className="mt-3">
         <p className="mb-1.5 text-[11px] font-medium text-slate-400">
-          Skip days — blue = on calendar, red = skipped (overrides the project default)
+          Skip days, blue = on calendar, red = skipped (overrides the project default)
         </p>
         <DayChips value={skipDays} onChange={onSkipChange} />
         {skipDays.length > 0 && status.link && (

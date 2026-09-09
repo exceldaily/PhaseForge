@@ -75,7 +75,7 @@ export function AssetHistoryModal({ asset, onClose }: { asset: Asset; onClose: (
         <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center">
           <Gauge size={24} className="mx-auto mb-2 text-slate-300" />
           <p className="text-sm text-slate-500">No readings recorded yet.</p>
-          <p className="mt-1 text-xs text-slate-400">Techs record equipment updates from the call they&apos;re running — open a call linked to this asset.</p>
+          <p className="mt-1 text-xs text-slate-400">Techs record equipment updates from the call they&apos;re running, open a call linked to this asset.</p>
         </div>
       ) : (
         <div className="max-h-96 space-y-2.5 overflow-y-auto pr-1">

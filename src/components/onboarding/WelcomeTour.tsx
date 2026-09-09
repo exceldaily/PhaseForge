@@ -14,17 +14,17 @@ const STEPS = [
   {
     icon: Rocket,
     title: 'Welcome to Phase Forge',
-    body: "Phase Forge keeps construction and project work on schedule — boards for organizing projects, phases for tracking the work, and a Gantt timeline that ties it all together. This quick tour shows you where everything lives. It takes about a minute.",
+    body: "Phase Forge keeps construction and project work on schedule, boards for organizing projects, phases for tracking the work, and a Gantt timeline that ties it all together. This quick tour shows you where everything lives. It takes about a minute.",
   },
   {
     icon: Layers,
     title: 'Boards organize your projects',
-    body: "A board is a workspace for a group of projects — by division, client, or however you work. Each board has its own columns (Queue, Mobilization, In Progress...) and can customize which fields show on project forms. Restrict a board to specific teams and only those members can see it and its projects.",
+    body: "A board is a workspace for a group of projects, by division, client, or however you work. Each board has its own columns (Queue, Mobilization, In Progress...) and can customize which fields show on project forms. Restrict a board to specific teams and only those members can see it and its projects.",
   },
   {
     icon: FolderKanban,
     title: 'Projects and phases',
-    body: "Projects hold the details: client, location, dates, PM, permit status, priority. Inside each project, phases break the job into scheduled chunks of work that you can assign to people or trades. Create projects one at a time, or use Import Schedule to pull a whole Excel workbook in at once — each tab becomes a project with its phases.",
+    body: "Projects hold the details: client, location, dates, PM, permit status, priority. Inside each project, phases break the job into scheduled chunks of work that you can assign to people or trades. Create projects one at a time, or use Import Schedule to pull a whole Excel workbook in at once, each tab becomes a project with its phases.",
   },
   {
     icon: GanttChartSquare,
@@ -34,17 +34,17 @@ const STEPS = [
   {
     icon: LayoutDashboard,
     title: 'Dashboard and the board filter',
-    body: "The Dashboard is your morning briefing: active projects, what's at risk, tasks starting this week, team capacity, and recent activity. Use the Board dropdown — on the Dashboard, Gantt, Projects, Analytics, Reports, and Resources — to focus any page on a single board instead of everything at once.",
+    body: "The Dashboard is your morning briefing: active projects, what's at risk, tasks starting this week, team capacity, and recent activity. Use the Board dropdown, on the Dashboard, Gantt, Projects, Analytics, Reports, and Resources, to focus any page on a single board instead of everything at once.",
   },
   {
     icon: UsersRound,
     title: 'Teams, invites, and roles',
-    body: "Invite teammates by email from Settings — they get a link to set their password and land right in your workspace. Roles control what people can do: owners and admins manage everything, managers run boards and projects, members work on what's assigned, and viewers can only look.",
+    body: "Invite teammates by email from Settings, they get a link to set their password and land right in your workspace. Roles control what people can do: owners and admins manage everything, managers run boards and projects, members work on what's assigned, and viewers can only look.",
   },
   {
     icon: BookOpen,
     title: "You're all set",
-    body: "That's the lay of the land. The Guide page in the sidebar has a deeper walkthrough of every feature whenever you need it — and you can replay this tour from there too.",
+    body: "That's the lay of the land. The Guide page in the sidebar has a deeper walkthrough of every feature whenever you need it, and you can replay this tour from there too.",
   },
 ]
 

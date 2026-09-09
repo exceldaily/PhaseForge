@@ -191,7 +191,7 @@ export function CallDetailPanel({
             <div>
               <label className={fieldLabel}>Vendor</label>
               <select value={c.vendor_id ?? ''} disabled={!canEdit} onChange={(e) => patch({ vendor_id: e.target.value || null })} className={selectClass}>
-                <option value="">—</option>
+                <option value=""> to </option>
                 {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </div>
@@ -207,7 +207,7 @@ export function CallDetailPanel({
               <div>
                 <label className={fieldLabel}>Division</label>
                 <select value={c.division_id ?? ''} disabled={!canEdit} onChange={(e) => patch({ division_id: e.target.value || null })} className={selectClass}>
-                  <option value="">—</option>
+                  <option value=""> to </option>
                   {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
@@ -230,7 +230,7 @@ export function CallDetailPanel({
                 checked={c.invoice_ready}
                 onChange={(e) => patch({ invoice_ready: e.target.checked })}
               />
-              Invoice ready — work is billable and complete enough to invoice
+              Invoice ready, work is billable and complete enough to invoice
             </label>
           )}
 
@@ -439,7 +439,7 @@ function EquipmentUpdateSection({
                         onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
                         className={selectClass}
                       >
-                        <option value="">—</option>
+                        <option value=""> to </option>
                         {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
                       </select>
                     ) : (

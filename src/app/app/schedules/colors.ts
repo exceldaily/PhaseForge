@@ -1,8 +1,8 @@
-// Colours used by the Startup schedule: one per shift note, plus the row
+// Colors used by the Startup schedule: one per shift note, plus the row
 // highlight palette. Pure data and pure functions so the on-screen grid, the
 // print sheet, and the copy-for-email HTML can never drift apart.
 
-/** Shift-note text colours offered when adding or editing a shift. */
+/** Shift-note text colors offered when adding or editing a shift. */
 export const SHIFT_COLORS: { hex: string; label: string }[] = [
   { hex: '#15803d', label: 'Green' },
   { hex: '#6d28d9', label: 'Purple' },
@@ -15,7 +15,7 @@ export const SHIFT_COLORS: { hex: string; label: string }[] = [
 ]
 
 /**
- * Row highlight colours. Deliberately pale: a highlighted row still has to
+ * Row highlight colors. Deliberately pale: a highlighted row still has to
  * read as black text on paper and in a pasted email, so these are tints, not
  * saturated fills.
  */
@@ -29,10 +29,10 @@ export const ROW_HIGHLIGHTS: { hex: string; label: string }[] = [
 ]
 
 /**
- * The colour a shift note is drawn in.
+ * The color a shift note is drawn in.
  *
  * A department's saved map wins. Anything not in it falls back to the keyword
- * rules the app shipped with, so a department that never picks a colour looks
+ * rules the app shipped with, so a department that never picks a color looks
  * exactly as it always has, and a note named "Night shift" is still purple
  * without anyone configuring it.
  */
@@ -46,7 +46,7 @@ export function shiftColor(shift: string, colors?: Record<string, string> | null
   return '#15803d'
 }
 
-/** Guards stored values: only ever emit a colour we recognise as a hex. */
+/** Guards stored values: only ever emit a color we recognize as a hex. */
 export function safeHex(value: string | null | undefined): string | null {
   return value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : null
 }

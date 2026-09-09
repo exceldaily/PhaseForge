@@ -162,7 +162,7 @@ export function TransferToBoardModal({
               )}
 
               <p className="text-[11px] text-slate-400">
-                This links the project — it stays right where it is on the Projects page and
+                This links the project, it stays right where it is on the Projects page and
                 also appears on the board, always in sync. The board card shows the fields
                 that board is configured to display.
               </p>

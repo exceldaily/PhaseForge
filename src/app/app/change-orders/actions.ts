@@ -292,7 +292,7 @@ export async function changeStage(coId: string, toStage: string, extra?: {
     }
     if (extra?.ownerId && extra.ownerId !== co.owner_id) {
       await notifyUser(supabase, companyId, extra.ownerId, `${co.co_label} assigned to you`,
-        `${stageDef.label}${extra?.nextAction ? ` — ${extra.nextAction}` : ''}`, `/app/change-orders/${coId}`)
+        `${stageDef.label}${extra?.nextAction ? ` | ${extra.nextAction}` : ''}`, `/app/change-orders/${coId}`)
     }
 
     revalidatePath(PATH); revalidatePath(`/app/change-orders/${coId}`)
@@ -451,8 +451,8 @@ export async function addRevision(coId: string, input: {
 
     await logEvent(supabase, companyId, coId, userId, {
       type: 'revision', field: 'revision',
-      oldValue: `Rev ${co.revision_number}${co.current_amount != null ? ` — $${co.current_amount}` : ''}`,
-      newValue: `Rev ${nextRev}${amount != null ? ` — $${amount}` : ''}`,
+      oldValue: `Rev ${co.revision_number}${co.current_amount != null ? `, $${co.current_amount}` : ''}`,
+      newValue: `Rev ${nextRev}${amount != null ? `, $${amount}` : ''}`,
       note: input.reason?.trim() || null,
     })
     revalidatePath(PATH); revalidatePath(`/app/change-orders/${coId}`)

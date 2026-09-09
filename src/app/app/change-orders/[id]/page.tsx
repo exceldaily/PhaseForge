@@ -4,7 +4,7 @@ import { CoDetailClient } from './CoDetailClient'
 import type { ChangeOrderRow } from '@/lib/changeOrders'
 import { canEditCompanyData } from '@/lib/permissions'
 
-export const metadata = { title: 'Change Order — PhaseForge' }
+export const metadata = { title: 'Change Order | PhaseForge' }
 
 export default async function CoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

@@ -29,8 +29,8 @@ export default async function SchedulingSettingsPage() {
   if (!canUseCalendarSync(company?.plan) && !connProbe.data) {
     return (
       <UpgradeGate icon={CalendarCheck2} title="Calendar sync is a paid feature">
-        Two-way Google Calendar sync — phases pushed as events, superintendent color routing,
-        and daily auto-sync — is available on the Individual, Pro, and Business plans.
+        Two-way Google Calendar sync, phases pushed as events, superintendent color routing,
+        and daily auto-sync, is available on the Individual, Pro, and Business plans.
       </UpgradeGate>
     )
   }

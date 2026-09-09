@@ -21,7 +21,7 @@ export const DEFAULT_READING_TEMPLATES: Record<string, ReadingField[]> = {
     { key: 'return_temp_f', label: 'Return air temp', unit: '°F', type: 'number' },
     { key: 'supply_temp_f', label: 'Supply air temp', unit: '°F', type: 'number' },
     { key: 'compressor_amps', label: 'Compressor amps', unit: 'A', type: 'number' },
-    { key: 'filter_condition', label: 'Filter condition', type: 'select', options: ['Good', 'Dirty — replaced', 'Dirty — needs replacement'] },
+    { key: 'filter_condition', label: 'Filter condition', type: 'select', options: ['Good', 'Dirty, replaced', 'Dirty, needs replacement'] },
   ],
   refrigeration: [
     { key: 'case_temp_f', label: 'Case/box temp', unit: '°F', type: 'number' },
@@ -30,7 +30,7 @@ export const DEFAULT_READING_TEMPLATES: Record<string, ReadingField[]> = {
     { key: 'discharge_psi', label: 'Discharge pressure', unit: 'psi', type: 'number' },
     { key: 'superheat_f', label: 'Superheat', unit: '°F', type: 'number' },
     { key: 'defrost_ok', label: 'Defrost operation', type: 'select', options: ['Normal', 'Irregular', 'Failed'] },
-    { key: 'coil_condition', label: 'Coil condition', type: 'select', options: ['Clean', 'Light frost', 'Iced — cleared', 'Iced — needs service'] },
+    { key: 'coil_condition', label: 'Coil condition', type: 'select', options: ['Clean', 'Light frost', 'Iced, cleared', 'Iced, needs service'] },
   ],
   electrical: [
     { key: 'voltage_l1', label: 'Voltage L1', unit: 'V', type: 'number' },
@@ -43,7 +43,7 @@ export const DEFAULT_READING_TEMPLATES: Record<string, ReadingField[]> = {
   plumbing: [
     { key: 'water_pressure_psi', label: 'Water pressure', unit: 'psi', type: 'number' },
     { key: 'water_heater_temp_f', label: 'Water heater temp', unit: '°F', type: 'number' },
-    { key: 'leak_check', label: 'Leak check', type: 'select', options: ['No leaks', 'Minor — repaired', 'Active leak'] },
+    { key: 'leak_check', label: 'Leak check', type: 'select', options: ['No leaks', 'Minor, repaired', 'Active leak'] },
     { key: 'drain_flow', label: 'Drain flow', type: 'select', options: ['Clear', 'Slow', 'Blocked'] },
   ],
   general: [

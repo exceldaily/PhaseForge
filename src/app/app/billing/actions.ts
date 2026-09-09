@@ -56,7 +56,7 @@ export async function createCheckoutSession(
         .eq('is_active', true)
       if ((count ?? 0) > 1) {
         throw new Error(
-          `The Individual plan is for a single user. Your workspace has ${count} active members — remove the others in Settings → Members before switching.`
+          `The Individual plan is for a single user. Your workspace has ${count} active members, remove the others in Settings → Members before switching.`
         )
       }
     }

@@ -67,9 +67,9 @@ export const CO_INTERNAL_ACTION_STAGES: CoStageKey[] = [
 
 // ── Aging (spec thresholds; text labels not just color for accessibility) ───
 export function agingLevel(days: number): { level: 'normal' | 'attention' | 'warning' | 'critical'; label: string; className: string } {
-  if (days >= 10) return { level: 'critical', label: `${days}d — critical`, className: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' }
-  if (days >= 6) return { level: 'warning', label: `${days}d — warning`, className: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300' }
-  if (days >= 3) return { level: 'attention', label: `${days}d — attention`, className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' }
+  if (days >= 10) return { level: 'critical', label: `${days}d, critical`, className: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300' }
+  if (days >= 6) return { level: 'warning', label: `${days}d, warning`, className: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300' }
+  if (days >= 3) return { level: 'attention', label: `${days}d, attention`, className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' }
   return { level: 'normal', label: `${days}d`, className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' }
 }
 

@@ -102,7 +102,7 @@ export function BulkPhaseAdd({
 
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium uppercase tracking-wide text-slate-500">
-          Tasks — one per line
+          Tasks, one per line
         </label>
         <button
           type="button"
@@ -166,7 +166,7 @@ export function BulkPhaseAdd({
 
       <p className="text-xs text-slate-400">
         {lines.length > 0
-          ? `${lines.length} task${lines.length === 1 ? '' : 's'} ready — you can drag to reschedule on the Gantt after.`
+          ? `${lines.length} task${lines.length === 1 ? '' : 's'} ready, you can drag to reschedule on the Gantt after.`
           : 'Paste or type your task list, then fine-tune dates on the Gantt.'}
       </p>
 

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — PhaseForge',
+  title: 'Terms of Service | PhaseForge',
   description: 'The terms that govern your use of PhaseForge.',
 }
 
@@ -47,7 +47,7 @@ export default function TermsPage() {
 
         <h2 className="text-xl font-semibold text-slate-900">Acceptable use</h2>
         <p>
-          You agree not to misuse the Service — including attempting to access other organizations&apos;
+          You agree not to misuse the Service, including attempting to access other organizations&apos;
           data, interfering with the Service&apos;s operation, or using it for unlawful purposes.
         </p>
 

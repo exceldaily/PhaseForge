@@ -182,7 +182,7 @@ export function PhaseChecklistModal({ phase, members = [], onClose, onSave }: Ph
                 {loading ? (
                   <p className="py-6 text-center text-sm text-slate-400">Loading…</p>
                 ) : checklists.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-slate-400">No tasks yet — add one above.</p>
+                  <p className="py-6 text-center text-sm text-slate-400">No tasks yet, add one above.</p>
                 ) : (
                   checklists.map(item => {
                     const assignee = members.find(m => m.id === item.assigned_to)

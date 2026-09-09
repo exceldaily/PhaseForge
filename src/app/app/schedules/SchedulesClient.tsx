@@ -223,11 +223,11 @@ export function SchedulesClient({
 
       return `<div style="margin-bottom:18px;">${titleBox}${grid}</div>`
     }).join('')
-    const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)} — ${esc(teamName)} Team</p>${blocks}</div>`
+    const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)} to ${esc(teamName)} Team</p>${blocks}</div>`
 
-    const lines: string[] = [`${teamName} — WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)}`, '']
+    const lines: string[] = [`${teamName} | WEEKLY SCHEDULE ${mmdd(weekStart)}-${mmdd(weekEnd)}`, '']
     for (const j of current) {
-      lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}${j.shift_label ? `  — ${j.shift_label}` : ''}`)
+      lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}${j.shift_label ? `  | ${j.shift_label}` : ''}`)
       for (let d = 0; d < 7; d++) {
         const techs = j.days[d] ?? []
         if (!techs.length) continue // only days with someone assigned
@@ -246,7 +246,7 @@ export function SchedulesClient({
           'text/plain': new Blob([plain], { type: 'text/plain' }),
         }),
       ])
-      setMsg('Copied — paste into Gmail/Outlook for the full table format (plain text in SMS).')
+      setMsg('Copied, paste into Gmail/Outlook for the full table format (plain text in SMS).')
     } catch {
       await navigator.clipboard.writeText(plain)
       setMsg('Copied as plain text (rich copy not supported in this browser).')
@@ -301,7 +301,7 @@ export function SchedulesClient({
       <div className="mx-auto max-w-3xl p-8 text-center">
         <CalendarDays size={40} className="mx-auto text-slate-300" />
         <h1 className="mt-3 text-lg font-semibold text-slate-800 dark:text-slate-100">Schedules</h1>
-        <p className="mt-1 text-sm text-slate-500">Add superintendents in Settings → Scheduling first — each becomes a team tab here.</p>
+        <p className="mt-1 text-sm text-slate-500">Add superintendents in Settings → Scheduling first, each becomes a team tab here.</p>
       </div>
     )
   }
@@ -316,7 +316,7 @@ export function SchedulesClient({
           </span>
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700">
             <button data-help="sched-week" aria-label="Previous week" onClick={() => nav(teamId, shiftDate(weekStart, -7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronLeft size={16} /></button>
-            <span className="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">{mmdd(weekStart)} – {mmdd(weekEnd)}</span>
+            <span className="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">{mmdd(weekStart)} to {mmdd(weekEnd)}</span>
             <button aria-label="Next week" onClick={() => nav(teamId, shiftDate(weekStart, 7))} className="p-2 sm:p-1.5 text-slate-500 hover:text-indigo-600"><ChevronRight size={16} /></button>
           </div>
           {/* Always visible on phones: the job list lives in a drawer there, and
@@ -522,7 +522,7 @@ export function SchedulesClient({
             </div>
           )}
           {dirEntries.length === 0 ? (
-            <p className="text-xs text-slate-400">No {divLabel(peekDivision)} projects yet — add name + Job#. Click one to drop it onto the current week.</p>
+            <p className="text-xs text-slate-400">No {divLabel(peekDivision)} projects yet, add name + Job#. Click one to drop it onto the current week.</p>
           ) : (
             <div className="space-y-0.5">
               {dirEntries.map((p) => (
@@ -571,15 +571,15 @@ export function SchedulesClient({
             one line. Print is unaffected — the print root is forced to 7.5in. */}
         <div className="mx-auto max-w-[1400px] space-y-4">
           <div className="hidden text-center print:block">
-            <h1 className="text-lg font-bold">WEEKLY SCHEDULE {mmdd(weekStart)}–{mmdd(weekEnd)}</h1>
+            <h1 className="text-lg font-bold">WEEKLY SCHEDULE {mmdd(weekStart)} to {mmdd(weekEnd)}</h1>
             <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{team?.name} Team</p>
           </div>
 
           {jobs.length === 0 ? (
             <p className="py-16 text-center text-sm text-slate-400 print:hidden">
               {team
-                ? <>No jobs on {team.name}&apos;s week — &ldquo;Add job&rdquo; or &ldquo;Copy last week&rdquo;.</>
-                : <>No teams in {divLabel(division)} yet — use &ldquo;+ Team&rdquo; to add one.</>}
+                ? <>No jobs on {team.name}&apos;s week, &ldquo;Add job&rdquo; or &ldquo;Copy last week&rdquo;.</>
+                : <>No teams in {divLabel(division)} yet, use &ldquo;+ Team&rdquo; to add one.</>}
             </p>
           ) : reorder.ordered.map((job) => (
             <JobBlock key={`${job.id}-${weekStart}`} job={job} weekStart={weekStart} roster={roster} canEdit={canEdit}

@@ -37,7 +37,7 @@ async function readPdf(file: unknown): Promise<{ ok: true; text: string; name: s
     const { extractPdfText } = await import('@/lib/quotes/pdfText')
     const text = await extractPdfText(Buffer.from(await file.arrayBuffer()))
     if (text.replace(/\s+/g, ' ').trim().length < 20) {
-      return { ok: false, error: 'That PDF has no readable text — it looks like a scan or photo. Paste the quote text instead (or run OCR on it first).' }
+      return { ok: false, error: 'That PDF has no readable text, it looks like a scan or photo. Paste the quote text instead (or run OCR on it first).' }
     }
     return { ok: true, text, name: file.name }
   } catch (e) {
@@ -106,7 +106,7 @@ export async function createPricingFromText(input: { text: string; title?: strin
   const { supabase, companyId, userId } = await ctx()
   const text = input.text ?? ''
   if (text.replace(/\s+/g, ' ').trim().length < 20) {
-    return { ok: false as const, error: 'Paste a bit more of the quote — there is not enough here to read.' }
+    return { ok: false as const, error: 'Paste a bit more of the quote, there is not enough here to read.' }
   }
   const { data: sheet, error } = await supabase.from('quote_pricings').insert({
     company_id: companyId, created_by: userId,

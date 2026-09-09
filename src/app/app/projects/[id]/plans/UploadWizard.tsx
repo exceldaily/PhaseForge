@@ -114,7 +114,7 @@ export function UploadWizard({
         } catch (e) {
           const msg = e instanceof Error ? e.message : ''
           const reason = /could not be read|NotReadable|permission/i.test(msg)
-            ? 'could not be read — if it came from a ZIP, extract the ZIP first'
+            ? 'could not be read, if it came from a ZIP, extract the ZIP first'
             : /password/i.test(msg)
               ? 'password-protected'
               : 'unreadable or corrupted'
@@ -125,7 +125,7 @@ export function UploadWizard({
         setStage({
           kind: 'error',
           message: failures.length && /ZIP/i.test(failures[0])
-            ? 'None of the files could be read. They look like they were dragged straight out of a ZIP — right-click the ZIP, choose Extract All, then drop the extracted PDFs.'
+            ? 'None of the files could be read. They look like they were dragged straight out of a ZIP, right-click the ZIP, choose Extract All, then drop the extracted PDFs.'
             : `None of the files could be read:\n${failures.join(', ')}`,
         })
         return
@@ -303,7 +303,7 @@ export function UploadWizard({
       if (!result.success) { setStage({ kind: 'error', message: result.error }); return }
       setStage({ kind: 'done', imported: result.data!.imported, revised: result.data!.revised })
     } catch (e) {
-      setStage({ kind: 'error', message: e instanceof Error ? e.message : 'Upload failed. Check your connection and try again — nothing was partially saved without its file.' })
+      setStage({ kind: 'error', message: e instanceof Error ? e.message : 'Upload failed. Check your connection and try again, nothing was partially saved without its file.' })
     }
   }, [rows, projectId, setChoice, newSetName, newSetType, newSetDate, existingSets])
 
@@ -344,11 +344,11 @@ export function UploadWizard({
               onClick={() => inputRef.current?.click()}
             >
               <FileUp className="mx-auto text-indigo-500" size={36} />
-              <p className="mt-4 text-sm font-medium text-slate-900">Drag PDF plans here — one big set or many individual sheets</p>
+              <p className="mt-4 text-sm font-medium text-slate-900">Drag PDF plans here, one big set or many individual sheets</p>
               <p className="mt-1 text-xs text-slate-500">
                 Multi-sheet sets are split into individual drawings automatically, and you can
                 drop any number of separate sheet PDFs at once. Sheet numbers, titles and
-                disciplines are detected from the title blocks (or the file name) —
+                disciplines are detected from the title blocks (or the file name) , 
                 you review everything before it saves.
               </p>
               <Button variant="primary" size="sm" className="mt-5">Choose PDFs</Button>

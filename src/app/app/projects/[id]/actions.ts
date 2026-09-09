@@ -172,7 +172,7 @@ async function notifyChecklistAssignment(
       company_id: project.company_id,
       type: 'mention',
       title: 'Task assigned to you',
-      body: `${cl.title} — ${project.name}${cl.phase?.name ? ` / ${cl.phase.name}` : ''}`,
+      body: `${cl.title} | ${project.name}${cl.phase?.name ? ` / ${cl.phase.name}` : ''}`,
       link: `/app/projects/${project.id}?tab=tasks`,
     })
   } catch (err) {

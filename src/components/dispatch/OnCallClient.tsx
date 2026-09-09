@@ -44,7 +44,7 @@ const inputCls = 'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5
 function fmtRange(p: OnCallPeriod): string {
   const endInclusive = new Date(p.end.getTime() - 1)
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  return `${p.start.toLocaleDateString('en-US', opts)} – ${endInclusive.toLocaleDateString('en-US', opts)}`
+  return `${p.start.toLocaleDateString('en-US', opts)} to ${endInclusive.toLocaleDateString('en-US', opts)}`
 }
 
 function todayLocalIso(): string {

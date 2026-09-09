@@ -7,10 +7,10 @@ export const dynamic = 'force-dynamic'
 const CLOSED = new Set(['completed', 'closed', 'cancelled'])
 
 function bucketAge(days: number): string {
-  if (days <= 2) return '0–2 days'
-  if (days <= 7) return '3–7 days'
-  if (days <= 14) return '8–14 days'
-  if (days <= 30) return '15–30 days'
+  if (days <= 2) return '0 to 2 days'
+  if (days <= 7) return '3 to 7 days'
+  if (days <= 14) return '8 to 14 days'
+  if (days <= 30) return '15 to 30 days'
   return '30+ days'
 }
 
@@ -64,7 +64,7 @@ export default async function OperationsReportsPage() {
     const b = bucketAge(days)
     aging.set(b, (aging.get(b) ?? 0) + 1)
   }
-  const agingRows = ['0–2 days', '3–7 days', '8–14 days', '15–30 days', '30+ days']
+  const agingRows = ['0 to 2 days', '3 to 7 days', '8 to 14 days', '15 to 30 days', '30+ days']
     .map((b) => [b, aging.get(b) ?? 0] as const)
 
   const slaOverdue = open.filter((c) => {

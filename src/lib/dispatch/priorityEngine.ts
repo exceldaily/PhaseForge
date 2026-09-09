@@ -84,16 +84,16 @@ function scoreCall(call: CallWithRelations, now: Date): ScoreResult {
     reasons.push('Scheduled today')
   } else if (call.status === 'proposal_approved' || call.proposal_status === 'approved') {
     score = 4500
-    reasons.push('Proposal approved — ready for action')
+    reasons.push('Proposal approved, ready for action')
   } else if (call.status === 'part_received') {
     score = 5000
-    reasons.push('Parts received — ready to schedule')
+    reasons.push('Parts received, ready to schedule')
   } else if (call.status === 'recall') {
     score = 5500
     reasons.push('Recall')
   } else if (call.status === 'incomplete') {
     score = 6000
-    reasons.push('Incomplete — needs follow-up')
+    reasons.push('Incomplete, needs follow-up')
   } else if (call.status === 'open' && !hasEta) {
     score = 7000
     reasons.push('No ETA')
@@ -113,7 +113,7 @@ function scoreCall(call: CallWithRelations, now: Date): ScoreResult {
 
   if (call.needs_acknowledgment) {
     score += 10000
-    reasons.push('New — needs review')
+    reasons.push('New, needs review')
   }
 
   if (!CLOSED_STATUSES.includes(call.status)) {
@@ -171,13 +171,13 @@ export type SmartSection =
   | 'recently_completed'
 
 export const SMART_SECTION_LABELS: Record<SmartSection, string> = {
-  new_unacknowledged: 'New — Needs Review',
+  new_unacknowledged: 'New. Needs Review',
   needs_dispatch: 'Needs Dispatch Now',
   no_tech: 'No Tech or Vendor Assigned',
   missing_eta: 'Missing ETA',
   follow_up: 'Follow-Up Needed',
-  parts_received: 'Parts Received — Ready to Schedule',
-  proposal_approved: 'Proposal Approved — Ready for Action',
+  parts_received: 'Parts Received. Ready to Schedule',
+  proposal_approved: 'Proposal Approved. Ready for Action',
   scheduled_today: 'Scheduled Today',
   scheduled_tomorrow: 'Scheduled Tomorrow',
   aging: 'Aging Calls',

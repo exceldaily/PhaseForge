@@ -215,7 +215,7 @@ function StaffDetailModal({
                 })}
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
               >
-                <option value="">—</option>
+                <option value=""> to </option>
                 {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </label>

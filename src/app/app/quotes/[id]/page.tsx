@@ -5,7 +5,7 @@ import { buildVendorQuoteEmail } from '@/lib/quotes/quoteForm'
 import { QuoteDetailClient, type QuoteDetailData } from '@/components/quotes/QuoteDetailClient'
 import type { VendorItem } from '@/components/quotes/QuotesClient'
 
-export const metadata = { title: 'Quote request — PhaseForge' }
+export const metadata = { title: 'Quote request | PhaseForge' }
 
 export default async function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

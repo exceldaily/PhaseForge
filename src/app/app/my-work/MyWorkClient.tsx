@@ -63,7 +63,7 @@ export function MyWorkClient({ firstName, tasks: initialTasks, phases, punch }: 
         {tasks.length === 0 ? (
           <EmptyCard text="No checklist tasks are assigned to you right now." />
         ) : visibleTasks.length === 0 ? (
-          <EmptyCard text={filter === 'completed' ? 'No completed tasks yet.' : 'Nothing to do — all caught up!'} />
+          <EmptyCard text={filter === 'completed' ? 'No completed tasks yet.' : 'Nothing to do, all caught up!'} />
         ) : (
           <div className="space-y-2">
             {visibleTasks.map(task => (
@@ -141,7 +141,7 @@ export function MyWorkClient({ firstName, tasks: initialTasks, phases, punch }: 
         {punch.length === 0 ? (
           <EmptyCard text="No punch items are assigned to you right now." />
         ) : visiblePunch.length === 0 ? (
-          <EmptyCard text={filter === 'completed' ? 'No completed punch items yet.' : 'No open punch items — all caught up!'} />
+          <EmptyCard text={filter === 'completed' ? 'No completed punch items yet.' : 'No open punch items, all caught up!'} />
         ) : (
           <div className="space-y-2">
             {visiblePunch.map(item => (

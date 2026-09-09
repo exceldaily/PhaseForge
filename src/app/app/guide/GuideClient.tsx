@@ -38,7 +38,7 @@ export function GuideClient() {
           <div>
             <h1 className="text-2xl font-bold">Phase Forge Guide</h1>
             <p className="mt-2 max-w-xl text-sm text-indigo-100">
-              Everything in the app, explained — from your first board to filtered reports.
+              Everything in the app, explained, from your first board to filtered reports.
               New here? The welcome tour covers the big picture in about a minute.
             </p>
           </div>

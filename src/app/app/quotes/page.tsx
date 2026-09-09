@@ -5,7 +5,7 @@ import { QuotesClient, type QuoteListItem, type VendorItem } from '@/components/
 import type { PricingListItem } from '@/components/quotes/PricingList'
 import { computeTotals, type PriceLineKind } from '@/lib/quotes/vendorQuote'
 
-export const metadata = { title: 'Quotes — PhaseForge' }
+export const metadata = { title: 'Quotes | PhaseForge' }
 
 export default async function QuotesPage() {
   const supabase = await createClient()

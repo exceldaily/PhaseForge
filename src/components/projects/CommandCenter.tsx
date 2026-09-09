@@ -406,7 +406,7 @@ function RecentActivityRow({ log, memberMap }: { log: ActivityLog; memberMap: Re
   // Date moves show the from -> to window when the payload carries one.
   const payload = log.payload as Record<string, { from?: unknown; to?: unknown }> | null
   const dates = payload?.start_date && payload?.end_date
-    ? `${formatDate(String(payload.start_date.from), 'MMM d')}–${formatDate(String(payload.end_date.from), 'MMM d')} → ${formatDate(String(payload.start_date.to), 'MMM d')}–${formatDate(String(payload.end_date.to), 'MMM d')}`
+    ? `${formatDate(String(payload.start_date.from), 'MMM d')} to ${formatDate(String(payload.end_date.from), 'MMM d')} → ${formatDate(String(payload.start_date.to), 'MMM d')} to ${formatDate(String(payload.end_date.to), 'MMM d')}`
     : null
 
   return (

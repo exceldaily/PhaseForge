@@ -149,8 +149,8 @@ export function PricingDetailClient({ sheet, lines: initial }: { sheet: PricingS
         {/* Sanity check against the vendor's own printed total. */}
         {head.sourceTotal != null && (
           <p className="mt-2 text-xs text-slate-500">
-            {head.sourceFileName ? `${head.sourceFileName} — ` : ''}
-            the vendor&apos;s quote totalled <span className="font-semibold">{fmtMoney(head.sourceTotal)}</span>.
+            {head.sourceFileName ? `${head.sourceFileName}: ` : ''}
+            the vendor&apos;s quote totaled <span className="font-semibold">{fmtMoney(head.sourceTotal)}</span>.
             Your material cost here is <span className={cn('font-semibold', Math.abs(totals.byKind.material.cost + totals.byKind.other.cost - head.sourceTotal) > 0.5 && 'text-amber-600')}>
               {fmtMoney(totals.byKind.material.cost + totals.byKind.other.cost)}
             </span>.
@@ -254,7 +254,7 @@ export function PricingDetailClient({ sheet, lines: initial }: { sheet: PricingS
                       <input
                         value={l.markupPct ?? ''} inputMode="decimal"
                         placeholder={String(head.defaultMarkupPct)}
-                        title={l.markupPct === null ? `Following the sheet default (${head.defaultMarkupPct}%)` : 'This line has its own markup — clear it to follow the default'}
+                        title={l.markupPct === null ? `Following the sheet default (${head.defaultMarkupPct}%)` : 'This line has its own markup, clear it to follow the default'}
                         onChange={(e) => {
                           const raw = e.target.value.trim()
                           const v = raw === '' ? null : num(raw)
@@ -314,7 +314,7 @@ export function PricingDetailClient({ sheet, lines: initial }: { sheet: PricingS
                 e.target.value = ''
                 if (!file) return
                 if (file.size > 10 * 1024 * 1024) {
-                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 10 MB.`)
+                  setError(`That PDF is ${(file.size / 1024 / 1024).toFixed(1)} MB, the limit is 10 MB.`)
                   return
                 }
                 const fd = new FormData()

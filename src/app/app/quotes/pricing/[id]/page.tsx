@@ -4,7 +4,7 @@ import { canUseTickets } from '@/lib/constants'
 import { PricingDetailClient, type PricingLine, type PricingSheet } from '@/components/quotes/PricingDetailClient'
 import type { PriceLineKind } from '@/lib/quotes/vendorQuote'
 
-export const metadata = { title: 'Quote pricing — PhaseForge' }
+export const metadata = { title: 'Quote pricing | PhaseForge' }
 
 export default async function QuotePricingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

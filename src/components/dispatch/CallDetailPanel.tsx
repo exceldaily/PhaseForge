@@ -137,7 +137,7 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
           {call.needs_acknowledgment && canEdit && (
             <button onClick={async () => { const r = await acknowledgeCall(call.id); if (r && 'error' in r && r.error) setError(r.error); else onChanged() }}
               className="mt-2 w-full rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-200 dark:bg-amber-950/60 dark:text-amber-300">
-              New auto-imported call — mark as reviewed
+              New auto-imported call, mark as reviewed
             </button>
           )}
           {/* Tabs */}
@@ -173,8 +173,8 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                 {customerLevels.length > 0 ? (
                   <select className={inputCls} value={call.priority_level_id ?? ''} disabled={!canEdit}
                     onChange={(e) => void patch({ priority_level_id: e.target.value || null })}>
-                    <option value="">—</option>
-                    {customerLevels.map((lvl) => <option key={lvl.id} value={lvl.id}>{lvl.code} — {lvl.label}</option>)}
+                    <option value=""> to </option>
+                    {customerLevels.map((lvl) => <option key={lvl.id} value={lvl.id}>{lvl.code} | {lvl.label}</option>)}
                   </select>
                 ) : (
                   <select className={inputCls} value={call.urgency} disabled={!canEdit}
@@ -184,7 +184,7 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                 )}
               </div>
               <div>
-                <Label>ETA (intake) — currently {formatEta(call.eta_scheduled)}</Label>
+                <Label>ETA (intake), currently {formatEta(call.eta_scheduled)}</Label>
                 <div className="flex gap-1.5">
                   <input type="date" className={inputCls} value={etaDate} readOnly={!canEdit}
                     onChange={(e) => setEtaDate(e.target.value)}
@@ -233,14 +233,14 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                       </button>
                     )
                   })}
-                  {vendors.length === 0 && <span className="text-xs text-slate-400">No techs yet — add them under Manage.</span>}
+                  {vendors.length === 0 && <span className="text-xs text-slate-400">No techs yet, add them under Manage.</span>}
                 </div>
               </div>
               <div>
                 <Label>Equipment (from customer records)</Label>
                 <select className={inputCls} value={call.asset_id ?? ''} disabled={!canEdit}
                   onChange={(e) => void patch({ asset_id: e.target.value || null })}>
-                  <option value="">—</option>
+                  <option value=""> to </option>
                   {assets
                     .filter((a) => a.customer_id === callCustomerId || a.id === call.asset_id)
                     .map((a) => (
@@ -324,7 +324,7 @@ export function CallDetailPanel({ call, vendors, assets = [], priorityLevels, fo
                   <span className="text-slate-600 dark:text-slate-300">
                     <b>{titleCase(a.activity_type)}</b>
                     {a.previous_value || a.new_value
-                      ? <> — {a.previous_value ? `${titleCase(String(a.previous_value)).slice(0, 24)} → ` : ''}{a.new_value ? titleCase(String(a.new_value)).slice(0, 24) : '—'}</>
+                      ? <> | {a.previous_value ? `${titleCase(String(a.previous_value)).slice(0, 24)} → ` : ''}{a.new_value ? titleCase(String(a.new_value)).slice(0, 24) : '—'}</>
                       : null}
                   </span>
                   <span className="whitespace-nowrap text-[11px] text-slate-400">{formatDateTime(a.created_at)}</span>

@@ -40,7 +40,7 @@ export function ModulesClient({ modules }: { modules: ModuleRow[] }) {
     <div>
       <OpsPageHeader
         title="Modules"
-        subtitle="Enable only what your organization uses. Disabled modules disappear from navigation and their pages and data become inaccessible — including direct links."
+        subtitle="Enable only what your organization uses. Disabled modules disappear from navigation and their pages and data become inaccessible, including direct links."
       />
 
       {error && (

@@ -105,7 +105,7 @@ export function GridSchedule({
   return (
     <div className="schedule-print-root flex-1 overflow-x-auto bg-slate-100 p-3 sm:p-4 md:overflow-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
       <div className="hidden text-center print:block">
-        <h1 className="text-lg font-bold">STARTUP SCHEDULE {mmdd(weekStart)}–{mmdd(shiftDate(weekStart, 6))}</h1>
+        <h1 className="text-lg font-bold">STARTUP SCHEDULE {mmdd(weekStart)} to {mmdd(shiftDate(weekStart, 6))}</h1>
         <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{teamName}</p>
       </div>
       {canEdit && (
@@ -127,7 +127,7 @@ export function GridSchedule({
           <tbody>
             {jobs.length === 0 ? (
               <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">
-                No jobs on {teamName}&apos;s week yet — use &ldquo;Add job&rdquo;.
+                No jobs on {teamName}&apos;s week yet, use &ldquo;Add job&rdquo;.
               </td></tr>
             ) : reorder.ordered.map((job) => (
               <GridRow key={job.id} job={job} cells={cells[job.id] ?? {}} canEdit={canEdit}
@@ -200,7 +200,7 @@ function GridRow({
   const url = jobUrl(jobUrlTemplate, jobNumber)
 
   const pickHighlight = (hex: string | null) => {
-    // Tapping the colour a row already has clears it, so switching back is the
+    // Tapping the color a row already has clears it, so switching back is the
     // same gesture as switching on.
     const next = hex === highlight ? null : hex
     setHighlight(next)
@@ -250,7 +250,7 @@ function GridRow({
                           className={`h-6 w-6 rounded border ${highlight === c.hex ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-300'}`} />
                       ))}
                       {/* Back to normal. Sits in the swatch row as the "no
-                          colour" option, and is the pressed one when the row
+                          color" option, and is the pressed one when the row
                           has no highlight, so the way back is always visible. */}
                       <button onClick={() => pickHighlight(null)} title="No highlight" aria-label="No highlight"
                         className={`relative h-6 w-6 overflow-hidden rounded border bg-white ${
@@ -401,7 +401,7 @@ function CellEditor({ roster, shiftOptions, shiftColors, division, onShiftsChang
               className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50">Add</button>
           </div>
           <span className="mb-1.5 flex flex-wrap items-center gap-1">
-            <span className="mr-0.5 text-[10px] font-medium text-slate-400">Colour</span>
+            <span className="mr-0.5 text-[10px] font-medium text-slate-400">Color</span>
             {SHIFT_COLORS.map((c) => (
               <button key={c.hex} onClick={() => setNewColor(c.hex)} title={c.label} aria-label={`New note in ${c.label}`}
                 style={{ backgroundColor: c.hex }}
@@ -478,10 +478,10 @@ export function buildGridCopy(
     }).join('')
     return `<tr>${jobCell}${dayCells}</tr>`
   }).join('')
-  const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">STARTUP SCHEDULE ${mmdd(weekStart)}-${mmdd(shiftDate(weekStart, 6))} — ${esc(teamName)}</p>` +
+  const html = `<div><p style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;">STARTUP SCHEDULE ${mmdd(weekStart)}-${mmdd(shiftDate(weekStart, 6))} to ${esc(teamName)}</p>` +
     `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;"><tr>${head}</tr>${rows}</table></div>`
 
-  const lines = [`${teamName} — STARTUP SCHEDULE ${mmdd(weekStart)}-${mmdd(shiftDate(weekStart, 6))}`, '']
+  const lines = [`${teamName} | STARTUP SCHEDULE ${mmdd(weekStart)}-${mmdd(shiftDate(weekStart, 6))}`, '']
   for (const j of jobs) {
     lines.push(`${j.title}${j.job_number ? `  (Job# ${j.job_number})` : ''}`)
     for (let d = 0; d < 7; d++) {

@@ -90,7 +90,7 @@ export function InvoiceHistory({ invoices }: InvoiceHistoryProps) {
                       <Download size={14} /> PDF
                     </a>
                   ) : (
-                    <span className="text-slate-400 text-xs">—</span>
+                    <span className="text-slate-400 text-xs"> to </span>
                   )}
                 </td>
               </tr>

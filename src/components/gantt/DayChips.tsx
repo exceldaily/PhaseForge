@@ -27,7 +27,7 @@ export function DayChips({ value, onChange, size = 'md' }: {
             key={code}
             type="button"
             onClick={() => toggle(code)}
-            title={skipped ? `${label}: skipped — not shown on calendar` : `${label}: shown on calendar`}
+            title={skipped ? `${label}: skipped, not shown on calendar` : `${label}: shown on calendar`}
             className={`${dims} rounded-md font-semibold transition-all ${
               skipped
                 ? 'bg-rose-50 text-rose-400 line-through ring-1 ring-inset ring-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:ring-rose-900'

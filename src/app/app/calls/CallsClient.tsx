@@ -529,14 +529,14 @@ function CreateCallModal({
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Customer
             <select value={customerId} onChange={(e) => { setCustomerId(e.target.value); setLocationId('') }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">—</option>
+              <option value=""> to </option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </label>
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Location
             <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">—</option>
+              <option value=""> to </option>
               {locs.map((l) => (
                 <option key={l.id} value={l.id}>{l.location_number ? `#${l.location_number} ` : ''}{l.name}</option>
               ))}
@@ -548,7 +548,7 @@ function CreateCallModal({
             <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
               Asset / equipment
               <select name="asset_id" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <option value="">—</option>
+                <option value=""> to </option>
                 {locAssets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </label>
@@ -563,7 +563,7 @@ function CreateCallModal({
             <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
               Division
               <select name="division_id" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <option value="">—</option>
+                <option value=""> to </option>
                 {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </label>
@@ -583,7 +583,7 @@ function CreateCallModal({
           <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Assign vendor
             <select name="vendor_id" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="">—</option>
+              <option value=""> to </option>
               {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
           </label>

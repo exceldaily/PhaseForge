@@ -191,7 +191,7 @@ export function ChangeOrdersClient({
         <TableView rows={filtered} memberName={memberName} projectById={projectById}
           selected={selected} onToggle={(id) => setSelected((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n })}
           selectable={isManager}
-          emptyLabel={view === 'queue' ? 'Nothing needs your attention — your queue is clear.' : 'No change orders match these filters.'} />
+          emptyLabel={view === 'queue' ? 'Nothing needs your attention, your queue is clear.' : 'No change orders match these filters.'} />
       )}
 
       {creating && (
@@ -743,7 +743,7 @@ function AddProjectsModal({ projects, onClose, onDone }: {
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Add Projects to CO Process</h2>
-            <p className="text-[11px] text-slate-400">Enables Change Order tracking on the EXISTING project — nothing is copied.</p>
+            <p className="text-[11px] text-slate-400">Enables Change Order tracking on the EXISTING project, nothing is copied.</p>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={16} /></button>
         </div>

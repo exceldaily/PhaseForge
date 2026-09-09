@@ -339,7 +339,7 @@ export function PlanViewerShell({
       a.download = `${sheet.sheet_number}${sheet.title ? ` - ${sheet.title}` : ''} (Rev ${revision.revision_label}).pdf`
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 30000)
-    } catch { notify('Download failed — check your connection') }
+    } catch { notify('Download failed, check your connection') }
   }, [sheet, revision, notify])
 
   const printCurrent = useCallback(async () => {
@@ -427,7 +427,7 @@ export function PlanViewerShell({
     saveCalibration(revision.id, cal).then((r) => {
       if (r.success) {
         setRevisions((rs) => rs.map((x) => x.id === revision.id ? { ...x, scale_calibration: cal } : x))
-        notify('Scale calibrated — measurements are now live')
+        notify('Scale calibrated, measurements are now live')
       } else notify(r.error)
     })
   }, [revision, notify])
@@ -516,7 +516,7 @@ export function PlanViewerShell({
       {/* ── Superseded banner ── */}
       {isSuperseded && !chromeHidden && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold z-20 shrink-0">
-          <span className="uppercase tracking-wide">⚠ Superseded drawing — a newer revision exists</span>
+          <span className="uppercase tracking-wide">⚠ Superseded drawing, a newer revision exists</span>
           <button className="ml-auto underline underline-offset-2 shrink-0"
             onClick={() => setViewRevisionId(null)}>
             Open current revision
@@ -579,15 +579,15 @@ export function PlanViewerShell({
           <select value={compareRevId} onChange={(e) => setCompareRevId(e.target.value)}
             className="bg-slate-800 rounded px-1.5 py-1 text-xs max-w-[46vw] sm:max-w-xs">
             {revisions.filter((r) => r.id !== revision.id).length > 0 && (
-              <optgroup label="This sheet — revisions">
+              <optgroup label="This sheet, revisions">
                 {revisions.filter((r) => r.id !== revision.id).map((r) => (
-                  <option key={r.id} value={r.id}>REV {r.revision_label}{r.revision_date ? ` — ${formatDate(r.revision_date)}` : ''}</option>
+                  <option key={r.id} value={r.id}>REV {r.revision_label}{r.revision_date ? ` to ${formatDate(r.revision_date)}` : ''}</option>
                 ))}
               </optgroup>
             )}
             <optgroup label="Other drawings">
               {ordered.filter((s) => s.id !== sheet?.id && s.current?.pdf_path).map((s) => (
-                <option key={s.id} value={`sheet:${s.id}`}>{s.sheet_number}{s.title ? ` — ${s.title}` : ''}</option>
+                <option key={s.id} value={`sheet:${s.id}`}>{s.sheet_number}{s.title ? ` | ${s.title}` : ''}</option>
               ))}
             </optgroup>
           </select>
@@ -920,7 +920,7 @@ function InfoPanel({
       <button onClick={onToggleOffline}
         className={cn('w-full flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium',
           offline ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800')}>
-        {offline ? <><Check size={14} /> Downloaded — available offline</> : <><CloudDownload size={14} /> Make available offline</>}
+        {offline ? <><Check size={14} /> Downloaded, available offline</> : <><CloudDownload size={14} /> Make available offline</>}
       </button>
 
       <section>

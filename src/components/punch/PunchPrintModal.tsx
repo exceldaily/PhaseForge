@@ -86,7 +86,7 @@ export function PunchPrintModal({ project, items, memberMap, scope, onClose }: P
                 <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5">
                   <span className="text-sm font-bold text-slate-900">
                     Punch Item #{item.number ?? '—'}
-                    {item.title ? <span className="font-semibold text-slate-700"> — {item.title}</span> : null}
+                    {item.title ? <span className="font-semibold text-slate-700"> | {item.title}</span> : null}
                   </span>
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                     {PUNCH_STATUS_LABELS[item.status]}
@@ -194,7 +194,7 @@ function PhotoBlock({
           </div>
         )}
       </div>
-      <p className="text-sm text-slate-800">{text || <span className="text-slate-400">—</span>}</p>
+      <p className="text-sm text-slate-800">{text || <span className="text-slate-400"> to </span>}</p>
       {footer && <p className="mt-1 text-xs text-slate-500">{footer}</p>}
     </div>
   )

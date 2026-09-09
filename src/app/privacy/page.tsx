@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — PhaseForge',
+  title: 'Privacy Policy | PhaseForge',
   description: 'How PhaseForge collects, uses, and protects your data on the web and mobile apps.',
 }
 
@@ -24,12 +24,12 @@ export default function PrivacyPolicyPage() {
 
         <h2 className="text-xl font-semibold text-slate-900">Information we collect</h2>
         <ul className="list-disc pl-6 space-y-2">
-          <li><strong>Account information</strong> — your name, email address, job title, and company, used to create and manage your account.</li>
-          <li><strong>Project data you create</strong> — projects, schedules and phases, tasks, punch-list items, comments, files, and related details you enter.</li>
-          <li><strong>Photos and files</strong> — images you capture or upload (for example, punch-list issue and completion photos and project attachments). On mobile, this requires camera and photo-library permission, which you grant and can revoke in your device settings.</li>
-          <li><strong>Push notification tokens</strong> — if you enable notifications, a device token so we can send you alerts about work assigned to you. You can disable notifications at any time in your device settings.</li>
-          <li><strong>Usage and device information</strong> — basic technical data such as app version and error logs used to operate and improve the Service.</li>
-          <li><strong>Payment information</strong> — handled by our payment processor (Stripe). We do not store full card numbers on our servers.</li>
+          <li><strong>Account information</strong> ,  your name, email address, job title, and company, used to create and manage your account.</li>
+          <li><strong>Project data you create</strong> ,  projects, schedules and phases, tasks, punch-list items, comments, files, and related details you enter.</li>
+          <li><strong>Photos and files</strong> ,  images you capture or upload (for example, punch-list issue and completion photos and project attachments). On mobile, this requires camera and photo-library permission, which you grant and can revoke in your device settings.</li>
+          <li><strong>Push notification tokens</strong> ,  if you enable notifications, a device token so we can send you alerts about work assigned to you. You can disable notifications at any time in your device settings.</li>
+          <li><strong>Usage and device information</strong> ,  basic technical data such as app version and error logs used to operate and improve the Service.</li>
+          <li><strong>Payment information</strong> ,  handled by our payment processor (Stripe). We do not store full card numbers on our servers.</li>
         </ul>
 
         <h2 className="text-xl font-semibold text-slate-900">How we use information</h2>
@@ -52,11 +52,11 @@ export default function PrivacyPolicyPage() {
         <h2 className="text-xl font-semibold text-slate-900">Service providers we share data with</h2>
         <p>We share data only with vendors that help us run the Service, under their own privacy and security commitments:</p>
         <ul className="list-disc pl-6 space-y-2">
-          <li><strong>Supabase</strong> — database, authentication, and file storage.</li>
-          <li><strong>Vercel</strong> — website hosting.</li>
-          <li><strong>Stripe</strong> — subscription and payment processing.</li>
-          <li><strong>Brevo</strong> — transactional email (invitations, account emails).</li>
-          <li><strong>Expo</strong> — delivery of mobile push notifications.</li>
+          <li><strong>Supabase</strong> ,  database, authentication, and file storage.</li>
+          <li><strong>Vercel</strong> ,  website hosting.</li>
+          <li><strong>Stripe</strong> ,  subscription and payment processing.</li>
+          <li><strong>Brevo</strong> ,  transactional email (invitations, account emails).</li>
+          <li><strong>Expo</strong> ,  delivery of mobile push notifications.</li>
         </ul>
 
         <h2 className="text-xl font-semibold text-slate-900">Data retention</h2>
@@ -69,7 +69,7 @@ export default function PrivacyPolicyPage() {
         <ul className="list-disc pl-6 space-y-2">
           <li>Access or correct your information from within the app.</li>
           <li>Control camera, photo, and notification permissions in your device settings.</li>
-          <li>Request account and data deletion — see our <a className="text-indigo-600 underline" href="/account-deletion">Account &amp; Data Deletion</a> page.</li>
+          <li>Request account and data deletion, see our <a className="text-indigo-600 underline" href="/account-deletion">Account &amp; Data Deletion</a> page.</li>
         </ul>
 
         <h2 className="text-xl font-semibold text-slate-900">Children&apos;s privacy</h2>

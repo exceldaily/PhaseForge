@@ -75,7 +75,7 @@ export function GanttToolbar({
   const COLOR_OPTIONS: { value: 'standard' | 'status' | 'none'; label: string; hint: string }[] = [
     { value: 'standard', label: 'Standard colors', hint: 'Each task its own color' },
     { value: 'status', label: 'Status colors', hint: 'Color by task status' },
-    { value: 'none', label: 'No coloring', hint: 'Neutral gray — clean print' },
+    { value: 'none', label: 'No coloring', hint: 'Neutral gray, clean print' },
   ]
   const colorLabel = COLOR_OPTIONS.find((o) => o.value === colorMode)?.label ?? 'Colors'
   const rangeLabel = getRangeLabel(viewStart, viewEnd, zoom)

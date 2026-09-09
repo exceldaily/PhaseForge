@@ -17,8 +17,8 @@ export default async function DispatchPage() {
   if (!ctx.allowed) {
     return (
       <UpgradeGate icon={Radio} title="Dispatch is a paid feature">
-        The service-call command center — prioritized dispatch queue, kanban lanes,
-        store and tech management, notes and full activity history — is available
+        The service-call command center, prioritized dispatch queue, kanban lanes,
+        store and tech management, notes and full activity history, is available
         on the Individual, Pro, and Business plans.
       </UpgradeGate>
     )

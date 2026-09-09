@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ProjectCoClient } from './ProjectCoClient'
 import type { ChangeOrderRow } from '@/lib/changeOrders'
 
-export const metadata = { title: 'Change Orders — PhaseForge' }
+export const metadata = { title: 'Change Orders | PhaseForge' }
 
 export default async function ProjectChangeOrdersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

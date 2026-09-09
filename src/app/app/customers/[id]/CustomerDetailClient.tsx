@@ -372,7 +372,7 @@ function EditCustomerForm({ customer, divisions, onDone }: { customer: Customer;
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Type
           <select name="customer_type" defaultValue={customer.customer_type ?? ''} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            <option value="">—</option>
+            <option value=""> to </option>
             <option value="commercial">Commercial</option>
             <option value="residential">Residential</option>
             <option value="government">Government</option>
@@ -389,7 +389,7 @@ function EditCustomerForm({ customer, divisions, onDone }: { customer: Customer;
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Division
           <select name="division_id" defaultValue={customer.division_id ?? ''} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            <option value="">—</option>
+            <option value=""> to </option>
             {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </label>
@@ -441,7 +441,7 @@ function AssetForm({ customerId, locations, onDone }: { customerId: string; loca
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Trade
           <select name="trade_category" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            <option value="">—</option>
+            <option value=""> to </option>
             <option value="hvac">HVAC</option>
             <option value="refrigeration">Refrigeration</option>
             <option value="electrical">Electrical</option>
@@ -462,7 +462,7 @@ function AssetForm({ customerId, locations, onDone }: { customerId: string; loca
         <Input name="warranty_end" label="Warranty ends" type="date" />
       </div>
       <p className="text-xs text-slate-400">
-        The trade you pick decides which readings technicians record on calls — HVAC gets pressures and superheat, plumbing gets water pressure and leak checks, and so on.
+        The trade you pick decides which readings technicians record on calls. HVAC gets pressures and superheat, plumbing gets water pressure and leak checks, and so on.
       </p>
       {error && <p className="text-sm text-rose-600">{error}</p>}
       <div className="flex justify-end pt-2">
@@ -563,7 +563,7 @@ function LocationForm({ customerId, divisions, onDone }: { customerId: string; d
         <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
           Division
           <select name="division_id" className="rounded-lg border border-slate-300 px-3 py-2 text-sm">
-            <option value="">—</option>
+            <option value=""> to </option>
             {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </label>
