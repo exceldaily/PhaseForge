@@ -138,6 +138,8 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'sched-roster', label: 'Crew', text: 'Type a name to add someone; names from the Employees page are suggested as you type. Tap a name to rename or swap them out and every day they are on follows.' },
       { key: 'sched-from-employees', label: 'Add from employees', text: 'Drops every employee on this team who is not on the crew list yet onto it in one go.' },
       { key: 'sched-job-address', label: 'Job address', text: 'The pin beside each project sets its address. Green means it is on the map and drive times can use it.' },
+      { key: 'sched-erase', label: 'Eraser', text: 'Flip it on and the same taps and drags take people off days instead of putting them on.' },
+      { key: 'sched-undo', label: 'Undo', text: 'Puts back the last tap or drag on this job. Ctrl+Z does the same.' },
       { key: 'sched-add-person', label: 'Add to a day', text: 'The + at the end of a day opens the rest of the crew. Tap a name to put them on that day.' },
       { key: 'sched-reorder', label: 'Reorder', text: 'Drag a job by its grip to move it up or down. The order you set is the order it prints and emails in.' },
       { key: 'sched-highlight', label: 'Highlight', text: 'Tint a row so it stands out. The color carries through to print and to the copied email.' },

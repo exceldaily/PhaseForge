@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble, MapPin, Users } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble, MapPin, Users, Eraser, Undo2 } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, renameRosterMember, updateScheduleJob,
@@ -36,6 +36,9 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
 }
 
 interface WeekTeam { id: string; name: string; division: string | null; roster: string[]; jobs: Job[] }
+
+// Ctrl+Z goes to the job block that changed most recently.
+let undoOwner: string | null = null
 
 export function SchedulesClient({
   teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
@@ -681,8 +684,48 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
   // Every roster name that's on all 7 days (drives the "This week" chip state).
   const onAllDays = (name: string) => Array.from({ length: 7 }, (_, d) => days[d] ?? []).every((l) => l.includes(name))
 
-  const toggleWeek = (name: string) => {
-    const turnOn = !onAllDays(name)
+  // Undo: a snapshot of the seven days is taken at the start of every
+  // gesture (tap, drag, picker add, week toggle). Undo restores the last one
+  // and rewrites all seven days, so a whole drag comes back in one step.
+  const daysRef = useRef(days)
+  daysRef.current = days
+  const history = useRef<Record<number, string[]>[]>([])
+  const [undoCount, setUndoCount] = useState(0)
+  const snapshot = () => {
+    history.current.push({ ...daysRef.current })
+    if (history.current.length > 30) history.current.shift()
+    setUndoCount(history.current.length)
+    undoOwner = job.id
+  }
+  const undo = () => {
+    const prev = history.current.pop()
+    setUndoCount(history.current.length)
+    if (!prev) return
+    setDays(prev)
+    report(job.id, { days: prev })
+    for (let d = 0; d < 7; d++) void setDayTechs(job.id, d, prev[d] ?? [])
+  }
+  const undoRef = useRef(undo)
+  undoRef.current = undo
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z' || e.shiftKey) return
+      if (undoOwner !== job.id) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return
+      e.preventDefault()
+      undoRef.current()
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [job.id])
+
+  // Erase mode: the same drag and tap gestures take people off instead of
+  // putting them on.
+  const [erase, setErase] = useState(false)
+
+  const setWeekOn = (name: string, turnOn: boolean) => {
+    snapshot()
     setDays((cur) => {
       const next = Object.fromEntries(Array.from({ length: 7 }, (_, d) => {
         const list = cur[d] ?? []
@@ -692,6 +735,19 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
       return next
     })
     void setWeekTech(job.id, name, turnOn)
+  }
+  const toggleWeek = (name: string) => setWeekOn(name, erase ? false : !onAllDays(name))
+
+  const removeFromDay = (d: number, name: string) => {
+    setDays((cur) => {
+      const list = cur[d] ?? []
+      if (!list.includes(name)) return cur
+      const next = list.filter((t) => t !== name)
+      void setDayTechs(job.id, d, next)
+      const all = { ...cur, [d]: next }
+      report(job.id, { days: all })
+      return all
+    })
   }
 
   const toggleDay = (d: number, name: string) => {
@@ -720,7 +776,7 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
   // Spreadsheet-style drag-fill: press a name chip and drag across day rows to
   // assign that tech to every row you pass. A press without moving = normal
   // toggle (handled on pointer-up so drags never accidentally toggle off).
-  const drag = useRef<{ name: string; fromDay: number; moved: boolean } | null>(null)
+  const drag = useRef<{ name: string; fromDay: number; moved: boolean; mode: 'add' | 'remove' } | null>(null)
   useEffect(() => {
     const up = () => {
       const d = drag.current
@@ -731,12 +787,16 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
     return () => window.removeEventListener('pointerup', up)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const startDrag = (d: number, name: string) => { drag.current = { name, fromDay: d, moved: false } }
+  const startDrag = (d: number, name: string) => {
+    snapshot()
+    drag.current = { name, fromDay: d, moved: false, mode: erase ? 'remove' : 'add' }
+  }
   const dragEnterRow = (d: number) => {
     const cur = drag.current
     if (!cur || d === cur.fromDay && !cur.moved) return
-    if (!cur.moved) { cur.moved = true; addToDay(cur.fromDay, cur.name) }
-    addToDay(d, cur.name)
+    const apply = cur.mode === 'remove' ? removeFromDay : addToDay
+    if (!cur.moved) { cur.moved = true; apply(cur.fromDay, cur.name) }
+    apply(d, cur.name)
   }
 
   const remove = () => {
@@ -761,6 +821,20 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
             className="-ml-1 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-indigo-600 active:cursor-grabbing dark:hover:bg-slate-700 print:hidden">
             <GripVertical size={15} />
           </button>
+        )}
+        {canEdit && (
+          <span className="flex shrink-0 items-center gap-0.5 print:hidden">
+            <button onClick={() => setErase((v) => !v)} data-help="sched-erase" aria-pressed={erase}
+              title={erase ? 'Eraser on: tap or drag names to take them off. Click to switch back.' : 'Eraser: tap or drag names to take them off days'}
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors ${
+                erase ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-200 hover:text-rose-600 dark:hover:bg-slate-700'}`}>
+              <Eraser size={13} />{erase ? 'Erasing' : ''}
+            </button>
+            <button onClick={undo} disabled={undoCount === 0} data-help="sched-undo" title="Undo the last change on this job (Ctrl+Z)"
+              className="rounded-md p-1 text-slate-400 hover:bg-slate-200 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:hover:bg-slate-700">
+              <Undo2 size={14} />
+            </button>
+          </span>
         )}
         <input value={title} readOnly={!canEdit}
           onChange={(e) => { setTitle(e.target.value); report(job.id, { title: e.target.value }); saveHeader({ title: e.target.value }) }}
@@ -815,8 +889,11 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
                     <div className="flex flex-wrap items-center gap-1.5">
                       {assigned.map((name) => (
                         <button key={name} onPointerDown={() => startDrag(d, name)}
-                          title={`${name} is on ${DAY_NAMES[d]}. Tap to take off, or drag down to fill more days.`}
-                          className="select-none rounded-full bg-indigo-600 px-3 py-1 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 pointer-fine:[touch-action:none] pointer-coarse:py-1.5 print:hidden">
+                          title={erase
+                            ? `Tap to take ${name} off ${DAY_NAMES[d]}, or drag down to clear more days.`
+                            : `${name} is on ${DAY_NAMES[d]}. Tap to take off, or drag down to fill more days.`}
+                          className={`select-none rounded-full px-3 py-1 text-[12px] font-semibold text-white shadow-sm transition-colors pointer-fine:[touch-action:none] pointer-coarse:py-1.5 print:hidden ${
+                            erase ? 'bg-indigo-600 line-through decoration-white/70 hover:bg-rose-600 cursor-cell' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                           {name}
                         </button>
                       ))}
@@ -834,7 +911,7 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
                         <div className="mt-1 flex w-full flex-wrap items-center gap-1 border-t border-dashed border-slate-200 pt-1.5 dark:border-slate-700 print:hidden">
                           <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Add</span>
                           {offToday.map((name) => (
-                            <Chip key={name} name={name} small on={false} onClick={() => addToDay(d, name)} />
+                            <Chip key={name} name={name} small on={false} onClick={() => { snapshot(); addToDay(d, name) }} />
                           ))}
                           {offToday.length === 0 && <span className="text-[11px] text-slate-400">Everyone on the crew is already on this day.</span>}
                         </div>
