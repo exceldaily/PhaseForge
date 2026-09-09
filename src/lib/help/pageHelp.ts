@@ -105,12 +105,25 @@ export const PAGE_HELP: PageHelp[] = [
     sectionIds: ['boards'],
   },
   {
+    match: /^\/app\/employees/,
+    title: 'Employees',
+    sectionIds: ['employees', 'lodging', 'schedules'],
+    pins: [
+      { key: 'emp-import', label: 'Paste a directory', text: 'Paste rows from your spreadsheet or directory page. Team lead names become headers for the people under them.' },
+      { key: 'emp-locate', label: 'Locate addresses', text: 'Puts every home and job address on the map, a batch at a time, so drive times can be worked out.' },
+      { key: 'emp-invite', label: 'Add to PhaseForge', text: 'Sends this person a login invite. Nobody is invited until you press it.' },
+      { key: 'emp-schedule', label: 'On schedule', text: 'Adds or removes them from their team\u2019s crew roster on the Schedules page.' },
+    ],
+  },
+  {
     match: /^\/app\/lodging/,
     title: 'Lodging',
     sectionIds: ['lodging', 'schedules'],
     pins: [
       { key: 'lodging-generate', label: 'Generate', text: 'Pick a team and week; everyone scheduled on each job becomes a guest for those nights.' },
       { key: 'lodging-find', label: 'Find hotels', text: 'Opens a hotel search near the job with dates, headcount, and rooms filled in.' },
+      { key: 'lodging-far', label: 'Only 2+ hours away', text: 'Leaves out anyone whose home is under two hours from the job. People with no address are kept and flagged.' },
+      { key: 'lodging-drive', label: 'Check drive times', text: 'Works out each guest\u2019s drive from home to the job again after addresses change.' },
     ],
   },
   {
@@ -121,7 +134,9 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'sched-division', label: 'Department', text: 'Switch between departments. Each one has its own teams, project list, and layout.' },
       { key: 'sched-style', label: 'Layout', text: 'Crew grid is one block per job. Startup grid is jobs down, days across, with a shift note per person.' },
       { key: 'sched-week', label: 'Week', text: 'Step through weeks. Copy last week clones the previous one so you only edit what changed.' },
-      { key: 'sched-roster', label: 'Crew', text: 'Type a name to add someone. Tap a name to rename or swap them out and every day they are on follows.' },
+      { key: 'sched-roster', label: 'Crew', text: 'Type a name to add someone; names from the Employees page are suggested as you type. Tap a name to rename or swap them out and every day they are on follows.' },
+      { key: 'sched-from-employees', label: 'Add from employees', text: 'Drops every employee on this team who is not on the crew list yet onto it in one go.' },
+      { key: 'sched-job-address', label: 'Job address', text: 'The pin beside each project sets its address. Green means it is on the map and drive times can use it.' },
       { key: 'sched-reorder', label: 'Reorder', text: 'Drag a job by its grip to move it up or down. The order you set is the order it prints and emails in.' },
       { key: 'sched-highlight', label: 'Highlight', text: 'Tint a row so it stands out. The color carries through to print and to the copied email.' },
       { key: 'sched-projects', label: 'Job list', text: 'Your recurring jobs with their numbers. One tap drops a job onto this week.' },

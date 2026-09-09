@@ -32,14 +32,16 @@ export default async function SchedulesPage({ searchParams }: {
   if (!profile?.company_id) redirect('/app/dashboard')
   const canEdit = canEditCompanyData(profile)
 
-  const [{ data: sups }, { data: company }, { data: directory }, { data: deptSettings }] = await Promise.all([
+  const [{ data: sups }, { data: company }, { data: directory }, { data: deptSettings }, { data: employees }] = await Promise.all([
     supabase.from('superintendents').select('id, name, roster, division')
       .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
     supabase.from('companies').select('schedule_job_url_template, plan').eq('id', profile.company_id).single(),
-    supabase.from('schedule_directory').select('id, title, job_number, division')
+    supabase.from('schedule_directory').select('id, title, job_number, division, address, latitude')
       .eq('company_id', profile.company_id).order('title'),
     supabase.from('schedule_department_settings').select('division, style, shift_options, shift_colors')
       .eq('company_id', profile.company_id),
+    supabase.from('employees').select('id, name, schedule_name, superintendent_id')
+      .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
   ])
 
   if (!canUseSchedules(company?.plan)) {
@@ -128,7 +130,11 @@ export default async function SchedulesPage({ searchParams }: {
       jobs={jobs}
       canEdit={canEdit}
       jobUrlTemplate={jobUrlTemplate}
-      directory={directory ?? []}
+      directory={(directory ?? []).map((d) => ({ ...d, located: d.latitude !== null }))}
+      employees={(employees ?? []).map((e) => ({
+        id: e.id, name: e.name, superintendentId: e.superintendent_id,
+        scheduleName: (e.schedule_name as string | null) ?? String(e.name).split(/\s+/)[0],
+      }))}
       division={division}
       divisions={pickable}
       hasAnyTeams={allTeams.length > 0}

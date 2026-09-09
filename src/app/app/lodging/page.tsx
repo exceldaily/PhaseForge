@@ -4,8 +4,11 @@ import { canUseSchedules } from '@/lib/constants'
 import { canEditCompanyData } from '@/lib/permissions'
 import { addDays, format, parseISO } from '@/lib/dates'
 import { LodgingClient, type StayRow, type TeamOption } from './LodgingClient'
+import type { StayTravel } from '@/lib/travel/geo'
 
 export const metadata = { title: 'Lodging | PhaseForge' }
+// Drive-time lookups for a whole week can take a few seconds each.
+export const maxDuration = 60
 
 function sundayOf(d: Date): string {
   const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -60,6 +63,7 @@ export default async function LodgingPage({ searchParams }: {
     nightlyRate: s.nightly_rate === null ? null : Number(s.nightly_rate),
     notes: s.notes,
     status: s.status,
+    travel: (s.travel as StayTravel | null) ?? null,
   }))
 
   const weekFromParam = /^\d{4}-\d{2}-\d{2}$/.test(params.week ?? '') ? params.week! : sundayOf(new Date())

@@ -57,6 +57,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'directory',
     label: 'Directory',
     items: [
+      { href: '/app/employees', label: 'Employees', icon: UsersRound },
       { href: '/app/customers', label: 'Customers', icon: Contact, gate: 'customers' },
       { href: '/app/staff',     label: 'Staff',     icon: HardHat, gate: 'staff' },
       { href: '/app/vendors',   label: 'Vendors',   icon: Truck, gate: 'vendors' },

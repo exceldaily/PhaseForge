@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble, MapPin, Users } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, renameRosterMember, updateScheduleJob,
-  setDepartmentStyle, reorderScheduleJobs, type ScheduleStyle,
+  setDepartmentStyle, reorderScheduleJobs, setDirectoryAddress, type ScheduleStyle,
 } from './actions'
 import { GridSchedule, buildGridCopy, type GridCell } from './GridSchedule'
 import { useRowReorder } from './useRowReorder'
@@ -17,7 +17,9 @@ interface Job {
   cells?: Record<number, GridCell[]>
 }
 interface Team { id: string; name: string; roster: string[]; division: string | null }
-interface DirEntry { id: string; title: string; job_number: string | null; division: string | null }
+interface DirEntry { id: string; title: string; job_number: string | null; division: string | null; address?: string | null; located?: boolean }
+/** From the Employees page: the short name each person goes by on the schedule. */
+interface EmployeeRef { id: string; name: string; scheduleName: string; superintendentId: string | null }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -39,12 +41,14 @@ export function SchedulesClient({
   teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
   division = '', divisions = [], hasAnyTeams = true, allWeek = [],
   scheduleStyle = 'crew', shiftOptions = ['Days', 'Nights', 'Travel Day', 'As needed'], shiftColors = {},
+  employees = [],
 }: {
   teams: Team[]; teamId: string | null; weekStart: string; jobs: Job[]; canEdit: boolean
   jobUrlTemplate?: string | null; directory?: DirEntry[]
   division?: string; divisions?: string[]; hasAnyTeams?: boolean
   allWeek?: WeekTeam[]
   scheduleStyle?: ScheduleStyle; shiftOptions?: string[]; shiftColors?: Record<string, string>
+  employees?: EmployeeRef[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -73,6 +77,11 @@ export function SchedulesClient({
   const weekEnd = shiftDate(weekStart, 6)
   const team = teams.find((t) => t.id === teamId) ?? null
   const roster = team?.roster ?? []
+  // Employees on this team who are not on the roster yet: offered as
+  // suggestions while typing, and added in one go by "Add from employees".
+  const rosterLower = new Set(roster.map((r) => r.toLowerCase()))
+  const teamEmployees = employees.filter((e) => e.superintendentId === teamId)
+  const missingEmployees = teamEmployees.filter((e) => !rosterLower.has(e.scheduleName.toLowerCase()))
 
   // Follow the department selector: new projects default to what's on screen.
   // (Render-time state adjustment — React's sanctioned alternative to a
@@ -128,6 +137,16 @@ export function SchedulesClient({
     if (!name || !teamId) return
     setNewMember('')
     run(() => updateRoster(teamId, [...roster, name]))
+  }
+  const addAllEmployees = () => {
+    if (!teamId || !missingEmployees.length) return
+    run(() => updateRoster(teamId, [...roster, ...missingEmployees.map((e) => e.scheduleName)]),
+      `Added ${missingEmployees.length} from the employee list.`)
+  }
+  const setJobAddress = (p: DirEntry) => {
+    const next = prompt(`Job address for ${p.title} (used to work out who is 2+ hours from home):`, p.address ?? '')
+    if (next === null) return
+    run(() => setDirectoryAddress(p.id, next), next.trim() ? 'Address saved and located.' : 'Address cleared.')
   }
   const saveRename = () => {
     const target = renaming
@@ -474,10 +493,21 @@ export function SchedulesClient({
                 onKeyDown={(e) => e.key === 'Enter' && addMember()}
                 onBlur={addMember}
                 data-help="sched-roster"
+                list="pf-crew-suggestions"
                 placeholder="Add crew member…"
                 className="w-32 rounded-md border border-dashed border-slate-300 bg-transparent px-2 py-0.5 text-xs outline-none focus:border-indigo-400 dark:border-slate-600"
               />
+              <datalist id="pf-crew-suggestions">
+                {missingEmployees.map((e) => <option key={e.id} value={e.scheduleName}>{e.name}</option>)}
+              </datalist>
             </span>
+            {missingEmployees.length > 0 && (
+              <button onClick={addAllEmployees} data-help="sched-from-employees"
+                title={missingEmployees.map((e) => e.name).join(', ')}
+                className="inline-flex items-center gap-1 rounded-full border border-indigo-200 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800">
+                <Users size={11} /> Add {missingEmployees.length} from employees
+              </button>
+            )}
           </div>
         )}
         {msg && <p className="mt-1.5 text-xs text-emerald-600">{msg}</p>}
@@ -548,6 +578,13 @@ export function SchedulesClient({
                       ? <a href={jobUrl(jobUrlTemplate, p.job_number)!} target="_blank" rel="noopener noreferrer"
                           className="text-[10px] font-semibold text-indigo-500 hover:underline">{p.job_number}</a>
                       : <span className="text-[10px] text-slate-400">{p.job_number}</span>
+                  )}
+                  {canEdit && (
+                    <button onClick={() => setJobAddress(p)} data-help="sched-job-address"
+                      title={p.address ? `${p.address}${p.located ? '' : ' (not found on the map yet)'}` : 'Set the job address for drive-time checks'}
+                      className={`shrink-0 ${p.located ? 'text-emerald-500' : p.address ? 'text-amber-500' : 'text-slate-300 hover:text-indigo-500'}`}>
+                      <MapPin size={11} />
+                    </button>
                   )}
                   {canEdit && (
                     <button

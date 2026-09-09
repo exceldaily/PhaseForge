@@ -6,14 +6,15 @@
 import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  BedDouble, ChevronLeft, ChevronRight, ClipboardCopy, ExternalLink, MapPin,
+  BedDouble, Car, ChevronLeft, ChevronRight, ClipboardCopy, ExternalLink, MapPin,
   Plus, Sparkles, Trash2, Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, differenceInDays, parseISO } from '@/lib/dates'
 import { Button } from '@/components/ui/Button'
 import { hotelSearchLinks, roomsFor } from '@/lib/lodging/derive'
-import { createStay, deleteStay, generateStaysFromWeek, updateStay, type StayStatus } from './actions'
+import { formatDrive, needsLodging, type GuestTravel, type StayTravel } from '@/lib/travel/geo'
+import { createStay, deleteStay, deleteWeekStays, generateStaysFromWeek, recomputeTravel, updateStay, type StayStatus } from './actions'
 
 export interface TeamOption { id: string; name: string; division: string | null }
 
@@ -35,6 +36,7 @@ export interface StayRow {
   nightlyRate: number | null
   notes: string | null
   status: StayStatus
+  travel: StayTravel | null
 }
 
 interface LodgingClientProps {
@@ -70,6 +72,7 @@ export function LodgingClient({ stays, teams, teamById, canEdit, today, initialT
   const [msg, setMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [onlyFar, setOnlyFar] = useState(true)
   const [pending, start] = useTransition()
 
   // Group by week (Sunday), upcoming first; stays without a week go by check-in.
@@ -86,9 +89,22 @@ export function LodgingClient({ stays, teams, teamById, canEdit, today, initialT
     if (!teamId) { setError('Pick a team first.'); return }
     start(async () => {
       setError(null); setMsg(null)
-      const res = await generateStaysFromWeek({ superintendentId: teamId, weekStart: week })
+      const res = await generateStaysFromWeek({ superintendentId: teamId, weekStart: week, onlyFar })
       if (!res.ok) { setError(res.error ?? 'Could not generate stays.'); return }
-      setMsg(res.message ?? `Added ${res.created} stay${res.created === 1 ? '' : 's'}${res.skipped ? ` (${res.skipped} already existed)` : ''}.`)
+      const bits = [`Added ${res.created} stay${res.created === 1 ? '' : 's'}`]
+      if (res.skipped) bits.push(`${res.skipped} already existed`)
+      if (res.local) bits.push(`${res.local} ${res.local === 1 ? 'person lives' : 'people live'} close enough to drive`)
+      setMsg(res.message ?? `${bits.join(', ')}.`)
+      router.refresh()
+    })
+  }
+
+  const clearWeek = (weekKey: string, rows: StayRow[]) => {
+    if (!confirm(`Delete all ${rows.length} stay${rows.length === 1 ? '' : 's'} for the week of ${formatDate(weekKey, 'MMM d')}? Bookings you typed in go with them.`)) return
+    start(async () => {
+      const res = await deleteWeekStays({ weekStart: weekKey })
+      if (!res.ok) { setError(res.error ?? 'Could not delete.'); return }
+      setMsg(`Deleted ${res.deleted} stay${res.deleted === 1 ? '' : 's'}.`)
       router.refresh()
     })
   }
@@ -99,7 +115,10 @@ export function LodgingClient({ stays, teams, teamById, canEdit, today, initialT
       if (s.status === 'cancelled') continue
       lines.push(`${s.title}${s.jobNumber ? ` (Job# ${s.jobNumber})` : ''}`)
       lines.push(`  ${formatDate(s.checkIn, 'EEE MMM d')} to ${formatDate(s.checkOut, 'EEE MMM d')}, ${nights(s)} night${nights(s) === 1 ? '' : 's'}, ${s.guests.length} guest${s.guests.length === 1 ? '' : 's'}, ${roomsFor(s.guests.length)} room${roomsFor(s.guests.length) === 1 ? '' : 's'}`)
-      if (s.guests.length) lines.push(`  Guests: ${s.guests.join(', ')}`)
+      if (s.guests.length) lines.push(`  Guests: ${s.guests.map((g) => {
+        const t = s.travel?.guests.find((x) => x.name === g)
+        return t?.minutes != null ? `${g} (${formatDrive(t.minutes)} from home)` : g
+      }).join(', ')}`)
       if (s.hotelName) lines.push(`  Hotel: ${s.hotelName}${s.hotelAddress ? `, ${s.hotelAddress}` : ''}${s.confirmationNumber ? ` (conf# ${s.confirmationNumber})` : ''}`)
       else lines.push('  Hotel: NOT BOOKED YET')
       if (s.notes) lines.push(`  Notes: ${s.notes}`)
@@ -133,6 +152,10 @@ export function LodgingClient({ stays, teams, teamById, canEdit, today, initialT
           <p className="mt-0.5 text-xs text-slate-500">
             Everyone scheduled on a job that week becomes a guest, from the first day to the last. Jobs that already have a stay are left alone.
           </p>
+          <label className="mt-2 inline-flex items-center gap-2 text-xs text-slate-700" data-help="lodging-far">
+            <input type="checkbox" checked={onlyFar} onChange={(e) => setOnlyFar(e.target.checked)} />
+            Only crew 2+ hours from home (uses the Employees page addresses)
+          </label>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <select value={teamId} onChange={(e) => setTeamId(e.target.value)}
               className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm outline-none focus:border-indigo-400">
@@ -178,10 +201,18 @@ export function LodgingClient({ stays, teams, teamById, canEdit, today, initialT
                   {rows.length} stay{rows.length === 1 ? '' : 's'}{needed ? `, ${needed} still to book` : ''}
                 </span>
               </h2>
-              <button onClick={() => copyWeek(weekKey, rows)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-indigo-600">
-                <ClipboardCopy size={13} /> Copy for email
-              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => copyWeek(weekKey, rows)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-indigo-600">
+                  <ClipboardCopy size={13} /> Copy for email
+                </button>
+                {canEdit && (
+                  <button onClick={() => clearWeek(weekKey, rows)} disabled={pending}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-rose-600">
+                    <Trash2 size={13} /> Delete week
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               {rows.map((s) => (
@@ -201,6 +232,17 @@ function StayCard({ stay, teamName, canEdit, today, onChanged }: {
 }) {
   const [s, setS] = useState(stay)
   const [open, setOpen] = useState(stay.status === 'needed')
+  const [checking, setChecking] = useState(false)
+  const travelFor = (name: string): GuestTravel | undefined => s.travel?.guests.find((g) => g.name === name)
+  const checkDrive = () => {
+    setChecking(true)
+    void recomputeTravel({ id: stay.id }).then((r) => {
+      setChecking(false)
+      if (r.ok) setS((cur) => ({ ...cur, travel: r.travel }))
+      onChanged()
+    })
+  }
+  const remove = () => { if (confirm(`Delete the stay for "${s.title}"?`)) void deleteStay({ id: s.id }).then(onChanged) }
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const debounced = (key: string, fn: () => void) => {
     if (timers.current[key]) clearTimeout(timers.current[key])
@@ -218,8 +260,9 @@ function StayCard({ stay, teamName, canEdit, today, onChanged }: {
   const total = s.nightlyRate != null ? s.nightlyRate * n * roomsFor(s.guests.length) : null
 
   return (
-    <div className={cn('rounded-xl border bg-white', s.status === 'cancelled' ? 'border-slate-200 opacity-70' : 'border-slate-200')}>
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-3 p-3 text-left">
+    <div className={cn('group rounded-xl border bg-white', s.status === 'cancelled' ? 'border-slate-200 opacity-70' : 'border-slate-200')}>
+      <div className="flex items-start">
+      <button onClick={() => setOpen((v) => !v)} className="flex min-w-0 flex-1 items-start gap-3 p-3 text-left">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-slate-900">{s.title}</p>
@@ -233,10 +276,11 @@ function StayCard({ stay, teamName, canEdit, today, onChanged }: {
             <span className="text-slate-400"> · {n} night{n === 1 ? '' : 's'} · {roomsFor(s.guests.length)} room{roomsFor(s.guests.length) === 1 ? '' : 's'}</span>
             {s.hotelName && <span className="ml-2 font-medium text-emerald-700">{s.hotelName}</span>}
           </p>
-          <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-500">
             <Users size={11} className="shrink-0 text-slate-400" />
-            <span className="truncate">{s.guests.length ? s.guests.join(', ') : 'No guests listed'}</span>
-          </p>
+            {s.guests.length === 0 && <span>No guests listed</span>}
+            {s.guests.map((g) => <GuestChip key={g} name={g} t={travelFor(g)} />)}
+          </div>
         </div>
         {total != null && (
           <div className="shrink-0 text-right">
@@ -245,9 +289,35 @@ function StayCard({ stay, teamName, canEdit, today, onChanged }: {
           </div>
         )}
       </button>
+      {canEdit && (
+        <button onClick={remove} aria-label="Delete stay" title="Delete this stay"
+          className="m-2 shrink-0 rounded-lg p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-600">
+          <Trash2 size={15} />
+        </button>
+      )}
+      </div>
 
       {open && (
         <div className="border-t border-slate-100 p-3">
+          {/* Drive times */}
+          {(s.travel || canEdit) && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+              <Car size={12} className="text-slate-400" />
+              {s.travel ? (
+                <span>
+                  Drive from home checked {formatDate(s.travel.computedAt, 'MMM d')}
+                  {s.travel.jobLat === null ? ', job address not on the map yet' : ''}
+                  {s.travel.guests.some((g) => g.source === 'estimate') ? ', est. = straight-line estimate' : ''}
+                </span>
+              ) : <span>Drive times not checked yet.</span>}
+              {canEdit && (
+                <button onClick={checkDrive} disabled={checking} data-help="lodging-drive"
+                  className="font-medium text-indigo-600 hover:underline disabled:opacity-50">
+                  {checking ? 'Checking' : 'Check drive times'}
+                </button>
+              )}
+            </div>
+          )}
           {/* Where to look */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <MapPin size={12} className="text-slate-400" />
@@ -296,14 +366,35 @@ function StayCard({ stay, teamName, canEdit, today, onChanged }: {
                 <textarea rows={2} value={s.notes ?? ''} placeholder="Notes: room preferences, per diem, who is driving"
                   onChange={(e) => patch({ notes: e.target.value }, { notes: e.target.value || null })}
                   className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400" />
-                <button onClick={() => { if (confirm(`Delete the stay for "${s.title}"?`)) void deleteStay({ id: s.id }).then(onChanged) }}
-                  aria-label="Delete stay" className="rounded-lg p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-600"><Trash2 size={14} /></button>
+                <button onClick={remove}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600">
+                  <Trash2 size={13} /> Delete stay
+                </button>
               </div>
             </>
           )}
         </div>
       )}
     </div>
+  )
+}
+
+/** A guest with their drive from home: red 2h+, grey local, amber unknown. */
+function GuestChip({ name, t }: { name: string; t: GuestTravel | undefined }) {
+  if (!t) return <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">{name}</span>
+  const far = needsLodging(t)
+  const why = t.reason === 'no_employee' ? 'not on the Employees page'
+    : t.reason === 'no_home' ? 'no home address'
+    : t.reason === 'no_job' ? 'job has no address' : null
+  return (
+    <span title={why ?? (t.miles != null ? `${t.miles} mi, ${t.source === 'osrm' ? 'road route' : 'straight-line estimate'}` : undefined)}
+      className={cn('inline-flex items-center gap-1 rounded px-1.5 py-0.5',
+        far === true ? 'bg-rose-50 text-rose-700' : far === false ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700')}>
+      {name}
+      <span className="text-[10px] font-semibold">
+        {t.minutes != null ? `${formatDrive(t.minutes)}${t.source === 'estimate' ? ' est.' : ''}` : '?'}
+      </span>
+    </span>
   )
 }
 

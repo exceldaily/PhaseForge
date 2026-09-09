@@ -241,6 +241,23 @@ export const SECTIONS: GuideSection[] = [
     ],
   },
   {
+    id: 'employees',
+    icon: UsersRound,
+    title: 'Employees',
+    summary: 'Everyone on the crews, with home addresses, whether or not they log in. Feeds the schedule rosters and the lodging drive-time check.',
+    href: '/app/employees',
+    hrefLabel: 'Open Employees',
+    items: [
+      { heading: 'What it is for', text: 'The employee list is the company directory inside PhaseForge: every person on the crews, grouped by schedule team, with their home address, phone, and email. Nobody on it needs a login. It exists so the schedule knows who people are and so lodging can tell who lives too far from a job to drive home.' },
+      { heading: 'Getting people in', text: 'Paste a directory takes rows copied straight out of a spreadsheet or your company directory page: the name first, then address, phone, and email in any order. A line holding only a team lead\u2019s name (Carlos Betancourt, say) becomes a header, and everyone under it lands on the team with that last name. People already on the list are updated rather than duplicated, so you can paste the whole directory again after it changes. Add person does one at a time.' },
+      { heading: 'Putting addresses on the map', text: 'Press Locate addresses after a paste. It looks up a batch of home and job addresses a second apart (the map service\u2019s rule) and tells you how many are left; press again until it says everything is located. A green pin on a row means the address was found. Amber means it was not, so fix the spelling in the row and hit try again.' },
+      { heading: 'Names on the schedule', text: 'Schedules use short names (Jose, John M, Chris) while the directory has full ones. Each employee has a Name on the schedule, which defaults to their first name. Match schedule names walks every team roster and pins each short name to the person it means, using the last initial and common nicknames when two people share a first name, and tells you which ones it could not place so you can set them by hand.' },
+      { heading: 'Linking to the schedule', text: 'On schedule / Put on schedule beside each person adds or removes them from their team\u2019s crew roster. On the Schedules page the crew box suggests employee names as you type, and Add from employees drops everyone on the team who is not on the roster yet in one go.' },
+      { heading: 'Adding them to PhaseForge', text: 'Add to PhaseForge next to a name sends that person a login invite (member role). Nobody is invited unless you press it. Once they accept, the row shows In PhaseForge; anyone whose email already matches a member is marked automatically.' },
+      { heading: 'Job addresses', text: 'The other half of a drive-time check is where the job is. Jobs linked to a project use the project address. For jobs from the Schedules project list, tap the pin beside the job to set its address; Locate addresses also tries to place unaddressed jobs from the town in their title (WM 3029 Spring Hill becomes Spring Hill in your state).' },
+    ],
+  },
+  {
     id: 'lodging',
     icon: BedDouble,
     title: 'Lodging',
@@ -248,7 +265,8 @@ export const SECTIONS: GuideSection[] = [
     href: '/app/lodging',
     hrefLabel: 'Open Lodging',
     items: [
-      { heading: 'Generating a week', text: 'Pick a team and a week and press Generate stays. Every job with anyone scheduled on it becomes a stay: the guests are everyone who appears on that job during the week (both the crew grid and the Startup grid count), check-in is the first scheduled day, and check-out is the morning after the last. Jobs that already have a stay are left alone, so you can regenerate after the schedule changes and only the new jobs come through. Local jobs that do not need beds: just delete the stay or mark it cancelled.' },
+      { heading: 'Generating a week', text: 'Pick a team and a week and press Generate stays. Every job with anyone scheduled on it becomes a stay: the guests are everyone who appears on that job during the week (both the crew grid and the Startup grid count), check-in is the first scheduled day, and check-out is the morning after the last. Jobs that already have a stay are left alone, so you can regenerate after the schedule changes and only the new jobs come through. Local jobs that do not need beds: delete the stay with the trash icon on its row, or mark it cancelled.' },
+      { heading: 'Who is 2+ hours away', text: 'With Only crew 2+ hours away ticked (the default), each guest\u2019s drive from home to the job is worked out from the address on the Employees page and the job address, and anyone under two hours is left off the stay. If nobody on a job is far enough away, no stay is made. Someone with no home address, or a job with no address, is kept and flagged so you can decide. Every guest on a stay shows their drive time: red for 2 hours or more, grey for local, amber when it could not be worked out and why. Drive times come from a road router when it answers and a straight-line estimate when it does not (marked est.), and Check drive times on any stay runs them again after addresses change.' },
       { heading: 'Finding and booking a hotel', text: 'When the job is linked to a project with an address, the stay already knows where to look. Two buttons open a hotel search near that address with the dates, headcount, and room count (two to a room) already filled in: Hotels on Maps, and Booking.com. Type the hotel name, address, confirmation number, and nightly rate into the stay and it flips to Booked on its own. The estimated total is rate times nights times rooms.' },
       { heading: 'Sending it out', text: 'Copy for email on any week copies a plain list: each job, its dates and nights, the guests, the hotel and confirmation number, or NOT BOOKED YET if it is still open. Paste it into the crew email. From the Schedules page, the Lodging button jumps straight to that team and week.' },
       { heading: 'By hand', text: 'Add by hand covers work that never went through the scheduler: a title, dates, guests, and a place to search near. Past stays drop off the working list a week after check-out; Show past stays brings them back.' },

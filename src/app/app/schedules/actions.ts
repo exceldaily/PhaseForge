@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { canUseSchedules } from '@/lib/constants'
 import { canEditCompanyData } from '@/lib/permissions'
+import { geocodeAddress } from '@/lib/travel/geocode'
 
 const PATH = '/app/schedules'
 
@@ -218,6 +219,26 @@ export async function addDirectoryProject(title: string, jobNumber?: string, div
       company_id: companyId, title: title.trim(), job_number: jobNumber?.trim() || null,
       division: division?.trim() || null,
     })
+    if (error) return { error: error.message }
+    revalidatePath(PATH)
+    return { ok: true }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
+}
+
+// Job address for the drive-time check. Located straight away (one lookup)
+// so the next lodging run can use it.
+export async function setDirectoryAddress(id: string, address: string) {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const clean = address.trim() || null
+    const hit = clean ? await geocodeAddress(clean) : null
+    const { error } = await supabase.from('schedule_directory').update({
+      address: clean,
+      latitude: hit?.lat ?? null, longitude: hit?.lng ?? null,
+      geocoded_at: clean ? new Date().toISOString() : null,
+      geocode_error: clean && !hit ? 'Address not found' : null,
+    }).eq('id', id).eq('company_id', companyId)
     if (error) return { error: error.message }
     revalidatePath(PATH)
     return { ok: true }
