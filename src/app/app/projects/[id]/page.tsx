@@ -5,8 +5,9 @@ import { ProjectDetailShell } from './ProjectDetailShell'
 import { canUsePrintAndReports } from '@/lib/constants'
 import { ActivityLog, Phase, Profile, Project, ProjectAttachment, PunchItem } from '@/types/app'
 import { loadCommandCenter } from '@/lib/commandCenter'
+import { companyTrades, ensureProjectChannel, listChannels, listMessages } from '@/app/app/chat/actions'
 
-const VALID_TABS = new Set(['hub', 'overview', 'gantt', 'tasks', 'punch', 'activity', 'files'])
+const VALID_TABS = new Set(['hub', 'overview', 'gantt', 'tasks', 'punch', 'activity', 'files', 'chat'])
 
 /** One sentence for a co_events row, in the timeline's plain voice. */
 function describeCoEvent(
@@ -112,10 +113,16 @@ export default async function ProjectDetailPage({
 
   // Change-order history lives in co_events (its own single write path);
   // UNION it into the timeline feed at read time rather than double-writing.
-  const { data: chatChannel } = await supabase.from('chat_channels').select('id').eq('project_id', id).eq('kind', 'project').maybeSingle()
-  const { data: chatLatest } = chatChannel
-    ? await supabase.from('chat_messages').select('body, author_id, created_at, kind').eq('channel_id', chatChannel.id).is('deleted_at', null).order('created_at', { ascending: false }).limit(3)
-    : { data: [] as { body: string; author_id: string; created_at: string; kind: string }[] }
+  // The job's chat space: created on first visit, then its messages, the
+  // company's trades, and who is who, so the hub can hold the conversation.
+  const chatRes = await ensureProjectChannel({ projectId: id })
+  const chatChannel = chatRes.ok ? (await listChannels()).find((c) => c.id === chatRes.id) ?? null : null
+  const [chatMessages, chatTrades, { data: chatPeople }] = await Promise.all([
+    chatChannel ? listMessages({ channelId: chatChannel.id }) : Promise.resolve([]),
+    companyTrades(),
+    supabase.from('profiles').select('id, full_name, avatar_url, trades, job_title').eq('company_id', profile.company_id).eq('is_active', true),
+  ])
+  const chatLatest = [...chatMessages].reverse().filter((m) => !m.deleted).slice(0, 3).map((m) => ({ body: m.body || (m.attachments.length ? `${m.attachments.length} photo${m.attachments.length === 1 ? '' : 's'}` : ''), author_id: m.authorId, created_at: m.createdAt, kind: m.kind }))
   const [{ data: projectCos }, { count: planSheetCount }, { count: planSetCount }] = await Promise.all([
     supabase.from('change_orders')
       .select('id, co_number, title, stage, current_amount, approved_amount').eq('project_id', id)
@@ -184,9 +191,16 @@ export default async function ProjectDetailPage({
         })),
         planSheetCount: planSheetCount ?? 0,
         planSetCount: planSetCount ?? 0,
-        chat: (chatLatest ?? []).map((m) => ({ body: m.body, authorId: m.author_id, createdAt: m.created_at, kind: m.kind })),
+        chat: chatLatest.map((m) => ({ body: m.body, authorId: m.author_id, createdAt: m.created_at, kind: m.kind })),
       }}
-      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'hub' | 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files') : 'hub'}
+      chatRoom={chatChannel ? {
+        channel: chatChannel,
+        messages: chatMessages,
+        trades: chatTrades,
+        me: { id: user.id, name: profile.full_name as string },
+        members: (chatPeople ?? []).map((p) => ({ id: p.id, name: p.full_name, avatarUrl: p.avatar_url, trades: (p.trades as string[] | null) ?? [], title: p.job_title })),
+      } : null}
+      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'hub' | 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files' | 'chat') : 'hub'}
     />
   )
 }

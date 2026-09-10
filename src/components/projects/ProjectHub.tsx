@@ -18,7 +18,7 @@ import type { ActivityLog, Phase, Profile, Project, ProjectAttachment, ProjectPr
 import { MiniGantt } from '@/components/gantt/MiniGantt'
 import { Badge } from '@/components/ui/Badge'
 
-export type HubTab = 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files'
+export type HubTab = 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files' | 'chat'
 
 export interface HubChangeOrder {
   id: string
@@ -204,8 +204,8 @@ export function ProjectHub({
           {attachments.slice(0, 3).map((a) => <p key={a.id} className="truncate text-xs text-slate-600">{a.file_name}</p>)}
         </Tile>
 
-        <Tile title="Job chat" icon={<MessageSquare size={16} />} href={`/app/chat?project=${project.id}`}
-          hint={chat.length ? `Last message ${relTime(chat[0].createdAt)}` : 'Open a space for this job'} helpKey="hub-chat">
+        <Tile title="Job chat" icon={<MessageSquare size={16} />} onClick={() => onNavigate('chat')}
+          hint={chat.length ? `Last message ${relTime(chat[0].createdAt)}` : 'Talk about this job, ping its trades'} helpKey="hub-chat">
           {chat.slice(0, 3).map((c, i) => (
             <p key={i} className="truncate text-xs text-slate-600">
               {c.kind === 'update' && <span className="mr-1 rounded bg-amber-100 px-1 text-[9px] font-bold uppercase text-amber-700">update</span>}

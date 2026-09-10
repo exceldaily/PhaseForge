@@ -8,6 +8,9 @@ import {
   MapPin, Calendar, User, Flag, ClipboardList, Map, Layers, FileDiff, LayoutDashboard, LayoutGrid,
 } from 'lucide-react'
 import { ProjectHub, type HubChangeOrder } from '@/components/projects/ProjectHub'
+import { ChatConversation, type ChatMember } from '@/components/chat/ChatConversation'
+import type { ChatChannel, ChatMessage } from '@/app/app/chat/actions'
+import { MessageSquare } from 'lucide-react'
 import { TransferToBoardModal } from '@/components/projects/TransferToBoardModal'
 import { GanttChart } from '@/components/gantt/GanttChart'
 import { ProjectCalendarSyncBar } from '@/components/gantt/ProjectCalendarSyncBar'
@@ -25,7 +28,7 @@ import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
 import { Phase, Profile, Project, ProjectPriority, ActivityLog, ProjectAttachment, PunchItem } from '@/types/app'
 import { cn } from '@/lib/utils'
 
-type Tab = 'hub' | 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files'
+type Tab = 'hub' | 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files' | 'chat'
 
 interface ProjectDetailShellProps {
   project: Project & { phases: Phase[] }
@@ -39,12 +42,14 @@ interface ProjectDetailShellProps {
   canPrint: boolean
   commandCenter: CommandCenterData
   hub: { changeOrders: HubChangeOrder[]; planSheetCount: number; planSetCount: number; chat: { body: string; authorId: string; createdAt: string; kind: string }[] }
+  chatRoom: { channel: ChatChannel; messages: ChatMessage[]; trades: string[]; me: { id: string; name: string }; members: ChatMember[] } | null
   initialTab?: Tab
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'hub',      label: 'Hub',        icon: <LayoutGrid size={15} /> },
   { id: 'overview', label: 'Command Center', icon: <LayoutDashboard size={15} /> },
+  { id: 'chat',     label: 'Chat',       icon: <MessageSquare size={15} /> },
   { id: 'gantt',    label: 'Gantt',      icon: <GanttChartSquare size={15} /> },
   { id: 'tasks',    label: 'Tasks',      icon: <CheckSquare size={15} /> },
   { id: 'punch',    label: 'Punch List', icon: <ClipboardList size={15} /> },
@@ -54,7 +59,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export function ProjectDetailShell({
   project, members, activityLogs, attachments, punchItems, currentUserId, companyId,
-  canEdit, canPrint, commandCenter, hub,
+  canEdit, canPrint, commandCenter, hub, chatRoom,
   initialTab = 'hub',
 }: ProjectDetailShellProps) {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
@@ -213,6 +218,25 @@ export function ProjectDetailShell({
         </div>
         )}
       </div>
+
+      {/* CHAT: this job's space, the same conversation as on the Chat page */}
+      {activeTab === 'chat' && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden h-[calc(100dvh-190px)] md:h-auto">
+          {chatRoom ? (
+            <>
+              <div className="flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 sm:px-5">
+                <span>Everything said here stays with this job. Tick <span className="font-medium">Post as project update</span> to broadcast it company-wide.</span>
+                <Link href={`/app/chat?c=${chatRoom.channel.id}`} className="font-medium text-indigo-600 hover:underline">Open in Chat</Link>
+              </div>
+              <ChatConversation channel={chatRoom.channel} me={chatRoom.me} companyId={companyId} members={chatRoom.members}
+                trades={chatRoom.trades} projects={[{ id: project.id, name: project.name, jobNumber: project.job_number ?? null, trade: project.trade ?? null }]}
+                initialMessages={chatRoom.messages} projectTrade={project.trade ?? null} />
+            </>
+          ) : (
+            <p className="p-6 text-sm text-slate-400">Chat is not available for this project.</p>
+          )}
+        </div>
+      )}
 
       {/* HUB: the landing view */}
       {activeTab === 'hub' && (

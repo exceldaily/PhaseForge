@@ -25,7 +25,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
     listChannels(),
     companyTrades(),
     supabase.from('profiles').select('id, full_name, avatar_url, trades, job_title').eq('company_id', me.company_id).eq('is_active', true).order('full_name'),
-    supabase.from('projects').select('id, name, job_number').eq('company_id', me.company_id).eq('is_archived', false).order('name'),
+    supabase.from('projects').select('id, name, job_number, trade').eq('company_id', me.company_id).eq('is_archived', false).order('name'),
   ])
   if (!activeId || !channels.some((c) => c.id === activeId)) {
     activeId = channels.find((c) => c.kind === 'general')?.id ?? channels[0]?.id ?? null
@@ -46,7 +46,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
       initialMessages={messages}
       members={members}
       trades={trades}
-      projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, jobNumber: p.job_number }))}
+      projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, jobNumber: p.job_number, trade: p.trade }))}
     />
   )
 }
