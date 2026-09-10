@@ -166,7 +166,7 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'sched-projects', label: 'Job list', text: 'Your recurring jobs with their numbers. One tap drops a job onto this week.' },
       { key: 'sched-zoom', label: 'Zoom', text: 'Shrink the sheet to fit a wide week on a phone screen.' },
       { key: 'sched-lodging', label: 'Lodging', text: 'Jumps to Lodging for this team and week to generate and book the crew\u2019s hotel stays.' },
-      { key: 'sched-post-chat', label: 'Post to chat', text: 'Posts this team\u2019s week, jobs with dates and names, to the department\u2019s chat space, and to any linked job\u2019s chat under that trade.' },
+      { key: 'sched-post-chat', label: 'Post to chat', text: 'Posts this team\u2019s week, jobs with dates and names, to the department\u2019s chat space, and to any linked job\u2019s chat, in that division\u2019s section only, not Whole job.' },
       { key: 'sched-copy', label: 'Copy for email', text: 'Copies the schedule as a formatted table. Paste straight into Gmail or Outlook.' },
     ],
   },

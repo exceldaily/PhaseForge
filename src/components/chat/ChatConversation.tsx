@@ -145,11 +145,16 @@ export function ChatConversation({
   const isProject = channel.kind === 'project'
   const tradeOrder = useMemo(() => {
     const talked = new Set(messages.flatMap((m) => m.trades))
-    const rest = trades.filter((t) => t !== projectTrade)
+    const known = (t: string) => trades.some((x) => x.toLowerCase() === t.toLowerCase())
+    const extra = [...talked].filter((t) => !known(t) && t.toLowerCase() !== (projectTrade ?? '').toLowerCase())
+    const rest = [...trades, ...extra].filter((t) => t !== projectTrade)
     return [...(projectTrade ? [projectTrade] : []), ...rest.filter((t) => talked.has(t)), ...rest.filter((t) => !talked.has(t))]
   }, [trades, projectTrade, messages])
   const countFor = (t: string) => messages.filter((m) => !m.deleted && m.trades.some((x) => x.toLowerCase() === t.toLowerCase())).length
-  const visible = tradeFilter ? messages.filter((m) => m.trades.some((x) => x.toLowerCase() === tradeFilter.toLowerCase())) : messages
+  const isScheduleCard = (m: ChatMessage) => m.kind === 'system' && m.event?.type === 'schedule'
+  const visible = tradeFilter
+    ? messages.filter((m) => m.trades.some((x) => x.toLowerCase() === tradeFilter.toLowerCase()))
+    : isProject ? messages.filter((m) => !isScheduleCard(m)) : messages
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col bg-slate-50', className)}>
