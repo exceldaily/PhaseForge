@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { STANDARD_TRADES } from '@/lib/constants'
+import { canEditCompanyData } from '@/lib/permissions'
 import { parseMentions } from '@/lib/chat/mentions'
 import type { ChatEvent } from '@/lib/chat/systemEvents'
 
@@ -294,12 +295,25 @@ export async function editMessage(input: { id: string; body: string }) {
   } catch (e) { return fail(e) }
 }
 
+/**
+ * Delete a message. Anyone can delete their own; managers and up can delete
+ * any message, system cards included. A project update's copy in the
+ * Project updates feed goes with it, and its photos are removed from storage.
+ */
 export async function deleteMessage(input: { id: string }) {
   try {
-    const { supabase } = await ctx()
-    const { error } = await supabase.from('chat_messages').update({ deleted_at: new Date().toISOString(), body: '', attachments: [] }).eq('id', input.id)
+    const { supabase, userId } = await ctx()
+    const { data: me } = await supabase.from('profiles').select('role, ops_role').eq('id', userId).single()
+    const { data: msg } = await supabase.from('chat_messages').select('id, author_id, attachments').eq('id', input.id).single()
+    if (!msg) return { ok: false as const, error: 'That message is gone.' }
+    if (msg.author_id !== userId && !canEditCompanyData(me)) return { ok: false as const, error: 'You can only delete your own messages.' }
+    const { data: copies } = await supabase.from('chat_messages').select('id').eq('source_message_id', input.id)
+    const ids = [input.id, ...(copies ?? []).map((c) => c.id as string)]
+    const { error } = await supabase.from('chat_messages').update({ deleted_at: new Date().toISOString(), body: '', attachments: [], event: null }).in('id', ids)
     if (error) return { ok: false as const, error: error.message }
-    return { ok: true as const }
+    const paths = ((msg.attachments as { path?: string }[] | null) ?? []).map((a) => a.path).filter((p): p is string => !!p)
+    if (paths.length) { try { await createAdminClient().storage.from(BUCKET).remove(paths) } catch { /* best effort */ } }
+    return { ok: true as const, ids }
   } catch (e) { return fail(e) }
 }
 

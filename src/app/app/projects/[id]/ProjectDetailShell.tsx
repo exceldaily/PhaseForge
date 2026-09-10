@@ -230,7 +230,7 @@ export function ProjectDetailShell({
               </div>
               <ChatConversation channel={chatRoom.channel} me={chatRoom.me} companyId={companyId} members={chatRoom.members}
                 trades={chatRoom.trades} projects={[{ id: project.id, name: project.name, jobNumber: project.job_number ?? null, trade: project.trade ?? null }]}
-                initialMessages={chatRoom.messages} projectTrade={project.trade ?? null} />
+                initialMessages={chatRoom.messages} projectTrade={project.trade ?? null} canModerate={canEdit} />
             </>
           ) : (
             <p className="p-6 text-sm text-slate-400">Chat is not available for this project.</p>

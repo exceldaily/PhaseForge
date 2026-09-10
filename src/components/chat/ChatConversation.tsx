@@ -36,6 +36,8 @@ interface ChatConversationProps {
   projectTrade?: string | null
   /** Called whenever a message is sent or arrives, so a parent can bump previews. */
   onActivity?: (m: ChatMessage) => void
+  /** Managers and up can delete anyone's message, system cards included. */
+  canModerate?: boolean
   className?: string
 }
 
@@ -66,7 +68,7 @@ export function messageFromRow(row: Record<string, unknown>): ChatMessage {
 }
 
 export function ChatConversation({
-  channel, me, members, trades, projects, initialMessages, projectTrade = null, onActivity, className,
+  channel, me, members, trades, projects, initialMessages, projectTrade = null, onActivity, className, canModerate = false,
 }: ChatConversationProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [error, setError] = useState<string | null>(null)
@@ -152,9 +154,10 @@ export function ChatConversation({
   }, [trades, projectTrade, messages])
   const countFor = (t: string) => messages.filter((m) => !m.deleted && m.trades.some((x) => x.toLowerCase() === t.toLowerCase())).length
   const isScheduleCard = (m: ChatMessage) => m.kind === 'system' && m.event?.type === 'schedule'
+  const live = messages.filter((m) => !m.deleted)
   const visible = tradeFilter
-    ? messages.filter((m) => m.trades.some((x) => x.toLowerCase() === tradeFilter.toLowerCase()))
-    : isProject ? messages.filter((m) => !isScheduleCard(m)) : messages
+    ? live.filter((m) => m.trades.some((x) => x.toLowerCase() === tradeFilter.toLowerCase()))
+    : isProject ? live.filter((m) => !isScheduleCard(m)) : live
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col bg-slate-50', className)}>
@@ -203,11 +206,15 @@ export function ChatConversation({
                   <span className="h-px flex-1 bg-slate-200" />{dayOf(m.createdAt)}<span className="h-px flex-1 bg-slate-200" />
                 </div>
               )}
-              <MessageRow m={m} mine={m.authorId === me.id} author={memberMap[m.authorId]} grouped={grouped}
+              <MessageRow m={m} mine={m.authorId === me.id} canDelete={m.authorId === me.id || canModerate} author={memberMap[m.authorId]} grouped={grouped}
                 project={m.projectId ? projectMap[m.projectId] : undefined} showProject={channel.kind === 'updates'}
                 trades={trades} members={members} onPhoto={setLightbox}
                 onEdit={(body) => { setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, body, editedAt: new Date().toISOString() } : x))); void editMessage({ id: m.id, body }) }}
-                onDelete={() => { setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, body: '', deleted: true, attachments: [] } : x))); void deleteMessage({ id: m.id }) }} />
+                onDelete={() => {
+                  const before = messages
+                  setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, body: '', deleted: true, attachments: [] } : x)))
+                  void deleteMessage({ id: m.id }).then((r) => { if (!r.ok) { setMessages(before); setError(r.error) } })
+                }} />
             </div>
           )
         })}
@@ -230,8 +237,8 @@ export function ChatConversation({
   )
 }
 
-function MessageRow({ m, mine, author, grouped, project, showProject, trades, members, onEdit, onDelete, onPhoto }: {
-  m: ChatMessage; mine: boolean; author: ChatMember | undefined; grouped: boolean
+function MessageRow({ m, mine, canDelete, author, grouped, project, showProject, trades, members, onEdit, onDelete, onPhoto }: {
+  m: ChatMessage; mine: boolean; canDelete: boolean; author: ChatMember | undefined; grouped: boolean
   project?: ChatProjectRef; showProject: boolean; trades: string[]; members: ChatMember[]
   onEdit: (body: string) => void; onDelete: () => void; onPhoto: (a: ChatAttachment) => void
 }) {
@@ -239,13 +246,18 @@ function MessageRow({ m, mine, author, grouped, project, showProject, trades, me
   const [draft, setDraft] = useState(m.body)
   const { segments } = useMemo(() => parseMentions(m.body, trades, members.map((x) => ({ id: x.id, name: x.name }))), [m.body, trades, members])
   const name = author?.name ?? 'Someone'
+  const askDelete = () => { if (confirm(m.kind === 'system' ? 'Delete this card from the chat?' : 'Delete this message? It is removed for everyone.')) onDelete() }
   if (m.kind === 'system' && m.event && !m.deleted) {
     return (
-      <div className="my-2 flex gap-2.5 px-2">
+      <div className="group my-2 flex gap-2.5 px-2">
         <div className="w-8 shrink-0" />
         <div className="min-w-0 max-w-2xl flex-1">
           <SystemCard event={m.event} actor={name} time={timeOf(m.createdAt)} projectId={m.projectId} />
         </div>
+        {canDelete && (
+          <button onClick={askDelete} aria-label="Delete card" title="Delete"
+            className="self-start rounded p-1 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 pointer-coarse:opacity-100"><Trash2 size={13} /></button>
+        )}
       </div>
     )
   }
@@ -301,10 +313,10 @@ function MessageRow({ m, mine, author, grouped, project, showProject, trades, me
           </>
         )}
       </div>
-      {mine && !m.deleted && !editing && (
+      {(mine || canDelete) && !m.deleted && !editing && (
         <span className="flex shrink-0 items-start gap-0.5 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100">
-          <button onClick={() => { setDraft(m.body); setEditing(true) }} className="rounded p-1 text-slate-300 hover:text-indigo-600" aria-label="Edit"><Pencil size={12} /></button>
-          <button onClick={() => { if (confirm('Remove this message?')) onDelete() }} className="rounded p-1 text-slate-300 hover:text-rose-600" aria-label="Remove"><Trash2 size={12} /></button>
+          {mine && m.body && <button onClick={() => { setDraft(m.body); setEditing(true) }} className="rounded p-1 text-slate-300 hover:text-indigo-600" aria-label="Edit" title="Edit"><Pencil size={12} /></button>}
+          {canDelete && <button onClick={askDelete} className="rounded p-1 text-slate-300 hover:bg-rose-50 hover:text-rose-600" aria-label="Delete" title="Delete"><Trash2 size={12} /></button>}
         </span>
       )}
     </div>

@@ -28,6 +28,7 @@ interface Props {
   members: ChatMember[]
   trades: string[]
   projects: ChatProjectRef[]
+  canModerate?: boolean
 }
 
 const KIND_ICON: Record<ChatChannel['kind'], React.ReactNode> = {
@@ -35,7 +36,7 @@ const KIND_ICON: Record<ChatChannel['kind'], React.ReactNode> = {
   project: <Hash size={13} />, direct: <User size={13} />,
 }
 
-export function ChatClient({ me, companyId, channels: initialChannels, initialChannelId, initialMessages, members, trades: initialTrades, projects }: Props) {
+export function ChatClient({ me, companyId, channels: initialChannels, initialChannelId, initialMessages, members, trades: initialTrades, projects, canModerate = false }: Props) {
   const router = useRouter()
   const [channels, setChannels] = useState(initialChannels)
   const [activeId, setActiveId] = useState(initialChannelId)
@@ -210,7 +211,7 @@ export function ChatClient({ me, companyId, channels: initialChannels, initialCh
               <div className="flex flex-1 items-center justify-center text-xs text-slate-400">Opening {channelLabel(active)}</div>
             ) : (
               <ChatConversation key={active.id} channel={active} me={me} companyId={companyId} members={members} trades={trades}
-                projects={projects} initialMessages={messages} projectTrade={activeProject?.trade ?? null} onActivity={onActivity} />
+                projects={projects} initialMessages={messages} projectTrade={activeProject?.trade ?? null} onActivity={onActivity} canModerate={canModerate} />
             )}
           </>
         )}

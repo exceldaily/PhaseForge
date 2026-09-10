@@ -175,8 +175,9 @@ export function ProjectBoardCard({
           )}
           <span className={cn('h-2 w-2 shrink-0 rounded-full', levelMeta.dotClassName)} />
           <Link href={detailHref} className="min-w-0 flex-1" data-card-action="true">
-            <p className="truncate text-xs font-semibold text-slate-900">
-              {project.job_number ? `${project.job_number} · ` : ''}{project.name}
+            <p className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-slate-900">
+              {project.job_number && <JobChip value={project.job_number} />}
+              <span className="truncate">{project.name}</span>
             </p>
             <p className="truncate text-[10px] text-slate-400">
               {slip > 0 ? `${slip}d behind` : 'On plan'}
@@ -220,9 +221,10 @@ export function ProjectBoardCard({
               </button>
             )}
             <Link href={detailHref} className="min-w-0 flex-1" data-card-action="true">
+              {project.job_number && <JobChip value={project.job_number} className="mb-1" />}
               <p className="line-clamp-2 text-sm font-semibold leading-5 text-slate-900">{project.name}</p>
               <p className="mt-0.5 truncate text-[11px] text-slate-400">
-                {[project.job_number, pmName && `PM ${pmName}`].filter(Boolean).join(' · ') || project.customer_name || ''}
+                {pmName ? `PM ${pmName}` : project.customer_name || ''}
               </p>
             </Link>
             <Badge className={cn('shrink-0 border text-[10px] font-semibold', levelMeta.pillClassName)}>
@@ -301,6 +303,7 @@ export function ProjectBoardCard({
                   Action today
                 </span>
               )}
+              {project.job_number && <JobChip value={project.job_number} />}
             </div>
 
             <h3 className="line-clamp-2 text-base font-semibold leading-6 text-slate-900">
@@ -592,5 +595,14 @@ export function ProjectBoardCard({
         </div>
       )}
     </div>
+  )
+}
+
+/** The job number, shown the same way on every card size. */
+function JobChip({ value, className }: { value: string; className?: string }) {
+  return (
+    <span title="Job number" className={cn('inline-flex shrink-0 items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-indigo-700', className)}>
+      Job# {value}
+    </span>
   )
 }

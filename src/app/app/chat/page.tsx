@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { canEditCompanyData } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/server'
 import { ChatClient, type ChatMember } from './ChatClient'
 import { companyTrades, ensureBaseChannels, ensureProjectChannel, listChannels, listMessages, markRead } from './actions'
@@ -11,7 +12,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data: me } = await supabase.from('profiles').select('company_id, full_name, trades').eq('id', user.id).single()
+  const { data: me } = await supabase.from('profiles').select('company_id, full_name, trades, role, ops_role').eq('id', user.id).single()
   if (!me?.company_id) redirect('/app/dashboard')
 
   await ensureBaseChannels()
@@ -47,6 +48,7 @@ export default async function ChatPage({ searchParams }: { searchParams: Promise
       members={members}
       trades={trades}
       projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, jobNumber: p.job_number, trade: p.trade }))}
+      canModerate={canEditCompanyData(me)}
     />
   )
 }
