@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { STANDARD_TRADES } from '@/lib/constants'
 import { parseMentions } from '@/lib/chat/mentions'
+import type { ChatEvent } from '@/lib/chat/systemEvents'
 
 export type ChannelKind = 'general' | 'updates' | 'trade' | 'project' | 'direct'
 
@@ -43,7 +44,9 @@ export interface ChatMessage {
   channelId: string
   authorId: string
   body: string
-  kind: 'message' | 'update'
+  kind: 'message' | 'update' | 'system'
+  /** For system posts: the structured card. */
+  event: ChatEvent | null
   projectId: string | null
   createdAt: string
   editedAt: string | null
@@ -146,7 +149,8 @@ function mapMessage(m: Record<string, unknown>): ChatMessage {
       width: a.width ?? null, height: a.height ?? null, url: null,
     })),
     id: m.id as string, channelId: m.channel_id as string, authorId: m.author_id as string,
-    body: m.deleted_at ? '' : (m.body as string), kind: (m.kind as 'message' | 'update') ?? 'message',
+    body: m.deleted_at ? '' : (m.body as string), kind: (m.kind as 'message' | 'update' | 'system') ?? 'message',
+    event: (m.event as ChatEvent | null) ?? null,
     projectId: (m.project_id as string | null) ?? null, createdAt: m.created_at as string,
     editedAt: (m.edited_at as string | null) ?? null, deleted: !!m.deleted_at,
   }

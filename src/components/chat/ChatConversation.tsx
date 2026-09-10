@@ -13,6 +13,8 @@ import { formatDate } from '@/lib/dates'
 import { createClient } from '@/lib/supabase/client'
 import { shrinkImage } from '@/lib/chat/shrinkImage'
 import { activeHandle, mentionCandidates, parseMentions } from '@/lib/chat/mentions'
+import type { ChatEvent } from '@/lib/chat/systemEvents'
+import { SystemCard } from './SystemCard'
 import {
   deleteMessage, editMessage, listMessages, markRead, sendMessage, signChatPhotos, uploadChatPhotos,
   type ChatAttachment, type ChatChannel, type ChatMessage,
@@ -51,7 +53,8 @@ export function messageFromRow(row: Record<string, unknown>): ChatMessage {
   const mentions = (row.mentions as { trades?: string[] } | null) ?? {}
   return {
     id: row.id as string, channelId: row.channel_id as string, authorId: row.author_id as string,
-    body: row.deleted_at ? '' : (row.body as string), kind: (row.kind as 'message' | 'update') ?? 'message',
+    body: row.deleted_at ? '' : (row.body as string), kind: (row.kind as 'message' | 'update' | 'system') ?? 'message',
+    event: (row.event as ChatEvent | null) ?? null,
     projectId: (row.project_id as string | null) ?? null, createdAt: row.created_at as string,
     editedAt: (row.edited_at as string | null) ?? null, deleted: !!row.deleted_at,
     trades: mentions.trades ?? [],
@@ -187,7 +190,7 @@ export function ChatConversation({
         {visible.map((m, i) => {
           const prev = visible[i - 1]
           const newDay = !prev || prev.createdAt.slice(0, 10) !== m.createdAt.slice(0, 10)
-          const grouped = !newDay && prev && prev.authorId === m.authorId && prev.kind === m.kind && (new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime()) < 5 * 60000
+          const grouped = !newDay && prev && m.kind !== 'system' && prev.kind !== 'system' && prev.authorId === m.authorId && prev.kind === m.kind && (new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime()) < 5 * 60000
           return (
             <div key={m.id}>
               {newDay && (
@@ -231,6 +234,16 @@ function MessageRow({ m, mine, author, grouped, project, showProject, trades, me
   const [draft, setDraft] = useState(m.body)
   const { segments } = useMemo(() => parseMentions(m.body, trades, members.map((x) => ({ id: x.id, name: x.name }))), [m.body, trades, members])
   const name = author?.name ?? 'Someone'
+  if (m.kind === 'system' && m.event && !m.deleted) {
+    return (
+      <div className="my-2 flex gap-2.5 px-2">
+        <div className="w-8 shrink-0" />
+        <div className="min-w-0 max-w-2xl flex-1">
+          <SystemCard event={m.event} actor={name} time={timeOf(m.createdAt)} projectId={m.projectId} />
+        </div>
+      </div>
+    )
+  }
   return (
     <div className={cn('group flex gap-2.5 rounded-lg px-2 hover:bg-white/70', grouped ? 'py-0.5' : 'mt-2 py-1')}>
       <div className="w-8 shrink-0">

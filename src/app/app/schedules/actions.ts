@@ -6,6 +6,8 @@ import { canUseSchedules } from '@/lib/constants'
 import { canEditCompanyData } from '@/lib/permissions'
 import { geocodeAddress } from '@/lib/travel/geocode'
 import { syncStaysForJob } from '@/lib/travel/syncStays'
+import { departmentChannel, postSystem, projectChannelId } from '@/lib/chat/systemPost'
+import { departmentLabel, type ScheduleEvent, type ScheduleJobCard } from '@/lib/chat/systemEvents'
 
 const PATH = '/app/schedules'
 
@@ -20,6 +22,83 @@ async function ctx() {
   const plan = (p.companies as { plan?: string } | null)?.plan
   if (!canUseSchedules(plan)) throw new Error('Schedules requires a paid plan')
   return { supabase, companyId: p.company_id, isManager }
+}
+
+const stripProject = (c: ScheduleJobCard & { projectId: string | null }): ScheduleJobCard =>
+  ({ title: c.title, jobNumber: c.jobNumber, url: c.url, days: c.days })
+
+/**
+ * Post a team's week to chat: the whole week goes to the department's space
+ * (REFRIGERATION to Refrigeration), and each job tied to a project, directly
+ * or by job number, also goes to that job's chat under the department's
+ * trade section.
+ */
+export async function postScheduleToChat(input: { superintendentId: string; weekStart: string }): Promise<{ error: string } | { ok: true; space: string; projects: number }> {
+  try {
+    const { supabase, companyId, isManager } = await ctx()
+    if (!isManager) return { error: 'Managers only' }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Not signed in' }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.weekStart)) return { error: 'Bad week' }
+
+    const [{ data: team }, { data: jobs }, { data: company }] = await Promise.all([
+      supabase.from('superintendents').select('name, division').eq('id', input.superintendentId).eq('company_id', companyId).single(),
+      supabase.from('schedule_jobs').select('id, title, job_number, project_id, sort_order')
+        .eq('company_id', companyId).eq('superintendent_id', input.superintendentId).eq('week_start', input.weekStart).order('sort_order'),
+      supabase.from('companies').select('schedule_job_url_template').eq('id', companyId).single(),
+    ])
+    if (!team) return { error: 'Team not found' }
+    if (!jobs?.length) return { error: 'Nothing is scheduled for this team that week.' }
+    const { data: assigns } = await supabase.from('schedule_assignments')
+      .select('schedule_job_id, day, techs, cell_entries').in('schedule_job_id', jobs.map((j) => j.id))
+
+    const template = (company?.schedule_job_url_template as string | null) ?? null
+    const dateOf = (d: number) => { const x = new Date(`${input.weekStart}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10) }
+    const cards: (ScheduleJobCard & { projectId: string | null })[] = jobs.map((j) => {
+      const rows = (assigns ?? []).filter((a) => a.schedule_job_id === j.id)
+      const days = Array.from({ length: 7 }, (_, d) => {
+        const r = rows.find((a) => a.day === d)
+        const names = [
+          ...((r?.techs as string[] | null) ?? []),
+          ...(((r?.cell_entries as { name: string; shift: string }[] | null) ?? []).map((e) => e.shift ? `${e.name} (${e.shift})` : e.name)),
+        ].map((n) => n.trim()).filter(Boolean)
+        return { date: dateOf(d), names: [...new Set(names)] }
+      }).filter((d) => d.names.length)
+      const num = j.job_number?.trim() || null
+      return { title: j.title, jobNumber: num, url: template && num ? template.replace('{job}', encodeURIComponent(num)) : null, days, projectId: j.project_id }
+    }).filter((c) => c.days.length)
+    if (!cards.length) return { error: 'Nobody is on this week yet.' }
+
+    const dept = await departmentChannel(supabase, companyId, user.id, team.division)
+    if (!dept) return { error: 'Could not find a chat space for this department.' }
+    const { data: prior } = await supabase.from('chat_messages').select('id').eq('channel_id', dept.id).eq('kind', 'system')
+      .contains('event', { type: 'schedule', team: team.name, weekStart: input.weekStart }).limit(1)
+    const event: ScheduleEvent = {
+      type: 'schedule', team: team.name, department: team.division, weekStart: input.weekStart,
+      jobs: cards.map(stripProject), updated: !!prior?.length,
+    }
+    await postSystem(supabase, { companyId, authorId: user.id, channelId: dept.id, event, trades: dept.trade ? [dept.trade] : [] })
+
+    // Jobs tied to a project also land in that job's chat.
+    const numbers = [...new Set(cards.filter((c) => !c.projectId && c.jobNumber).map((c) => c.jobNumber!))]
+    const { data: byNumber } = numbers.length
+      ? await supabase.from('projects').select('id, job_number').eq('company_id', companyId).in('job_number', numbers)
+      : { data: [] as { id: string; job_number: string | null }[] }
+    let projects = 0
+    for (const c of cards) {
+      const pid = c.projectId ?? byNumber?.find((p) => p.job_number === c.jobNumber)?.id ?? null
+      if (!pid) continue
+      const chan = await projectChannelId(supabase, companyId, user.id, pid)
+      if (!chan) continue
+      const card = stripProject(c)
+      await postSystem(supabase, {
+        companyId, authorId: user.id, channelId: chan, projectId: pid,
+        event: { ...event, jobs: [card] }, trades: dept.trade ? [dept.trade] : [],
+      })
+      projects++
+    }
+    return { ok: true, space: departmentLabel(team.division) ?? 'General', projects }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
 export async function addScheduleJob(input: {

@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import { coStage, CO_STAGE_MAP } from '@/lib/changeOrders'
 import { canEditCompanyData } from '@/lib/permissions'
+import { postToProject } from '@/lib/chat/systemPost'
 
 const PATH = '/app/change-orders'
 
@@ -163,6 +164,9 @@ export async function createChangeOrder(input: {
     }
 
     await logEvent(supabase, companyId, row.id, userId, { type: 'created', newValue: label, note: title })
+    await postToProject(supabase, companyId, userId, project.id, {
+      type: 'change_order', action: 'created', coId: row.id, label, title, to: 'Potential Change', amount: requested,
+    })
     if (input.ownerId && input.ownerId !== userId) {
       await logEvent(supabase, companyId, row.id, userId, { type: 'owner_change', newValue: input.ownerId })
       await notifyUser(supabase, companyId, input.ownerId, `${label} assigned to you`, title, `/app/change-orders/${row.id}`)
@@ -283,6 +287,13 @@ export async function changeStage(coId: string, toStage: string, extra?: {
       type: 'stage_change', field: 'stage',
       oldValue: coStage(co.stage).label, newValue: stageDef.label, note: extra?.note ?? null,
     })
+    if (co.project_id) {
+      const amt = patch.approved_amount ?? co.approved_amount ?? co.current_amount ?? co.requested_amount
+      await postToProject(supabase, companyId, userId, co.project_id as string, {
+        type: 'change_order', action: 'stage', coId, label: co.co_label ?? `CO ${co.co_number}`, title: co.title,
+        from: coStage(co.stage).label, to: stageDef.label, amount: amt == null ? null : Number(amt),
+      })
+    }
     if (requires.includes('approved_amount') && patch.approved_amount != null) {
       await logEvent(supabase, companyId, coId, userId, {
         type: 'approval', field: 'approved_amount',

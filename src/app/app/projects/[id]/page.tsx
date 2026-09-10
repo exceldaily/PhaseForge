@@ -122,7 +122,7 @@ export default async function ProjectDetailPage({
     companyTrades(),
     supabase.from('profiles').select('id, full_name, avatar_url, trades, job_title').eq('company_id', profile.company_id).eq('is_active', true),
   ])
-  const chatLatest = [...chatMessages].reverse().filter((m) => !m.deleted).slice(0, 3).map((m) => ({ body: m.body || (m.attachments.length ? `${m.attachments.length} photo${m.attachments.length === 1 ? '' : 's'}` : ''), author_id: m.authorId, created_at: m.createdAt, kind: m.kind }))
+  const chatLatest = [...chatMessages].reverse().filter((m) => !m.deleted).slice(0, 3).map((m) => ({ body: (m.body || (m.attachments.length ? `${m.attachments.length} photo${m.attachments.length === 1 ? '' : 's'}` : '')).split('\n')[0], author_id: m.authorId, created_at: m.createdAt, kind: m.kind }))
   const [{ data: projectCos }, { count: planSheetCount }, { count: planSetCount }] = await Promise.all([
     supabase.from('change_orders')
       .select('id, co_number, title, stage, current_amount, approved_amount').eq('project_id', id)

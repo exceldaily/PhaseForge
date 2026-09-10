@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { isMissingLinksColumnError, isMissingShowPunchColumnError } from '@/lib/projectAudit'
 import { logger } from '@/lib/logger'
 import { logActivity } from '@/lib/activity/log'
+import { postToProject } from '@/lib/chat/systemPost'
 
 // ── Phase creation ────────────────────────────────────────────────────────
 
@@ -375,6 +376,7 @@ export async function updateProjectBoard(projectId: string, boardId: string | nu
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
+    const { data: before } = await supabase.from('projects').select('name, company_id, board_id, board_column_id').eq('id', projectId).single()
     const { error } = await supabase
       .from('projects')
       .update({
@@ -386,6 +388,24 @@ export async function updateProjectBoard(projectId: string, boardId: string | nu
       .eq('id', projectId)
 
     if (error) throw error
+
+    // Board and column changes show up in the job's chat.
+    if (before && (before.board_id !== boardId || before.board_column_id !== boardColumnId)) {
+      const colIds = [before.board_column_id, boardColumnId].filter((x): x is string => !!x)
+      const boardIds = [before.board_id, boardId].filter((x): x is string => !!x)
+      const [{ data: cols }, { data: boards }] = await Promise.all([
+        colIds.length ? supabase.from('board_columns').select('id, name').in('id', colIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        boardIds.length ? supabase.from('boards').select('id, name').in('id', boardIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      ])
+      const colName = (id: string | null) => cols?.find((c) => c.id === id)?.name ?? null
+      const boardName = (id: string | null) => boards?.find((b) => b.id === id)?.name ?? null
+      await postToProject(supabase, before.company_id as string, user.id, projectId, {
+        type: 'board_move', projectName: before.name,
+        board: boardId ? boardName(boardId) : boardName(before.board_id),
+        from: before.board_id === boardId ? colName(before.board_column_id) : null,
+        to: boardId ? (colName(boardColumnId) ?? 'the board') : null,
+      })
+    }
 
     revalidatePath(`/app/projects`)
     revalidatePath(`/app/projects/${projectId}`)

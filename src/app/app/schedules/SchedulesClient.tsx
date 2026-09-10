@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble, MapPin, Users, Eraser, Undo2 } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble, MapPin, Users, Eraser, Undo2, MessageSquare } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, renameRosterMember, updateScheduleJob,
-  setDepartmentStyle, reorderScheduleJobs, setDirectoryAddress, type ScheduleStyle,
+  setDepartmentStyle, reorderScheduleJobs, setDirectoryAddress, postScheduleToChat, type ScheduleStyle,
 } from './actions'
 import { GridSchedule, buildGridCopy, type GridCell } from './GridSchedule'
 import { useRowReorder } from './useRowReorder'
@@ -133,6 +133,16 @@ export function SchedulesClient({
       const res = await fn()
       if (res && 'error' in res && res.error) setError(res.error)
       else { if (okMsg) setMsg(okMsg); router.refresh() }
+    })
+  }
+
+  const postToChat = () => {
+    if (!teamId) return
+    setError(null); setMsg(null)
+    startTransition(async () => {
+      const res = await postScheduleToChat({ superintendentId: teamId, weekStart })
+      if ('error' in res) { setError(res.error); return }
+      setMsg(`Posted to the ${res.space} chat${res.projects ? ` and ${res.projects} job chat${res.projects === 1 ? '' : 's'}` : ''}.`)
     })
   }
 
@@ -453,6 +463,13 @@ export function SchedulesClient({
               className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <BedDouble size={13} /> <span className="whitespace-nowrap">Lodging</span>
             </a>
+            {canEdit && (
+              <button data-help="sched-post-chat" onClick={postToChat} disabled={pending || !teamId || jobs.length === 0}
+                title="Post this team's week, with dates and names, to the department's chat"
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300">
+                <MessageSquare size={13} /> <span className="whitespace-nowrap">Post to chat</span>
+              </button>
+            )}
             <button data-help="sched-copy" onClick={copyForEmail} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <ClipboardCopy size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Copy</span><span className="hidden sm:inline">Copy for email</span></span>
             </button>

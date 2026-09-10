@@ -8,6 +8,7 @@ import { BOARD_COLUMN_MIN, BOARD_COLUMN_MAX, DEFAULT_BOARD_COLUMNS, KANBAN_COLUM
 import { validateHexColor } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import { EDITOR_ROLES } from '@/lib/permissions'
+import { postToProject } from '@/lib/chat/systemPost'
 
 // Supabase/Postgres errors are plain objects, not Error instances, so a bare
 // `err.message` check swallows them into a generic fallback. Pull out whatever
@@ -333,12 +334,24 @@ export async function reorderBoardColumns(boardId: string, orderedIds: string[])
 
 export async function moveProjectToColumn(projectId: string, columnId: string) {
   try {
-    const { supabase, userId } = await requireRole(['owner', 'admin', 'manager'])
+    const { supabase, userId, companyId } = await requireRole(['owner', 'admin', 'manager'])
+    const { data: before } = await supabase.from('projects').select('name, board_id, board_column_id').eq('id', projectId).single()
     const { error } = await supabase
       .from('projects')
       .update({ board_column_id: columnId, updated_at: new Date().toISOString(), updated_by: userId })
       .eq('id', projectId)
     if (error) throw error
+    // The move shows up in the job's chat.
+    if (before && before.board_column_id !== columnId) {
+      const ids = [before.board_column_id, columnId].filter((x): x is string => !!x)
+      const { data: cols } = await supabase.from('board_columns').select('id, name, board_id').in('id', ids)
+      const colName = (id: string | null) => cols?.find((c) => c.id === id)?.name ?? null
+      const boardId = cols?.find((c) => c.id === columnId)?.board_id ?? before.board_id
+      const { data: board } = boardId ? await supabase.from('boards').select('name').eq('id', boardId).single() : { data: null }
+      await postToProject(supabase, companyId, userId, projectId, {
+        type: 'board_move', projectName: before.name, board: board?.name ?? null, from: colName(before.board_column_id), to: colName(columnId),
+      })
+    }
     return { success: true }
   } catch (err) {
     logger.error('moveProjectToColumn', err)
