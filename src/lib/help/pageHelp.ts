@@ -72,6 +72,7 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'project-hub', label: 'Tiles', text: 'One box per part of the job with a live preview. Click a box to open that section; Hub in the strip brings you back.' },
       { key: 'hub-schedule', label: 'Schedule', text: 'A small timeline of the phases with today marked. Click it for the full Gantt.' },
       { key: 'hub-health', label: 'Command Center', text: 'Health score and the top things needing eyes, with the full breakdown one click away.' },
+      { key: 'hub-chat', label: 'Job chat', text: 'The chat space for this job, with the last few messages. Opens Chat on this project.' },
       { key: 'hub-details', label: 'Project details', text: 'Every field on the project in one list: customer, job number, address with a map link, dates, people, permit, tags, and notes.' },
       { key: 'project-tabs', label: 'Sections', text: 'Once you are inside a section, this strip switches between them. Hub is the first one.' },
     ],
@@ -107,6 +108,17 @@ export const PAGE_HELP: PageHelp[] = [
     match: /^\/app\/boards$/,
     title: 'Boards',
     sectionIds: ['boards'],
+  },
+  {
+    match: /^\/app\/chat/,
+    title: 'Chat',
+    sectionIds: ['chat'],
+    pins: [
+      { key: 'chat-spaces', label: 'Spaces', text: 'General and Project updates for the whole company, one space per trade, one per project, and direct messages. The + next to a group starts a new one.' },
+      { key: 'chat-my-trades', label: 'My trades', text: 'Pick the trades you belong to. When someone types @Refrigeration, everyone with that trade picked gets a notification.' },
+      { key: 'chat-composer', label: 'Message box', text: 'Type @ to ping a trade, a person, or everyone. Enter sends, Shift+Enter starts a new line.' },
+      { key: 'chat-update', label: 'Project update', text: 'In a project space, tick this and the message is also posted to the company-wide Project updates feed.' },
+    ],
   },
   {
     match: /^\/app\/employees/,

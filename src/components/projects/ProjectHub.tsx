@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import {
   Activity as ActivityIcon, ArrowUpRight, CheckSquare, ClipboardList, FileDiff, GanttChartSquare,
-  LayoutDashboard, Map, MapPin, Paperclip,
+  LayoutDashboard, Map, MapPin, MessageSquare, Paperclip,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
@@ -38,6 +38,7 @@ interface ProjectHubProps {
   changeOrders: HubChangeOrder[]
   planSetCount: number
   planSheetCount: number
+  chat: { body: string; authorId: string; createdAt: string; kind: string }[]
   commandCenter: CommandCenterData
   onNavigate: (tab: HubTab) => void
 }
@@ -87,7 +88,7 @@ function Tile({ title, icon, count, hint, onClick, href, className, children, he
 }
 
 export function ProjectHub({
-  project, members, punchItems, attachments, activityLogs, changeOrders, planSetCount, planSheetCount, commandCenter, onNavigate,
+  project, members, punchItems, attachments, activityLogs, changeOrders, planSetCount, planSheetCount, chat, commandCenter, onNavigate,
 }: ProjectHubProps) {
   const phases = project.phases
   const memberMap = Object.fromEntries(members.map((m) => [m.id, m.full_name]))
@@ -201,6 +202,16 @@ export function ProjectHub({
         <Tile title="Files" icon={<Paperclip size={16} />} count={attachments.length} onClick={() => onNavigate('files')}
           hint={attachments.length ? `Latest ${relTime(attachments[0].created_at)}` : 'Nothing attached'} helpKey="hub-files">
           {attachments.slice(0, 3).map((a) => <p key={a.id} className="truncate text-xs text-slate-600">{a.file_name}</p>)}
+        </Tile>
+
+        <Tile title="Job chat" icon={<MessageSquare size={16} />} href={`/app/chat?project=${project.id}`}
+          hint={chat.length ? `Last message ${relTime(chat[0].createdAt)}` : 'Open a space for this job'} helpKey="hub-chat">
+          {chat.slice(0, 3).map((c, i) => (
+            <p key={i} className="truncate text-xs text-slate-600">
+              {c.kind === 'update' && <span className="mr-1 rounded bg-amber-100 px-1 text-[9px] font-bold uppercase text-amber-700">update</span>}
+              <span className="font-medium text-slate-700">{memberMap[c.authorId] ?? 'Someone'}</span> {c.body}
+            </p>
+          ))}
         </Tile>
 
         <Tile title="Activity" icon={<ActivityIcon size={16} />} onClick={() => onNavigate('activity')}

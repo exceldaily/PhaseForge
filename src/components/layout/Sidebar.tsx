@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BedDouble,
+import { BedDouble, MessageSquare,
   LayoutDashboard, FolderKanban, GanttChartSquare,
   Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { GantticLogo } from '@/components/branding/GantticLogo'
+import { getUnreadTotal } from '@/app/app/chat/actions'
 
 interface NavItem {
   href: string
@@ -43,6 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: 'work',
     label: 'Work',
     items: [
+      { href: '/app/chat',     label: 'Chat',     icon: MessageSquare },
       { href: '/app/projects', label: 'Projects', icon: FolderKanban },
       { href: '/app/change-orders', label: 'Change Orders', icon: FileDiff },
       { href: '/app/dispatch', label: 'Dispatch', icon: Radio, gate: 'dispatch' },
@@ -115,6 +117,15 @@ export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDis
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [closedGroups, setClosedGroups] = useState<string[]>([])
+  // Unread chat, refreshed every minute and whenever the route changes.
+  const [chatUnread, setChatUnread] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const load = () => { void getUnreadTotal().then((n) => { if (alive) setChatUnread(n) }) }
+    load()
+    const t = setInterval(load, 60000)
+    return () => { alive = false; clearInterval(t) }
+  }, [pathname])
 
   // Restore user's group collapse preferences after mount. Must run in an
   // effect (not a lazy initializer) so the server render and first client
@@ -236,6 +247,9 @@ export function Sidebar({ isSuperAdmin = false, canUseReports = false, canUseDis
                   >
                     <Icon size={18} className="flex-shrink-0" />
                     {!collapsed && label}
+                    {href === '/app/chat' && chatUnread > 0 && (
+                      <span className={cn('rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white', collapsed ? 'absolute right-1 top-1' : 'ml-auto')}>{chatUnread > 99 ? '99+' : chatUnread}</span>
+                    )}
                   </Link>
                 )
               })}

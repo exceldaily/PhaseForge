@@ -11,7 +11,7 @@
 import {
   BadgeDollarSign, BedDouble, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, ClipboardList,
   Contact, FileDiff, FolderKanban, GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks,
-  Map, Radio, ShieldAlert, Upload, UserCircle, UsersRound,
+  Map, MessageSquare, Radio, ShieldAlert, Upload, UserCircle, UsersRound,
 } from 'lucide-react'
 
 export type GuideSection = {
@@ -251,6 +251,20 @@ export const SECTIONS: GuideSection[] = [
       { heading: 'Department schedule style', text: 'Each department can use one of two layouts, chosen from the style dropdown next to the department selector (managers only). "Crew grid" is the default, one block per job with day rows and tap-to-assign crew chips. "Startup grid" is a jobs-down / days-across table where each cell holds one or more people with a shift note (Days, Nights, Travel Day, As needed), ideal for startup crews that move person-by-person rather than as a fixed crew. On the Startup grid, tap a name already in a cell to change the person or shift (Replace) or pull them off that day (Remove); the ✕ beside each name works on touch too. The shift-note list (Days, Nights, Travel Day, As needed) is yours to edit: open any cell picker and hit “Add or remove shift notes” to add your own (Swing, On call, whatever your crews say) or delete ones you never use. The list belongs to the department, so every team under it sees the same choices, and anyone already scheduled keeps the note they were given. Both styles copy-for-email and print. Set it once per department and every team in it uses that layout.' },
       { heading: 'On a phone or tablet', text: 'Everything above works on the phone and installed app: the ✕ beside a name stays visible (no hover needed), tap targets are sized for thumbs, and the person picker lists your whole crew as tap chips instead of relying on a typing dropdown. The name editor docks to the top of the screen so the keyboard never covers it, and the Job list opens from the toolbar with a zoom control if the week is too wide. Press-and-drag to copy a cell across days stays a mouse gesture, so dragging a finger scrolls the schedule the way you would expect.' },
       { heading: 'Who can edit', text: 'Owners, admins, managers, and dispatchers can edit schedules; everyone else sees a read-only view. Schedules is available on Individual, Pro, and Business plans.' },
+    ],
+  },
+  {
+    id: 'chat',
+    icon: MessageSquare,
+    title: 'Chat',
+    summary: 'Trade spaces, project spaces, direct messages, and a company-wide Project updates feed. @Trade pings the whole crew.',
+    href: '/app/chat',
+    hrefLabel: 'Open Chat',
+    items: [
+      { heading: 'Spaces', text: 'Chat is laid out like Google Chat: spaces down the left, the conversation on the right. Every company gets General (everyone) and Project updates (the feed, see below). Under Trades there is one space per trade, created automatically for any trade your projects use and addable with the + (pick a standard trade or type your own). Under Projects, each job can have its own space; open one from the + here or from the Job chat box on a project hub. Direct messages are one-to-one. Unread counts show beside each space and on Chat in the sidebar.' },
+      { heading: 'Pinging a trade', text: 'Type @ in the message box and pick a trade, a person, or everyone; the list narrows as you type and Tab or Enter fills it in. @Refrigeration reaches everyone who has Refrigeration picked under My trades at the bottom of the space list, wherever you send it from, and they get a notification that links straight to the message. @Name pings one person (first names work when only one person has it), and @everyone pings the whole company. Mentions are highlighted in the message so it is obvious who was called.' },
+      { heading: 'Project updates', text: 'In a project space, tick Post as project update under the message box and the message is posted there and copied into the company-wide Project updates feed with the project name on it, so anyone can read every job\u2019s progress in one place without opening each project. Updates are marked with an amber tag wherever they appear, and the Job chat box on a project hub shows the latest few messages.' },
+      { heading: 'Live and on the phone', text: 'Messages arrive as they are sent, no refresh needed, and the page also checks every 20 seconds as a backstop. Your own messages can be edited or removed from the pencil and trash that appear on hover (always visible on a phone). On a phone the space list and the conversation take turns filling the screen; the arrow at the top of a conversation goes back to the list.' },
     ],
   },
   {

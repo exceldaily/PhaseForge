@@ -112,6 +112,10 @@ export default async function ProjectDetailPage({
 
   // Change-order history lives in co_events (its own single write path);
   // UNION it into the timeline feed at read time rather than double-writing.
+  const { data: chatChannel } = await supabase.from('chat_channels').select('id').eq('project_id', id).eq('kind', 'project').maybeSingle()
+  const { data: chatLatest } = chatChannel
+    ? await supabase.from('chat_messages').select('body, author_id, created_at, kind').eq('channel_id', chatChannel.id).is('deleted_at', null).order('created_at', { ascending: false }).limit(3)
+    : { data: [] as { body: string; author_id: string; created_at: string; kind: string }[] }
   const [{ data: projectCos }, { count: planSheetCount }, { count: planSetCount }] = await Promise.all([
     supabase.from('change_orders')
       .select('id, co_number, title, stage, current_amount, approved_amount').eq('project_id', id)
@@ -180,6 +184,7 @@ export default async function ProjectDetailPage({
         })),
         planSheetCount: planSheetCount ?? 0,
         planSetCount: planSetCount ?? 0,
+        chat: (chatLatest ?? []).map((m) => ({ body: m.body, authorId: m.author_id, createdAt: m.created_at, kind: m.kind })),
       }}
       initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'hub' | 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files') : 'hub'}
     />

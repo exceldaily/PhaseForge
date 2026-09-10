@@ -45,12 +45,23 @@ export function MiniGantt({ phases, maxRows = 8, labels = true, className, onOpe
 
   // Month ticks along the top.
   const ticks: { pct: number; label: string }[] = []
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
   const end = parseISO(maxEnd)
-  while (cursor <= end) {
-    const iso = cursor.toISOString().slice(0, 10)
-    if (iso >= minStart) ticks.push({ pct: pct(iso), label: formatDate(cursor, total > 200 ? 'MMM yy' : 'MMM') })
-    cursor.setMonth(cursor.getMonth() + 1)
+  if (total <= 70) {
+    // Short project: a tick every week.
+    const cursor = new Date(start)
+    cursor.setDate(cursor.getDate() - cursor.getDay())
+    while (cursor <= end) {
+      const iso = cursor.toISOString().slice(0, 10)
+      if (iso >= minStart) ticks.push({ pct: pct(iso), label: formatDate(cursor, 'MMM d') })
+      cursor.setDate(cursor.getDate() + 7)
+    }
+  } else {
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    while (cursor <= end) {
+      const iso = cursor.toISOString().slice(0, 10)
+      if (iso >= minStart) ticks.push({ pct: pct(iso), label: formatDate(cursor, total > 200 ? 'MMM yy' : 'MMM') })
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
   }
   if (!ticks.length || ticks[0].pct > 8) ticks.unshift({ pct: 0, label: formatDate(start, 'MMM d') })
 
@@ -72,6 +83,11 @@ export function MiniGantt({ phases, maxRows = 8, labels = true, className, onOpe
           const left = pct(p.start_date)
           const width = Math.max(1.5, pct(p.end_date) - left + (100 / total))
           const done = Math.min(100, Math.max(0, p.percent_complete ?? (p.status === 'completed' ? 100 : 0)))
+          const sameDay = p.start_date === p.end_date
+          const dates = sameDay ? formatDate(p.start_date, 'MMM d') : `${formatDate(p.start_date, 'MMM d')} to ${formatDate(p.end_date, 'MMM d')}`
+          // Dates sit just past the bar, or just before it when the bar runs
+          // to the right edge.
+          const datesRight = left + width < 72
           return (
             <div key={p.id} className="flex items-center gap-2">
               {labels && (
@@ -84,6 +100,10 @@ export function MiniGantt({ phases, maxRows = 8, labels = true, className, onOpe
                   title={`${p.name}: ${formatDate(p.start_date, 'MMM d')} to ${formatDate(p.end_date, 'MMM d')}, ${done}% done`}>
                   {done > 0 && done < 100 && <div className="h-full bg-white/30" style={{ width: `${done}%` }} />}
                 </div>
+                <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[10px] leading-none text-slate-500"
+                  style={datesRight ? { left: `calc(${left + width}% + 6px)` } : { right: `calc(${100 - left}% + 6px)` }}>
+                  {dates}
+                </span>
               </div>
             </div>
           )

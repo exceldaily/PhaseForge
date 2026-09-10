@@ -38,7 +38,7 @@ interface ProjectDetailShellProps {
   canEdit: boolean
   canPrint: boolean
   commandCenter: CommandCenterData
-  hub: { changeOrders: HubChangeOrder[]; planSheetCount: number; planSetCount: number }
+  hub: { changeOrders: HubChangeOrder[]; planSheetCount: number; planSetCount: number; chat: { body: string; authorId: string; createdAt: string; kind: string }[] }
   initialTab?: Tab
 }
 
@@ -226,6 +226,7 @@ export function ProjectDetailShell({
             changeOrders={hub.changeOrders}
             planSheetCount={hub.planSheetCount}
             planSetCount={hub.planSetCount}
+            chat={hub.chat}
             commandCenter={commandCenter}
             onNavigate={(tab) => setActiveTab(tab)}
           />
