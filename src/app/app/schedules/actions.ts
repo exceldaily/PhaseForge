@@ -101,14 +101,27 @@ export async function postScheduleToChat(input: { superintendentId: string; week
   } catch (e) { return { error: e instanceof Error ? e.message : 'Failed' } }
 }
 
+/** The project a schedule job belongs to, found by its job number. */
+async function projectForJobNumber(supabase: Awaited<ReturnType<typeof createClient>>, companyId: string, jobNumber: string | null | undefined): Promise<string | null> {
+  const num = jobNumber?.trim()
+  if (!num) return null
+  const { data } = await supabase.from('projects').select('id, name').eq('company_id', companyId).eq('job_number', num).eq('is_archived', false)
+  if (!data?.length) return null
+  // Duplicates share a number; the fuller entry wins, same rule as the backfill.
+  return [...data].sort((a, b) => b.name.length - a.name.length)[0].id as string
+}
+
 export async function addScheduleJob(input: {
   superintendentId: string; weekStart: string; title: string
   jobNumber?: string; shiftLabel?: string; sortOrder: number
+  /** Set when the job comes off a board project; otherwise found by job number. */
+  projectId?: string | null
 }) {
   try {
     const { supabase, companyId, isManager } = await ctx()
     if (!isManager) return { error: 'Managers only' }
     if (!input.title.trim()) return { error: 'Job name is required' }
+    const projectId = input.projectId ?? await projectForJobNumber(supabase, companyId, input.jobNumber)
     const { data, error } = await supabase.from('schedule_jobs').insert({
       company_id: companyId,
       superintendent_id: input.superintendentId,
@@ -117,6 +130,7 @@ export async function addScheduleJob(input: {
       job_number: input.jobNumber?.trim() || null,
       shift_label: input.shiftLabel?.trim() || null,
       sort_order: input.sortOrder,
+      project_id: projectId,
     }).select('id').single()
     if (error) return { error: error.message }
     revalidatePath(PATH)
@@ -130,10 +144,13 @@ export async function updateScheduleJob(id: string, patch: {
   try {
     const { supabase, companyId, isManager } = await ctx()
     if (!isManager) return { error: 'Managers only' }
+    // A changed job number re-links the job to whichever project carries it.
+    const relink = patch.jobNumber !== undefined ? { project_id: await projectForJobNumber(supabase, companyId, patch.jobNumber) } : {}
     const { error } = await supabase.from('schedule_jobs').update({
       ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
       ...(patch.jobNumber !== undefined ? { job_number: patch.jobNumber?.trim() || null } : {}),
       ...(patch.shiftLabel !== undefined ? { shift_label: patch.shiftLabel?.trim() || null } : {}),
+      ...relink,
     }).eq('id', id).eq('company_id', companyId)
     if (error) return { error: error.message }
     // No revalidatePath: fires on every debounced keystroke save — the client

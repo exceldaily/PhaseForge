@@ -156,6 +156,7 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'sched-week', label: 'Week', text: 'Step through weeks. Copy last week clones the previous one so you only edit what changed.' },
       { key: 'sched-roster', label: 'Crew', text: 'Type a name to add someone; names from the Employees page are suggested as you type. Tap a name to rename or swap them out and every day they are on follows.' },
       { key: 'sched-from-employees', label: 'Add from employees', text: 'Drops every employee on this team who is not on the crew list yet onto it in one go.' },
+      { key: 'sched-board-project', label: 'On a board', text: 'This job is a project on one of your boards. Every board project shows here until its card reaches a closed or closeout column.' },
       { key: 'sched-job-address', label: 'Job address', text: 'The pin beside each project sets its address. Green means it is on the map and drive times can use it.' },
       { key: 'sched-erase', label: 'Eraser', text: 'Flip it on and the same taps and drags take people off days instead of putting them on.' },
       { key: 'sched-undo', label: 'Undo', text: 'Puts back the last tap or drag on this job. Ctrl+Z does the same.' },

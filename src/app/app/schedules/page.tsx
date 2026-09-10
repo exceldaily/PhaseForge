@@ -32,7 +32,7 @@ export default async function SchedulesPage({ searchParams }: {
   if (!profile?.company_id) redirect('/app/dashboard')
   const canEdit = canEditCompanyData(profile)
 
-  const [{ data: sups }, { data: company }, { data: directory }, { data: deptSettings }, { data: employees }] = await Promise.all([
+  const [{ data: sups }, { data: company }, { data: directory }, { data: deptSettings }, { data: employees }, { data: onBoards }] = await Promise.all([
     supabase.from('superintendents').select('id, name, roster, division')
       .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
     supabase.from('companies').select('schedule_job_url_template, plan').eq('id', profile.company_id).single(),
@@ -42,7 +42,23 @@ export default async function SchedulesPage({ searchParams }: {
       .eq('company_id', profile.company_id),
     supabase.from('employees').select('id, name, schedule_name, superintendent_id')
       .eq('company_id', profile.company_id).eq('is_active', true).order('name'),
+    supabase.from('projects').select('id, name, job_number, status, board_id, board_column_id')
+      .eq('company_id', profile.company_id).eq('is_archived', false).not('board_column_id', 'is', null),
   ])
+  // Every project sitting on a board shows in the job list, unless its column
+  // (or its status) says it is closed or in closeout.
+  const colIds = [...new Set((onBoards ?? []).map((p) => p.board_column_id as string))]
+  const boardIds = [...new Set((onBoards ?? []).map((p) => p.board_id as string).filter(Boolean))]
+  const [{ data: cols }, { data: boardRows }] = await Promise.all([
+    colIds.length ? supabase.from('board_columns').select('id, name, is_done').in('id', colIds) : Promise.resolve({ data: [] as { id: string; name: string; is_done: boolean }[] }),
+    boardIds.length ? supabase.from('boards').select('id, name').in('id', boardIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  ])
+  const CLOSED = /\bclos(e|ed|ing)\b|close ?out/i
+  const boardProjects = (onBoards ?? []).flatMap((p) => {
+    const col = cols?.find((c) => c.id === p.board_column_id)
+    if (!col || col.is_done || CLOSED.test(col.name) || ['closed', 'closeout'].includes(String(p.status))) return []
+    return [{ id: p.id as string, name: p.name as string, jobNumber: (p.job_number as string | null) || null, column: col.name, board: boardRows?.find((b) => b.id === p.board_id)?.name ?? null }]
+  })
 
   if (!canUseSchedules(company?.plan)) {
     return (
@@ -131,6 +147,7 @@ export default async function SchedulesPage({ searchParams }: {
       canEdit={canEdit}
       jobUrlTemplate={jobUrlTemplate}
       directory={(directory ?? []).map((d) => ({ ...d, located: d.latitude !== null }))}
+      boardProjects={boardProjects}
       employees={(employees ?? []).map((e) => ({
         id: e.id, name: e.name, superintendentId: e.superintendent_id,
         scheduleName: (e.schedule_name as string | null) ?? String(e.name).split(/\s+/)[0],

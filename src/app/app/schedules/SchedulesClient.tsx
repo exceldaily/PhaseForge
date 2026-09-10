@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble, MapPin, Users, Eraser, Undo2, MessageSquare } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Plus, Printer, Trash2, ClipboardCopy, X, UserPlus, ListTree, ZoomIn, ZoomOut, GripVertical, BedDouble, MapPin, Users, Eraser, Undo2, MessageSquare, Layers } from 'lucide-react'
 import {
   addDirectoryProject, addScheduleJob, addTeam, copyWeek, deleteDirectoryProject,
   deleteScheduleJob, deleteTeam, setDayTechs, setWeekTech, updateRoster, renameRosterMember, updateScheduleJob,
@@ -17,7 +17,16 @@ interface Job {
   cells?: Record<number, GridCell[]>
 }
 interface Team { id: string; name: string; roster: string[]; division: string | null }
-interface DirEntry { id: string; title: string; job_number: string | null; division: string | null; address?: string | null; located?: boolean }
+interface DirEntry {
+  id: string; title: string; job_number: string | null; division: string | null; address?: string | null; located?: boolean
+  /** Set when the entry is (or matches) a project on a board. */
+  projectId?: string | null
+  board?: { board: string | null; column: string } | null
+  /** Board-only entry: not in the saved job list, so no address pin or delete. */
+  fromBoard?: boolean
+}
+/** A project on a board that is not closed or in closeout. */
+interface BoardProjectRef { id: string; name: string; jobNumber: string | null; column: string; board: string | null }
 /** From the Employees page: the short name each person goes by on the schedule. */
 interface EmployeeRef { id: string; name: string; scheduleName: string; superintendentId: string | null }
 
@@ -45,7 +54,7 @@ export function SchedulesClient({
   teams, teamId, weekStart, jobs, canEdit, jobUrlTemplate = null, directory = [],
   division = '', divisions = [], hasAnyTeams = true, allWeek = [],
   scheduleStyle = 'crew', shiftOptions = ['Days', 'Nights', 'Travel Day', 'As needed'], shiftColors = {},
-  employees = [],
+  employees = [], boardProjects = [],
 }: {
   teams: Team[]; teamId: string | null; weekStart: string; jobs: Job[]; canEdit: boolean
   jobUrlTemplate?: string | null; directory?: DirEntry[]
@@ -53,6 +62,7 @@ export function SchedulesClient({
   allWeek?: WeekTeam[]
   scheduleStyle?: ScheduleStyle; shiftOptions?: string[]; shiftColors?: Record<string, string>
   employees?: EmployeeRef[]
+  boardProjects?: BoardProjectRef[]
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -101,9 +111,21 @@ export function SchedulesClient({
   // The sidebar can "peek" at another department's project list without leaving
   // the current team's week (cycle button). Projects tagged '*' (All) show in
   // every department's list, so a job can be shared by General, Startup, etc.
-  const dirEntries = peekDivision === '__all__'
+  const savedEntries = peekDivision === '__all__'
     ? directory
     : directory.filter((p) => (p.division ?? '') === peekDivision || p.division === '*')
+  // Board projects join the list in every department. One already in the
+  // saved list (same job number) just gets the board tag instead of a twin.
+  const normTitle = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const dirEntries: DirEntry[] = [
+    ...savedEntries.map((d) => {
+      const bp = boardProjects.find((b) => (b.jobNumber && d.job_number && b.jobNumber === d.job_number.trim()) || normTitle(b.name) === normTitle(d.title))
+      return bp ? { ...d, projectId: bp.id, board: { board: bp.board, column: bp.column } } : d
+    }),
+    ...boardProjects
+      .filter((b) => !savedEntries.some((d) => (b.jobNumber && d.job_number && b.jobNumber === d.job_number.trim()) || normTitle(b.name) === normTitle(d.title)))
+      .map((b) => ({ id: `board:${b.id}`, title: b.name, job_number: b.jobNumber, division: '*', projectId: b.id, board: { board: b.board, column: b.column }, fromBoard: true })),
+  ].sort((a, b) => a.title.localeCompare(b.title))
   const cyclePeek = (dir: 1 | -1) => {
     if (divisions.length < 2) return
     const i = divisions.indexOf(peekDivision)
@@ -588,7 +610,7 @@ export function SchedulesClient({
                     title={canEdit ? 'Add to this week' : undefined}
                     onClick={() => teamId && run(() => addScheduleJob({
                       superintendentId: teamId, weekStart, title: p.title,
-                      jobNumber: p.job_number ?? undefined, sortOrder: jobs.length,
+                      jobNumber: p.job_number ?? undefined, sortOrder: jobs.length, projectId: p.projectId ?? null,
                     }), `${p.title} added to ${team?.name}'s week.`)}
                     className="min-w-0 flex-1 truncate text-left text-xs font-medium text-slate-700 hover:text-indigo-600 dark:text-slate-200"
                   >
@@ -600,14 +622,18 @@ export function SchedulesClient({
                           className="text-[10px] font-semibold text-indigo-500 hover:underline">{p.job_number}</a>
                       : <span className="text-[10px] text-slate-400">{p.job_number}</span>
                   )}
-                  {canEdit && (
+                  {p.board && (
+                    <span title={`On ${p.board.board ?? 'a board'}: ${p.board.column}`} data-help="sched-board-project"
+                      className="shrink-0 text-sky-500"><Layers size={11} /></span>
+                  )}
+                  {canEdit && !p.fromBoard && (
                     <button onClick={() => setJobAddress(p)} data-help="sched-job-address"
                       title={p.address ? `${p.address}${p.located ? '' : ' (not found on the map yet)'}` : 'Set the job address for drive-time checks'}
                       className={`shrink-0 ${p.located ? 'text-emerald-500' : p.address ? 'text-amber-500' : 'text-slate-300 hover:text-indigo-500'}`}>
                       <MapPin size={11} />
                     </button>
                   )}
-                  {canEdit && (
+                  {canEdit && !p.fromBoard && (
                     <button
                       onClick={() => { if (confirm(`Remove "${p.title}" from the project list?`)) run(() => deleteDirectoryProject(p.id)) }}
                       className="hidden text-slate-300 hover:text-rose-500 group-hover:block pointer-coarse:block"><X size={11} /></button>
