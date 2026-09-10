@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useJobLink } from '@/components/company/JobLinkContext'
 import { useRouter } from 'next/navigation'
 import { Link2, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -45,6 +46,7 @@ const DEFAULT_STAGES = [
 ]
 
 export function ProjectForm({ companyId, members, currentUserId, project, boards = [], defaultBoardId, defaultColumnId, boardVisibleFields = [], boardCustomStages = [] }: ProjectFormProps) {
+  const jobLink = useJobLink()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -227,7 +229,16 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
           {shouldShowField('client_name') && (
           <Input id="customer_name" label="Client / Customer" placeholder="ABC Corp" value={form.customer_name} onChange={set('customer_name')} />
           )}
-          <Input id="job_number" label="Job # / Work Order" placeholder="324-10482" value={form.job_number} onChange={set('job_number')} />
+          <div>
+            <Input id="job_number" label="Job # / Work Order" placeholder="324-10482" value={form.job_number} onChange={set('job_number')} />
+            {jobLink(form.job_number) ? (
+              <a href={jobLink(form.job_number)!} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-indigo-600 hover:underline">
+                Opens in your job system ↗
+              </a>
+            ) : form.job_number?.trim() ? (
+              <p className="mt-1 text-xs text-slate-400">Set a job number link in Settings to make this clickable.</p>
+            ) : null}
+          </div>
           <Input id="store_site_id" label="Store / Site ID" placeholder="324" value={form.store_site_id} onChange={set('store_site_id')} />
           {shouldShowField('job_location') && (
           <Input id="job_location" label="Job location" placeholder="123 Main St, City, State" value={form.job_location} onChange={set('job_location')} />

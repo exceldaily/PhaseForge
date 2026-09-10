@@ -28,6 +28,7 @@ import {
 import { PRIORITY_COLORS, PRIORITY_LABELS } from '@/lib/constants'
 import { Project, ProjectPriority } from '@/types/app'
 import { cn, safeExternalUrl } from '@/lib/utils'
+import { JobNumberTag } from '@/components/company/JobLinkContext'
 
 export interface ProjectBoardStageOption {
   id: string
@@ -174,11 +175,9 @@ export function ProjectBoardCard({
             </button>
           )}
           <span className={cn('h-2 w-2 shrink-0 rounded-full', levelMeta.dotClassName)} />
+          {project.job_number && <JobChip value={project.job_number} />}
           <Link href={detailHref} className="min-w-0 flex-1" data-card-action="true">
-            <p className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-slate-900">
-              {project.job_number && <JobChip value={project.job_number} />}
-              <span className="truncate">{project.name}</span>
-            </p>
+            <p className="truncate text-xs font-semibold text-slate-900">{project.name}</p>
             <p className="truncate text-[10px] text-slate-400">
               {slip > 0 ? `${slip}d behind` : 'On plan'}
               {' · '}{intel?.progressPercent ?? state.progressPercent}%
@@ -220,13 +219,15 @@ export function ProjectBoardCard({
                 <GripVertical size={13} />
               </button>
             )}
-            <Link href={detailHref} className="min-w-0 flex-1" data-card-action="true">
+            <div className="min-w-0 flex-1">
               {project.job_number && <JobChip value={project.job_number} className="mb-1" />}
-              <p className="line-clamp-2 text-sm font-semibold leading-5 text-slate-900">{project.name}</p>
-              <p className="mt-0.5 truncate text-[11px] text-slate-400">
-                {pmName ? `PM ${pmName}` : project.customer_name || ''}
-              </p>
-            </Link>
+              <Link href={detailHref} className="block" data-card-action="true">
+                <p className="line-clamp-2 text-sm font-semibold leading-5 text-slate-900">{project.name}</p>
+                <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                  {pmName ? `PM ${pmName}` : project.customer_name || ''}
+                </p>
+              </Link>
+            </div>
             <Badge className={cn('shrink-0 border text-[10px] font-semibold', levelMeta.pillClassName)}>
               {intel ? intel.score : levelMeta.label}
             </Badge>
@@ -598,11 +599,7 @@ export function ProjectBoardCard({
   )
 }
 
-/** The job number, shown the same way on every card size. */
+/** The job number, shown the same way on every card size; opens the job when a link pattern is set. */
 function JobChip({ value, className }: { value: string; className?: string }) {
-  return (
-    <span title="Job number" className={cn('inline-flex shrink-0 items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-indigo-700', className)}>
-      Job# {value}
-    </span>
-  )
+  return <JobNumberTag value={value} className={className} />
 }

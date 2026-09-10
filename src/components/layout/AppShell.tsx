@@ -1,4 +1,5 @@
 'use client'
+import { JobLinkProvider } from '@/components/company/JobLinkContext'
 
 import { useEffect, useState } from 'react'
 import { Sidebar } from './Sidebar'
@@ -17,10 +18,12 @@ interface AppShellProps {
   canUseSchedules?: boolean
   opsModules?: string[]
   tradeFilter?: { current: string; trades: string[] } | null
+  /** The company's Job# link pattern, shared with every page below. */
+  jobUrlTemplate?: string | null
   children: React.ReactNode
 }
 
-export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, canUseDispatch = false, canUseSchedules = false, opsModules = [], tradeFilter = null, children }: AppShellProps) {
+export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseDarkMode = false, canUseDispatch = false, canUseSchedules = false, opsModules = [], tradeFilter = null, jobUrlTemplate = null, children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Sync the theme whenever the app shell mounts (covers client-side nav into
@@ -61,7 +64,7 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
           tradeFilter={tradeFilter}
         />
         <main className="pf-main-scroll flex-1 overflow-y-auto print:overflow-visible">
-          {children}
+          <JobLinkProvider template={jobUrlTemplate}>{children}</JobLinkProvider>
         </main>
         <FirstRunTour />
       </div>

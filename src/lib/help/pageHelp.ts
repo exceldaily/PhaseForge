@@ -265,6 +265,14 @@ export const PAGE_HELP: PageHelp[] = [
   },
   { match: /^\/app\/settings\/members$/, title: 'Members', sectionIds: ['teams', 'organization-billing'] },
   { match: /^\/app\/settings\/modules$/, title: 'Modules', sectionIds: ['operations'] },
+  {
+    match: /^\/app\/settings$/,
+    title: 'Settings',
+    sectionIds: ['settings-account', 'organization-billing', 'projects'],
+    pins: [
+      { key: 'settings-job-link', label: 'Job number link', text: 'One web address with {job} in it. Every Job# in PhaseForge then opens that job in your own system.' },
+    ],
+  },
   { match: /^\/app\/settings/, title: 'Settings', sectionIds: ['settings-account', 'organization-billing'] },
   { match: /^\/app\/admin/,    title: 'Admin',    sectionIds: ['admin'] },
 ]

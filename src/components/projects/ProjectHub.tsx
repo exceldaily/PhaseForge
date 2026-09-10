@@ -17,6 +17,7 @@ import type { CommandCenterData } from '@/lib/commandCenter'
 import type { ActivityLog, Phase, Profile, Project, ProjectAttachment, ProjectPriority, PunchItem } from '@/types/app'
 import { MiniGantt } from '@/components/gantt/MiniGantt'
 import { Badge } from '@/components/ui/Badge'
+import { JobNumberTag } from '@/components/company/JobLinkContext'
 
 export type HubTab = 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files' | 'chat'
 
@@ -115,7 +116,7 @@ export function ProjectHub({
 
   const details: { label: string; value: React.ReactNode }[] = [
     { label: 'Customer', value: project.customer_name },
-    { label: 'Job #', value: project.job_number },
+    { label: 'Job #', value: project.job_number ? <JobNumberTag value={project.job_number} size="md" /> : null },
     { label: 'Store / site', value: project.store_site_id },
     { label: 'Address', value: address ? (
       <a href={project.maps_url ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} target="_blank" rel="noopener noreferrer"

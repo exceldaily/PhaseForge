@@ -23,13 +23,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let canUseTheme = false
   let canUseDispatch = false
   let canUseCrewSchedules = false
+  let jobUrlTemplate: string | null = null
   let opsModuleKeys: ModuleKey[] = []
   let tradeFilter: { current: string; trades: string[] } | null = null
   if (profile?.company_id) {
     const [{ data: company }, { data: orgModules }] = await Promise.all([
       supabase
         .from('companies')
-        .select('plan, dispatch_enabled')
+        .select('plan, dispatch_enabled, schedule_job_url_template')
         .eq('id', profile.company_id)
         .single(),
       supabase
@@ -41,6 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     canUseTheme = canUseDarkMode(company?.plan)
     canUseDispatch = canUseTickets(company?.plan) || (company?.dispatch_enabled ?? false)
     canUseCrewSchedules = canUseSchedules(company?.plan)
+    jobUrlTemplate = (company?.schedule_job_url_template as string | null) ?? null
 
     if (canUseTradeFilter(company?.plan)) {
       const [{ data: tradeRows }, jar] = await Promise.all([
@@ -70,6 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       canUseSchedules={canUseCrewSchedules}
       opsModules={opsModuleKeys}
       tradeFilter={tradeFilter}
+      jobUrlTemplate={jobUrlTemplate}
     >
       <ErrorBoundary>
         {children}

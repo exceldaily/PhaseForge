@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { Building2, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileSettingsCard } from '@/components/settings/ProfileSettingsCard'
+import { JobLinkSettingCard } from '@/components/settings/JobLinkSettingCard'
+import { canEditCompanyData } from '@/lib/permissions'
 import { Profile } from '@/types/app'
 
 type SettingsProfile = Profile & {
@@ -25,12 +27,18 @@ export default async function SettingsPage() {
   const settingsProfile = profile as SettingsProfile | null
 
   const canManageRoles = settingsProfile?.role === 'owner' || settingsProfile?.role === 'admin'
+  const jobTemplate = ((settingsProfile?.companies as { schedule_job_url_template?: string | null } | null)?.schedule_job_url_template) ?? null
+  const { data: sample } = settingsProfile?.company_id
+    ? await supabase.from('projects').select('job_number').eq('company_id', settingsProfile.company_id).not('job_number', 'is', null).neq('job_number', '').limit(1).maybeSingle()
+    : { data: null }
 
   return (
     <div className="mx-auto max-w-none space-y-6 p-6">
       <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
 
       <div className="grid gap-4">
+        <JobLinkSettingCard template={jobTemplate} canEdit={canEditCompanyData(settingsProfile)} sampleJob={(sample?.job_number as string | null) ?? null} />
+
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50">

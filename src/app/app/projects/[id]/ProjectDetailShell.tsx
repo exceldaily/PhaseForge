@@ -8,6 +8,7 @@ import {
   MapPin, Calendar, User, Flag, ClipboardList, Map, Layers, FileDiff, LayoutDashboard, LayoutGrid,
 } from 'lucide-react'
 import { ProjectHub, type HubChangeOrder } from '@/components/projects/ProjectHub'
+import { JobNumberTag } from '@/components/company/JobLinkContext'
 import { ChatConversation, type ChatMember } from '@/components/chat/ChatConversation'
 import type { ChatChannel, ChatMessage } from '@/app/app/chat/actions'
 import { MessageSquare } from 'lucide-react'
@@ -143,6 +144,7 @@ export function ProjectDetailShell({
 
         {/* Project meta strip */}
         <div className="flex items-center gap-4 px-3 sm:px-6 pb-3 text-xs text-slate-500 overflow-x-auto">
+          {project.job_number && <JobNumberTag value={project.job_number} className="flex-shrink-0" />}
           {project.customer_name && (
             <span className="flex items-center gap-1 flex-shrink-0">
               <User size={11} className="text-slate-400" /> {project.customer_name}
