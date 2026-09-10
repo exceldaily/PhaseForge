@@ -6,7 +6,7 @@ import { canUsePrintAndReports } from '@/lib/constants'
 import { ActivityLog, Phase, Profile, Project, ProjectAttachment, PunchItem } from '@/types/app'
 import { loadCommandCenter } from '@/lib/commandCenter'
 
-const VALID_TABS = new Set(['overview', 'gantt', 'tasks', 'punch', 'activity', 'files'])
+const VALID_TABS = new Set(['hub', 'overview', 'gantt', 'tasks', 'punch', 'activity', 'files'])
 
 /** One sentence for a co_events row, in the timeline's plain voice. */
 function describeCoEvent(
@@ -112,8 +112,13 @@ export default async function ProjectDetailPage({
 
   // Change-order history lives in co_events (its own single write path);
   // UNION it into the timeline feed at read time rather than double-writing.
-  const { data: projectCos } = await supabase.from('change_orders')
-    .select('id, co_number').eq('project_id', id).limit(200)
+  const [{ data: projectCos }, { count: planSheetCount }, { count: planSetCount }] = await Promise.all([
+    supabase.from('change_orders')
+      .select('id, co_number, title, stage, current_amount, approved_amount').eq('project_id', id)
+      .order('co_number', { ascending: false }).limit(200),
+    supabase.from('plan_sheets').select('id', { count: 'exact', head: true }).eq('project_id', id),
+    supabase.from('plan_sets').select('id', { count: 'exact', head: true }).eq('project_id', id),
+  ])
   let coEvents: ActivityLog[] = []
   if (projectCos?.length) {
     const { data: events } = await supabase.from('co_events')
@@ -167,7 +172,16 @@ export default async function ProjectDetailPage({
       canEdit={canEdit}
       canPrint={canPrint}
       commandCenter={commandCenter}
-      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files') : 'overview'}
+      hub={{
+        changeOrders: (projectCos ?? []).map((c) => ({
+          id: c.id, co_number: Number(c.co_number), title: c.title, stage: c.stage,
+          current_amount: c.current_amount === null ? null : Number(c.current_amount),
+          approved_amount: c.approved_amount === null ? null : Number(c.approved_amount),
+        })),
+        planSheetCount: planSheetCount ?? 0,
+        planSetCount: planSetCount ?? 0,
+      }}
+      initialTab={VALID_TABS.has(tab ?? '') ? (tab as 'hub' | 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files') : 'hub'}
     />
   )
 }

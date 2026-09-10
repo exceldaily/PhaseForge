@@ -102,6 +102,19 @@ export const SECTIONS: GuideSection[] = [
     ],
   },
   {
+    id: 'project-hub',
+    icon: LayoutDashboard,
+    title: 'Project Hub',
+    summary: 'The front door of every project: a box per section with a live preview, the project details, and the schedule at a glance.',
+    href: '/app/projects',
+    hrefLabel: 'Open Projects',
+    items: [
+      { heading: 'What you land on', text: 'Opening a project lands you on its hub instead of a row of tabs. Across the top is one box per part of the job: Schedule (a small timeline of the phases with today marked), Command Center (health score and what needs eyes), Tasks (done, in progress, next due), Punch List (open count and the latest photos), Change Orders (open ones and the money pending or approved), Plans (sheet and set counts), Files (the latest attachments), and Activity (the last few changes). Every box is a preview of the real thing, and clicking it opens that section.' },
+      { heading: 'Details and the schedule', text: 'Under the boxes, Project details lists every field on the job in one column: customer, job number, store or site, the address with a map link, dates, status, priority, PM, superintendent, trade, permit, subcontractors, tags, links, and notes. Beside it, Schedule at a glance draws every phase on a timeline with the coming milestones underneath; click anywhere on it or Open Gantt to work the real chart.' },
+      { heading: 'Getting around', text: 'Inside a section a strip across the top switches between sections, and Hub is the first entry in it, so you are never more than a click from the front door. Plans and Change Orders open as their own pages the way they always have, with the project name at the top linking back.' },
+    ],
+  },
+  {
     id: 'command-center',
     icon: LayoutDashboard,
     title: 'Project Overview',

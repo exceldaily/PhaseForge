@@ -66,10 +66,14 @@ export const PAGE_HELP: PageHelp[] = [
   },
   {
     match: /^\/app\/projects\/[^/]+$/,
-    title: 'Project detail',
-    sectionIds: ['command-center', 'projects', 'phases', 'punch', 'plans', 'change-orders'],
+    title: 'Project hub',
+    sectionIds: ['project-hub', 'command-center', 'projects', 'phases', 'punch', 'plans', 'change-orders'],
     pins: [
-      { key: 'project-tabs', label: 'Tabs', text: 'Everything about the job lives here: schedule, plans, punch list, change orders, and files. Swipe the row on a phone.' },
+      { key: 'project-hub', label: 'Tiles', text: 'One box per part of the job with a live preview. Click a box to open that section; Hub in the strip brings you back.' },
+      { key: 'hub-schedule', label: 'Schedule', text: 'A small timeline of the phases with today marked. Click it for the full Gantt.' },
+      { key: 'hub-health', label: 'Command Center', text: 'Health score and the top things needing eyes, with the full breakdown one click away.' },
+      { key: 'hub-details', label: 'Project details', text: 'Every field on the project in one list: customer, job number, address with a map link, dates, people, permit, tags, and notes.' },
+      { key: 'project-tabs', label: 'Sections', text: 'Once you are inside a section, this strip switches between them. Hub is the first one.' },
     ],
   },
   {

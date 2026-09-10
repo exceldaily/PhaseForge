@@ -5,8 +5,9 @@ import Link from 'next/link'
 import {
   ArrowLeft, GanttChartSquare, CheckSquare,
   Activity, Paperclip, Edit, MoreHorizontal,
-  MapPin, Calendar, User, Flag, ClipboardList, Map, Layers, FileDiff, LayoutDashboard,
+  MapPin, Calendar, User, Flag, ClipboardList, Map, Layers, FileDiff, LayoutDashboard, LayoutGrid,
 } from 'lucide-react'
+import { ProjectHub, type HubChangeOrder } from '@/components/projects/ProjectHub'
 import { TransferToBoardModal } from '@/components/projects/TransferToBoardModal'
 import { GanttChart } from '@/components/gantt/GanttChart'
 import { ProjectCalendarSyncBar } from '@/components/gantt/ProjectCalendarSyncBar'
@@ -24,7 +25,7 @@ import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
 import { Phase, Profile, Project, ProjectPriority, ActivityLog, ProjectAttachment, PunchItem } from '@/types/app'
 import { cn } from '@/lib/utils'
 
-type Tab = 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files'
+type Tab = 'hub' | 'overview' | 'gantt' | 'tasks' | 'punch' | 'activity' | 'files'
 
 interface ProjectDetailShellProps {
   project: Project & { phases: Phase[] }
@@ -37,11 +38,13 @@ interface ProjectDetailShellProps {
   canEdit: boolean
   canPrint: boolean
   commandCenter: CommandCenterData
+  hub: { changeOrders: HubChangeOrder[]; planSheetCount: number; planSetCount: number }
   initialTab?: Tab
 }
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'overview', label: 'Overview',   icon: <LayoutDashboard size={15} /> },
+  { id: 'hub',      label: 'Hub',        icon: <LayoutGrid size={15} /> },
+  { id: 'overview', label: 'Command Center', icon: <LayoutDashboard size={15} /> },
   { id: 'gantt',    label: 'Gantt',      icon: <GanttChartSquare size={15} /> },
   { id: 'tasks',    label: 'Tasks',      icon: <CheckSquare size={15} /> },
   { id: 'punch',    label: 'Punch List', icon: <ClipboardList size={15} /> },
@@ -51,8 +54,8 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
 
 export function ProjectDetailShell({
   project, members, activityLogs, attachments, punchItems, currentUserId, companyId,
-  canEdit, canPrint, commandCenter,
-  initialTab = 'overview',
+  canEdit, canPrint, commandCenter, hub,
+  initialTab = 'hub',
 }: ProjectDetailShellProps) {
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [showMenu, setShowMenu] = useState(false)
@@ -159,7 +162,8 @@ export function ProjectDetailShell({
           </span>
         </div>
 
-        {/* Tab bar */}
+        {/* Section strip: hidden on the hub, where the tiles do the navigating */}
+        {activeTab !== 'hub' && (
         <div data-help="project-tabs" className="flex gap-0 border-t border-slate-100 px-2 sm:px-4 overflow-x-auto">
           {TABS.map(tab => (
             <button
@@ -207,7 +211,26 @@ export function ProjectDetailShell({
             COs
           </Link>
         </div>
+        )}
       </div>
+
+      {/* HUB: the landing view */}
+      {activeTab === 'hub' && (
+        <div className="flex-1 overflow-y-auto bg-slate-50">
+          <ProjectHub
+            project={project}
+            members={members}
+            punchItems={punchItems}
+            attachments={attachments}
+            activityLogs={activityLogs}
+            changeOrders={hub.changeOrders}
+            planSheetCount={hub.planSheetCount}
+            planSetCount={hub.planSetCount}
+            commandCenter={commandCenter}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        </div>
+      )}
 
       {/* ── Tab content ── */}
 
