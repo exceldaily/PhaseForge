@@ -10,6 +10,7 @@ import {
 } from './actions'
 import { GridSchedule, buildGridCopy, type GridCell } from './GridSchedule'
 import { useRowReorder } from './useRowReorder'
+import { PrintBrand } from './PrintBrand'
 
 interface Job {
   id: string; title: string; job_number: string | null; shift_label: string | null
@@ -661,7 +662,8 @@ export function SchedulesClient({
             the same spot on every day row. Print is unaffected, the print
             root is forced to 7.5in. */}
         <div className="w-full space-y-4">
-          <div className="hidden text-center print:block">
+          <div className="relative hidden min-h-[40px] text-center print:block">
+            <PrintBrand />
             <h1 className="text-lg font-bold">WEEKLY SCHEDULE {mmdd(weekStart)} to {mmdd(weekEnd)}</h1>
             <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{team?.name} Team</p>
           </div>

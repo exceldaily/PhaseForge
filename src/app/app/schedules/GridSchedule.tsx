@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { GripVertical, Highlighter, Plus, Trash2, X, ChevronDown } from 'lucide-react'
 import { deleteScheduleJob, updateScheduleJob, setGridCell, setShiftOptions, setJobHighlight } from './actions'
 import type { RowReorder } from './useRowReorder'
+import { PrintBrand } from './PrintBrand'
 import { ROW_HIGHLIGHTS, SHIFT_COLORS, safeHex, shiftColor } from './colors'
 
 export interface GridCell { name: string; shift: string }
@@ -104,7 +105,8 @@ export function GridSchedule({
 
   return (
     <div className="schedule-print-root flex-1 overflow-x-auto bg-slate-100 p-3 sm:p-4 md:overflow-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
-      <div className="hidden text-center print:block">
+      <div className="relative hidden min-h-[40px] text-center print:block">
+        <PrintBrand />
         <h1 className="text-lg font-bold">STARTUP SCHEDULE {mmdd(weekStart)} to {mmdd(shiftDate(weekStart, 6))}</h1>
         <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{teamName}</p>
       </div>
