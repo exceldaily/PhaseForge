@@ -36,7 +36,7 @@ function jobUrl(template: string | null, jobNumber: string | null): string | nul
 
 export function GridSchedule({
   teamName, weekStart, jobs, roster, shiftOptions, shiftColors, division, canEdit, jobUrlTemplate,
-  onChanged, reportJob, reorder, zoom = 1,
+  onChanged, reportJob, reorder, printSkip, zoom = 1,
 }: {
   teamName: string
   weekStart: string
@@ -51,6 +51,8 @@ export function GridSchedule({
   reportJob: (jobId: string, patch: { cells?: Record<number, GridCell[]>; highlight_color?: string | null }) => void
   /** Row reorder state, owned by the page so both layouts share one order. */
   reorder: RowReorder<GridJob>
+  /** Job ids left off the printed sheet (the Print picker). */
+  printSkip?: Set<string>
   zoom?: number
 }) {
   // Central cell state: jobId → day → entries. Re-seeded when the job set
@@ -136,7 +138,7 @@ export function GridSchedule({
               </td></tr>
             ) : reorder.ordered.map((job) => (
               <GridRow key={job.id} job={job} cells={cells[job.id] ?? {}} canEdit={canEdit}
-                shiftColors={shiftColors}
+                shiftColors={shiftColors} skipPrint={printSkip?.has(job.id) ?? false}
                 onHighlight={(hex) => reportJob(job.id, { highlight_color: hex })}
                 rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
                 dragging={reorder.dragId === job.id}
@@ -178,7 +180,7 @@ export function GridSchedule({
 
 function GridRow({
   job, cells, canEdit, jobUrlTemplate, onChanged, onRemove, onOpenEditor, onEditEntry, onCellDown, onCellEnter,
-  shiftColors, onHighlight, rowRef, gripProps, dragging,
+  shiftColors, onHighlight, rowRef, gripProps, dragging, skipPrint,
 }: {
   job: GridJob; cells: Record<number, GridCell[]>; canEdit: boolean
   jobUrlTemplate: string | null; onChanged: () => void
@@ -192,6 +194,7 @@ function GridRow({
   rowRef: (el: HTMLElement | null) => void
   gripProps: React.ComponentProps<'button'>
   dragging: boolean
+  skipPrint: boolean
 }) {
   const [title, setTitle] = useState(job.title)
   const [jobNumber, setJobNumber] = useState(job.job_number ?? '')
@@ -217,7 +220,7 @@ function GridRow({
   return (
     <tr ref={rowRef}
       style={highlight ? { backgroundColor: highlight } : undefined}
-      className={`border-b-2 border-slate-300 dark:border-slate-600 ${
+      className={`border-b-2 border-slate-300 dark:border-slate-600 ${skipPrint ? 'print:hidden' : ''} ${
         highlight ? '' : 'odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900 dark:even:bg-slate-800/60'
       } ${dragging ? 'relative z-10 opacity-90 shadow-lg outline outline-2 outline-indigo-500' : ''}`}>
       <td className="w-56 border-r-2 border-slate-300 px-2 py-1.5 align-top dark:border-slate-600">
@@ -231,7 +234,9 @@ function GridRow({
           <div className="min-w-0 flex-1">
             <input value={title} readOnly={!canEdit}
               onChange={(e) => { setTitle(e.target.value); debounced('title', () => void updateScheduleJob(job.id, { title: e.target.value })) }}
-              className="w-full bg-transparent text-[13px] font-bold text-slate-900 outline-none dark:text-slate-100" />
+              title={title} className="w-full bg-transparent text-[13px] font-bold text-slate-900 outline-none dark:text-slate-100 print:hidden" />
+            {/* Print: plain text so a long job name wraps instead of clipping. */}
+            <span className="hidden text-[13px] font-bold leading-tight text-slate-900 print:block">{title}</span>
             <div className="flex items-center gap-1 text-[11px] text-slate-500">
               Job#
               <input value={jobNumber} readOnly={!canEdit} placeholder="—"

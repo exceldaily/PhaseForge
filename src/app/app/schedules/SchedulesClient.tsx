@@ -87,6 +87,9 @@ export function SchedulesClient({
     return saved >= 0.5 && saved <= 1.2 ? saved : 1
   })
   useEffect(() => { localStorage.setItem('pf-sched-zoom', String(zoom)) }, [zoom])
+  // Print picker: job ids left OFF the printed sheet. Empty = print everything.
+  const [printJobs, setPrintJobs] = useState<Job[] | null>(null)   // non-null = picker open
+  const [printSkip, setPrintSkip] = useState<Set<string>>(() => new Set())
   const [peekDivision, setPeekDivision] = useState(division)
   const [prevDivision, setPrevDivision] = useState(division)
   const weekEnd = shiftDate(weekStart, 6)
@@ -500,7 +503,7 @@ export function SchedulesClient({
               className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <ClipboardCopy size={13} /> <span className="whitespace-nowrap">Copy all</span>
             </button>
-            <button onClick={() => window.print()} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
+            <button data-help="sched-print" onClick={() => setPrintJobs(liveJobs())} title="Pick which jobs go on the printed sheet" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 sm:py-1.5 text-xs font-medium text-slate-600 hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300">
               <Printer size={13} /> <span className="whitespace-nowrap"><span className="sm:hidden">Print</span><span className="hidden sm:inline">Print / PDF</span></span>
             </button>
           </div>
@@ -650,7 +653,7 @@ export function SchedulesClient({
             teamName={team.name} weekStart={weekStart} jobs={jobs} roster={roster}
             shiftOptions={shiftOptions} shiftColors={shiftColors} division={division}
             canEdit={canEdit} jobUrlTemplate={jobUrlTemplate} zoom={zoom}
-            reorder={reorder}
+            reorder={reorder} printSkip={printSkip}
             onChanged={() => router.refresh()}
             reportJob={(jobId, patch) => report(jobId, patch)}
           />
@@ -682,7 +685,7 @@ export function SchedulesClient({
                 </p>
               </td></tr>
             ) : reorder.ordered.map((job) => (
-              <tr key={`${job.id}-${weekStart}`} className="block print:table-row">
+              <tr key={`${job.id}-${weekStart}`} className={printSkip.has(job.id) ? 'block print:hidden' : 'block print:table-row'}>
                 <td className="pf-print-cell block pb-4 print:table-cell print:pb-3">
                   <JobBlock job={job} weekStart={weekStart} roster={roster} canEdit={canEdit}
                     rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
@@ -697,6 +700,11 @@ export function SchedulesClient({
         </div>
         )}
       </div>
+
+      {printJobs && (
+        <PrintPicker jobs={printJobs} skip={printSkip} onSkip={setPrintSkip} onClose={() => setPrintJobs(null)}
+          onPrint={() => { setPrintJobs(null); setTimeout(() => window.print(), 150) }} />
+      )}
 
       <style>{`
         @media print {
@@ -900,7 +908,9 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
         )}
         <input value={title} readOnly={!canEdit}
           onChange={(e) => { setTitle(e.target.value); report(job.id, { title: e.target.value }); saveHeader({ title: e.target.value }) }}
-          className="min-w-0 flex-1 bg-transparent text-[15px] font-bold text-slate-900 outline-none dark:text-slate-100" />
+          className="min-w-[10rem] flex-1 bg-transparent text-[15px] font-bold text-slate-900 outline-none dark:text-slate-100 print:hidden" />
+        {/* Print: plain text so a long job name wraps instead of clipping. */}
+        <span className="hidden min-w-0 flex-1 text-[15px] font-bold text-slate-900 print:block">{title}</span>
         <span className="flex items-center gap-1 text-xs text-slate-500">
           Job#
           <input value={jobNumber} readOnly={!canEdit} placeholder="—"
@@ -912,9 +922,22 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
               className="text-indigo-500 hover:text-indigo-700 print:hidden">↗</a>
           )}
         </span>
-        <input value={shift} readOnly={!canEdit} placeholder="Shift…"
-          onChange={(e) => { setShift(e.target.value); report(job.id, { shift_label: e.target.value }); saveHeader({ shiftLabel: e.target.value }) }}
-          className="w-24 rounded bg-yellow-300 px-2 py-0.5 text-center text-xs font-bold text-slate-900 outline-none" />
+        {/* Times box. The invisible twin holds the same text and sets the
+            width, so the box grows with whatever is typed (a plain input
+            clips at its fixed width). It drops to its own line when the
+            header runs out of room. Print swaps in text that can wrap. */}
+        {(canEdit || shift) && (
+          <span className="inline-grid min-w-24 max-w-full rounded bg-yellow-300 text-xs font-bold text-slate-900 print:hidden">
+            <span aria-hidden className="invisible col-start-1 row-start-1 whitespace-pre px-2 py-0.5">{shift || 'Shift…'}</span>
+            <input size={1} value={shift} readOnly={!canEdit} placeholder="Shift…" title={shift || undefined} aria-label="Shift or start times"
+              onChange={(e) => { setShift(e.target.value); report(job.id, { shift_label: e.target.value }); saveHeader({ shiftLabel: e.target.value }) }}
+              className="col-start-1 row-start-1 w-full min-w-0 bg-transparent px-2 py-0.5 text-center font-bold outline-none" />
+          </span>
+        )}
+        {shift && (
+          <span className="hidden max-w-full rounded bg-yellow-300 px-2 py-0.5 text-center text-xs font-bold text-slate-900 print:inline-block"
+            style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>{shift}</span>
+        )}
         {canEdit && (
           <button onClick={remove} className="p-1 text-rose-400 hover:text-rose-600 print:hidden"><Trash2 size={14} /></button>
         )}
@@ -990,6 +1013,65 @@ function JobBlock({ job, weekStart, roster, canEdit, urlTemplate, report, onChan
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// Pick which jobs make the printed sheet. Everything starts ticked; untick
+// what you want left off. The choice sticks until the page reloads, so a
+// second print of the same subset is one click.
+function PrintPicker({ jobs, skip, onSkip, onClose, onPrint }: {
+  jobs: Job[]; skip: Set<string>; onSkip: (next: Set<string>) => void
+  onClose: () => void; onPrint: () => void
+}) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [onClose])
+  const picked = jobs.filter((j) => !skip.has(j.id)).length
+  const toggle = (id: string) => {
+    const next = new Set(skip)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    onSkip(next)
+  }
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-3 print:hidden" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Choose what to print" onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+          <Printer size={15} className="text-indigo-500" />
+          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">What goes on the printout?</h2>
+          <button onClick={onClose} aria-label="Close" className="ml-auto p-1 text-slate-400 hover:text-slate-600"><X size={15} /></button>
+        </div>
+        <div className="flex items-center gap-3 px-4 pt-2.5 text-xs">
+          <span className="text-slate-500">{picked} of {jobs.length} jobs</span>
+          <button onClick={() => onSkip(new Set())} className="ml-auto font-medium text-indigo-600 hover:underline">Check all</button>
+          <button onClick={() => onSkip(new Set(jobs.map((j) => j.id)))} className="font-medium text-indigo-600 hover:underline">Uncheck all</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          {jobs.length === 0 && <p className="px-2 py-6 text-center text-sm text-slate-400">No jobs on this week yet.</p>}
+          {jobs.map((j) => (
+            <label key={j.id} className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800">
+              <input type="checkbox" checked={!skip.has(j.id)} onChange={() => toggle(j.id)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-slate-800 dark:text-slate-100">{j.title || 'Untitled job'}</span>
+                <span className="block text-[11px] text-slate-500">
+                  {[j.job_number ? `Job# ${j.job_number}` : '', j.shift_label ?? ''].filter(Boolean).join('  ·  ')}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700">
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 dark:border-slate-700 dark:text-slate-300">Cancel</button>
+          <button onClick={onPrint} disabled={picked === 0}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+            <Printer size={13} /> Print {picked === jobs.length ? 'all' : picked} {picked === 1 ? 'job' : 'jobs'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
