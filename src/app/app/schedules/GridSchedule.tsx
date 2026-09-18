@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { GripVertical, Highlighter, Plus, Trash2, X, ChevronDown } from 'lucide-react'
 import { deleteScheduleJob, updateScheduleJob, setGridCell, setShiftOptions, setJobHighlight } from './actions'
 import type { RowReorder } from './useRowReorder'
-import { PrintBrand } from './PrintBrand'
+import { PrintBrand, PrintHeaderBand } from './PrintBrand'
 import { ROW_HIGHLIGHTS, SHIFT_COLORS, safeHex, shiftColor } from './colors'
 
 export interface GridCell { name: string; shift: string }
@@ -105,18 +105,21 @@ export function GridSchedule({
 
   return (
     <div className="schedule-print-root flex-1 overflow-x-auto bg-slate-100 p-3 sm:p-4 md:overflow-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
-      <div className="relative hidden min-h-[40px] text-center print:block">
-        <PrintBrand />
-        <h1 className="text-lg font-bold">STARTUP SCHEDULE {mmdd(weekStart)} to {mmdd(shiftDate(weekStart, 6))}</h1>
-        <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{teamName}</p>
-      </div>
+      <PrintBrand />
       {canEdit && (
         <p className="mb-2 text-[11px] text-slate-400 print:hidden">Tip: tap &ldquo;add&rdquo; to place a person, press a cell and drag across the row/column to copy it, or drag a row by its grip to reorder the week.</p>
       )}
-      <div className="min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:rounded-none print:border-black print:shadow-none"
+      <div className="min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:overflow-visible print:rounded-none print:border-0 print:shadow-none"
         style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
-        <table className="w-full border-collapse text-sm">
+        <table className="pf-print-sheet w-full border-collapse text-sm">
           <thead>
+            {/* Print only: the title band, repeated on every page with the
+                logo in its left corner. */}
+            <tr className="hidden print:table-row">
+              <th colSpan={8} className="pf-print-cell font-normal">
+                <PrintHeaderBand title={`STARTUP SCHEDULE ${mmdd(weekStart)} to ${mmdd(shiftDate(weekStart, 6))}`} tag={teamName} />
+              </th>
+            </tr>
             <tr className="bg-slate-800 text-white print:bg-slate-200 print:text-black">
               <th className="w-56 border-2 border-slate-600 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide print:border-black">Job</th>
               {DAY_NAMES.map((dn, d) => (

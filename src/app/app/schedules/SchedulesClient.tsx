@@ -10,7 +10,7 @@ import {
 } from './actions'
 import { GridSchedule, buildGridCopy, type GridCell } from './GridSchedule'
 import { useRowReorder } from './useRowReorder'
-import { PrintBrand } from './PrintBrand'
+import { PrintBrand, PrintHeaderBand } from './PrintBrand'
 
 interface Job {
   id: string; title: string; job_number: string | null; shift_label: string | null
@@ -656,31 +656,43 @@ export function SchedulesClient({
           />
         ) : (
         <div className="schedule-print-root flex-1 bg-slate-100 p-3 sm:p-4 md:overflow-y-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
+          <PrintBrand />
           <div suppressHydrationWarning style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left', width: `${100 / zoom}%` }}>
         {/* Full width: every job block gets the whole sheet, and the name
             chips inside sit in fixed columns (see JobBlock) so a name lands in
             the same spot on every day row. Print is unaffected, the print
             root is forced to 7.5in. */}
-        <div className="w-full space-y-4">
-          <div className="relative hidden min-h-[40px] text-center print:block">
-            <PrintBrand />
-            <h1 className="text-lg font-bold">WEEKLY SCHEDULE {mmdd(weekStart)} to {mmdd(weekEnd)}</h1>
-            <p className="mb-3 inline-block bg-yellow-300 px-3 py-0.5 text-sm font-bold">{team?.name} Team</p>
-          </div>
-
-          {jobs.length === 0 ? (
-            <p className="py-16 text-center text-sm text-slate-400 print:hidden">
-              {team
-                ? <>No jobs on {team.name}&apos;s week, &ldquo;Add job&rdquo; or &ldquo;Copy last week&rdquo;.</>
-                : <>No teams in {divLabel(division)} yet, use &ldquo;+ Team&rdquo; to add one.</>}
-            </p>
-          ) : reorder.ordered.map((job) => (
-            <JobBlock key={`${job.id}-${weekStart}`} job={job} weekStart={weekStart} roster={roster} canEdit={canEdit}
-              rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
-              dragging={reorder.dragId === job.id}
-              urlTemplate={jobUrlTemplate} report={report} onChanged={() => router.refresh()} />
-          ))}
-        </div>
+        {/* On screen these table elements lay out as plain blocks. In print
+            they are a real table: the <thead> band (title, with the logo in
+            its left corner) repeats on every page, and each job is its own
+            row so pages break between jobs. */}
+        <table className="pf-print-sheet block w-full print:table">
+          <thead className="hidden print:table-header-group">
+            <tr><th className="pf-print-cell font-normal">
+              <PrintHeaderBand title={`WEEKLY SCHEDULE ${mmdd(weekStart)} to ${mmdd(weekEnd)}`} tag={`${team?.name ?? ''} Team`} />
+            </th></tr>
+          </thead>
+          <tbody className="block print:table-row-group">
+            {jobs.length === 0 ? (
+              <tr className="block print:table-row"><td className="pf-print-cell block print:table-cell">
+                <p className="py-16 text-center text-sm text-slate-400 print:hidden">
+                  {team
+                    ? <>No jobs on {team.name}&apos;s week, &ldquo;Add job&rdquo; or &ldquo;Copy last week&rdquo;.</>
+                    : <>No teams in {divLabel(division)} yet, use &ldquo;+ Team&rdquo; to add one.</>}
+                </p>
+              </td></tr>
+            ) : reorder.ordered.map((job) => (
+              <tr key={`${job.id}-${weekStart}`} className="block print:table-row">
+                <td className="pf-print-cell block pb-4 print:table-cell print:pb-3">
+                  <JobBlock job={job} weekStart={weekStart} roster={roster} canEdit={canEdit}
+                    rowRef={reorder.rowRef(job.id)} gripProps={reorder.handleProps(job.id)}
+                    dragging={reorder.dragId === job.id}
+                    urlTemplate={jobUrlTemplate} report={report} onChanged={() => router.refresh()} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
           </div>
         </div>
         )}
@@ -697,6 +709,10 @@ export function SchedulesClient({
           .schedule-print-root table, .schedule-print-root td, .schedule-print-root th {
             border: 1px solid #000 !important; border-collapse: collapse !important;
           }
+          .schedule-print-root table.pf-print-sheet, .schedule-print-root .pf-print-cell {
+            border: none !important; padding-left: 0 !important; padding-right: 0 !important;
+          }
+          .schedule-print-root table.pf-print-sheet { width: 100% !important; }
         }
       `}</style>
     </div>
