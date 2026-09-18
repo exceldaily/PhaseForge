@@ -4,7 +4,7 @@
 // link back to the thing that changed.
 
 import Link from 'next/link'
-import { CalendarDays, FileDiff, Layers, ArrowRight } from 'lucide-react'
+import { CalendarDays, ClipboardList, FileDiff, FileStack, Layers, ArrowRight } from 'lucide-react'
 import { dayRangeLabel, departmentLabel, groupDays, type ChatEvent } from '@/lib/chat/systemEvents'
 
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -42,6 +42,50 @@ export function SystemCard({ event, actor, time, projectId }: { event: ChatEvent
     return projectId
       ? <Link href={`/app/projects/${projectId}`} className="block rounded-lg border border-sky-200 bg-sky-50/60 px-3 py-2 hover:border-sky-400">{body}</Link>
       : <div className="rounded-lg border border-sky-200 bg-sky-50/60 px-3 py-2">{body}</div>
+  }
+
+  if (event.type === 'punch') {
+    const done = event.action === 'completed'
+    const head = event.action === 'imported' ? 'Punch items imported' : done ? 'Punch item completed' : 'Punch item added'
+    const tone = done ? 'border-emerald-200 bg-emerald-50/60 hover:border-emerald-400' : 'border-amber-200 bg-amber-50/60 hover:border-amber-400'
+    const body = (
+      <>
+        <p className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide ${done ? 'text-emerald-700' : 'text-amber-700'}`}><ClipboardList size={11} /> {head}</p>
+        {event.action === 'imported' ? (
+          <p className="mt-0.5 text-sm font-semibold text-slate-900">{event.count ?? 0} new {event.count === 1 ? 'item' : 'items'} on the punch list</p>
+        ) : (
+          <p className="mt-0.5 text-sm font-semibold text-slate-900">#{event.number ?? '?'} <span className="font-normal text-slate-700">{event.title}</span></p>
+        )}
+        {(event.location || event.assignee) && (
+          <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+            {event.location && <span className="rounded bg-white px-1.5 py-0.5 ring-1 ring-slate-200">{event.location}</span>}
+            {event.assignee && <span>Assigned to <span className="font-semibold text-slate-800">{event.assignee}</span></span>}
+          </p>
+        )}
+        <p className="mt-1">{meta}</p>
+      </>
+    )
+    return projectId
+      ? <Link href={`/app/projects/${projectId}?tab=punch`} className={`block rounded-lg border px-3 py-2 ${tone}`}>{body}</Link>
+      : <div className={`rounded-lg border px-3 py-2 ${tone}`}>{body}</div>
+  }
+
+  if (event.type === 'plans') {
+    const body = (
+      <>
+        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700"><FileStack size={11} /> {event.action === 'revised' ? 'Plans revised' : 'Plans added'}</p>
+        <p className="mt-0.5 text-sm font-semibold text-slate-900">{event.setName}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+          {event.added > 0 && <span className="rounded bg-indigo-600 px-1.5 py-0.5 font-semibold text-white">{event.added} new {event.added === 1 ? 'sheet' : 'sheets'}</span>}
+          {event.revised > 0 && <span className="rounded bg-white px-1.5 py-0.5 ring-1 ring-slate-200">{event.revised} revised</span>}
+          {event.revisedSheets && event.revisedSheets.length > 0 && <span className="text-slate-500">{event.revisedSheets.join(', ')}</span>}
+        </p>
+        <p className="mt-1">{meta}</p>
+      </>
+    )
+    return projectId
+      ? <Link href={`/app/projects/${projectId}/plans`} className="block rounded-lg border border-indigo-200 bg-indigo-50/60 px-3 py-2 hover:border-indigo-400">{body}</Link>
+      : <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 px-3 py-2">{body}</div>
   }
 
   // Schedule

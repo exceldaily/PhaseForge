@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { DEFAULT_PHASE_COLORS, KANBAN_COLUMNS } from '@/lib/constants'
 import { isMissingUpdatedByColumnError } from '@/lib/projectAudit'
+import { announceBoardPlacement } from '@/app/app/projects/[id]/actions'
 import { cn } from '@/lib/utils'
 
 interface ImportScheduleModalProps {
@@ -250,6 +251,8 @@ export function ImportScheduleModal({ open, onClose, companyId, currentUserId, s
 
       if (projErr || !newProject) continue
       lastProjectId = newProject.id
+      // Imported onto a board: say so in the job's chat.
+      if (targetBoard) await announceBoardPlacement(newProject.id)
 
       if (proj.phases.length > 0) {
         const phases = proj.phases.map((ph, i) => ({

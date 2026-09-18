@@ -420,6 +420,30 @@ export async function updateProjectBoard(projectId: string, boardId: string | nu
 
 // ── File attachments ──────────────────────────────────────────────────────
 
+/**
+ * A project created straight onto a board (the New project form, the + on a
+ * board column, a schedule import) gets the same "placed in" card in its
+ * chat that linking an existing project to a board does. Never throws.
+ */
+export async function announceBoardPlacement(projectId: string): Promise<void> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: p } = await supabase.from('projects').select('name, company_id, board_id, board_column_id').eq('id', projectId).single()
+    if (!p?.board_id) return
+    const [{ data: board }, { data: col }] = await Promise.all([
+      supabase.from('boards').select('name').eq('id', p.board_id).maybeSingle(),
+      p.board_column_id ? supabase.from('board_columns').select('name').eq('id', p.board_column_id).maybeSingle() : Promise.resolve({ data: null }),
+    ])
+    await postToProject(supabase, p.company_id as string, user.id, projectId, {
+      type: 'board_move', projectName: p.name, board: board?.name ?? null, from: null, to: col?.name ?? 'the board',
+    })
+  } catch (err) {
+    logger.error('announceBoardPlacement', err)
+  }
+}
+
 export async function uploadProjectAttachment(projectId: string, file: File) {
   try {
     const supabase = await createClient()

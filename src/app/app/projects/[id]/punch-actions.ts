@@ -7,6 +7,14 @@ import { logger } from '@/lib/logger'
 import { PunchStatus } from '@/types/app'
 import { canEditCompanyData } from '@/lib/permissions'
 import { logActivity } from '@/lib/activity/log'
+import { postToProject } from '@/lib/chat/systemPost'
+
+/** A short label for a punch card: the title, or the start of the issue. */
+function punchLabel(title: string | null | undefined, description: string | null | undefined): string | null {
+  const t = title?.trim() || description?.trim() || ''
+  if (!t) return null
+  return t.length > 90 ? `${t.slice(0, 87).trimEnd()}...` : t
+}
 
 const PUNCH_BUCKET = 'project-attachments'
 const EDITOR_ROLES = ['owner', 'admin', 'manager']
@@ -136,6 +144,18 @@ export async function createPunchItem(
       entityLabel: `#${nextNumber}${data.title ? ` ${data.title.trim()}` : ''}`,
     })
 
+    // The new item shows up in the job's chat.
+    let assignee: string | null = null
+    if (data.assigned_to) {
+      const { data: who } = await admin.from('profiles').select('full_name').eq('id', data.assigned_to).maybeSingle()
+      assignee = (who?.full_name as string | undefined)?.trim() || null
+    }
+    await postToProject(supabase, project.company_id, user.id, projectId, {
+      type: 'punch', action: 'added', number: nextNumber,
+      title: punchLabel(data.title, data.issue_description),
+      location: data.location?.trim() || null, assignee,
+    })
+
     revalidatePath(`/app/projects/${projectId}`)
     return { success: true }
   } catch (err) {
@@ -240,7 +260,7 @@ export async function completePunchItem(
       .from('profiles').select('company_id, role').eq('id', user.id).single()
     const { data: item } = await supabase
       .from('punch_items')
-      .select('id, project_id, company_id, assigned_to, created_by, number')
+      .select('id, project_id, company_id, assigned_to, created_by, number, title, issue_description')
       .eq('id', punchId)
       .single()
     if (!item) throw new Error('Punch item not found')
@@ -297,6 +317,11 @@ export async function completePunchItem(
       companyId: item.company_id, projectId: item.project_id, actorId: user.id,
       action: 'punch_completed', entityType: 'punch_item', entityId: punchId,
       entityLabel: `#${item.number}`,
+    })
+
+    await postToProject(supabase, item.company_id, user.id, item.project_id, {
+      type: 'punch', action: 'completed', number: item.number,
+      title: punchLabel(item.title, item.issue_description),
     })
 
     revalidatePath(`/app/projects/${item.project_id}`)
@@ -357,6 +382,11 @@ export async function bulkCreatePunchItems(
 
     const { error } = await admin.from('punch_items').insert(rows)
     if (error) throw error
+
+    // One card for the whole import, not one per row.
+    if (rows.length > 0) {
+      await postToProject(supabase, project.company_id, user.id, projectId, { type: 'punch', action: 'imported', count: rows.length })
+    }
 
     revalidatePath(`/app/projects/${projectId}`)
     return { success: true, created: rows.length }

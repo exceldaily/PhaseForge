@@ -21,6 +21,29 @@ export interface BoardMoveEvent {
   to: string | null
 }
 
+export interface PunchEvent {
+  type: 'punch'
+  action: 'added' | 'imported' | 'completed'
+  /** Item number, for added and completed. */
+  number?: number | null
+  /** Short title, or the start of the description. */
+  title?: string | null
+  location?: string | null
+  assignee?: string | null
+  /** How many items, for imported. */
+  count?: number
+}
+
+export interface PlansEvent {
+  type: 'plans'
+  action: 'uploaded' | 'revised'
+  setName: string
+  added: number
+  revised: number
+  /** Sheet numbers that got a new revision, capped. */
+  revisedSheets?: string[]
+}
+
 export interface ScheduleDay { date: string; names: string[] }
 export interface ScheduleJobCard { title: string; jobNumber: string | null; url: string | null; days: ScheduleDay[] }
 
@@ -34,12 +57,13 @@ export interface ScheduleEvent {
   updated?: boolean
 }
 
-export type ChatEvent = CoEvent | BoardMoveEvent | ScheduleEvent
+export type ChatEvent = CoEvent | BoardMoveEvent | ScheduleEvent | PunchEvent | PlansEvent
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function mmdd(iso: string) { return `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` }
 function dayName(iso: string) { return DAY[new Date(`${iso}T12:00:00Z`).getUTCDay()] }
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 
 /** Consecutive days with the same crew collapse into one line. */
@@ -81,6 +105,17 @@ export function eventText(e: ChatEvent): string {
     return e.from
       ? `${e.projectName} moved from ${e.from} to ${e.to}${e.board ? ` on ${e.board}` : ''}`
       : `${e.projectName} placed in ${e.to}${e.board ? ` on ${e.board}` : ''}`
+  }
+  if (e.type === 'punch') {
+    if (e.action === 'imported') return `${plural(e.count ?? 0, 'punch item')} imported`
+    const what = `Punch #${e.number ?? '?'}${e.title ? ` ${e.title}` : ''}`
+    if (e.action === 'completed') return `${what} completed`
+    const extra = [e.location ? `at ${e.location}` : '', e.assignee ? `for ${e.assignee}` : ''].filter(Boolean).join(' ')
+    return `${what} added${extra ? ` ${extra}` : ''}`
+  }
+  if (e.type === 'plans') {
+    const parts = [e.added ? `${plural(e.added, 'sheet')} added` : '', e.revised ? `${plural(e.revised, 'sheet')} revised` : ''].filter(Boolean)
+    return `Plans: ${e.setName}, ${parts.join(', ') || 'updated'}`
   }
   const lines = [`${e.updated ? 'Updated schedule' : 'Schedule'}: ${e.team}${e.department ? ` (${departmentLabel(e.department)})` : ''}, week of ${mmdd(e.weekStart)}`]
   for (const j of e.jobs) {

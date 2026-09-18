@@ -12,7 +12,7 @@ import { Select } from '@/components/ui/Select'
 import { DEFAULT_PHASE_COLORS, STANDARD_TRADES } from '@/lib/constants'
 import { boardSupportsPunch } from '@/lib/boardTemplates'
 import { isMissingLinksColumnError, isMissingShowPunchColumnError, isMissingUpdatedByColumnError } from '@/lib/projectAudit'
-import { updateProject, updateProjectBoard } from '@/app/app/projects/[id]/actions'
+import { updateProject, updateProjectBoard, announceBoardPlacement } from '@/app/app/projects/[id]/actions'
 import { Project, ProjectLink } from '@/types/app'
 
 interface Member { id: string; full_name: string; email: string; role: string }
@@ -209,6 +209,8 @@ export function ProjectForm({ companyId, members, currentUserId, project, boards
       }
 
       if (error) { setError(error.message); setLoading(false); return }
+      // Born on a board: say so in the job's chat.
+      if (data?.board_id) await announceBoardPlacement(data.id)
       // Return to the board if we came from one
       const boardRedirect = selectedBoardId || defaultBoardId
       router.push(boardRedirect ? `/app/boards/${boardRedirect}` : `/app/projects/${data.id}`)

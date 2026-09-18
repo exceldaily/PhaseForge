@@ -11,6 +11,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/logger'
 import type { MarkupElement, PlanSetType } from '@/types/plans'
 import { canEditCompanyData } from '@/lib/permissions'
+import { postToProject } from '@/lib/chat/systemPost'
 
 type Result<T = undefined> = { success: true; data?: T } | { success: false; error: string }
 
@@ -169,6 +170,14 @@ export async function commitPlanImport(
         source: sheets[0]?.sourceFileName,
       },
     })
+
+    // New and revised drawings show up in the job's chat.
+    if (imported + revised > 0) {
+      await postToProject(supabase, profile.company_id, user.id, projectId, {
+        type: 'plans', action: revised > 0 && imported === 0 ? 'revised' : 'uploaded',
+        setName: setInfo.name, added: imported, revised, revisedSheets: revisedNumbers.slice(0, 8),
+      })
+    }
 
     revalidatePath(`/app/projects/${projectId}/plans`)
     return { success: true, data: { imported, revised } }
