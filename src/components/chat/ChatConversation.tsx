@@ -252,6 +252,9 @@ function MessageRow({ m, mine, canDelete, author, grouped, project, showProject,
       <div className="group my-2 flex gap-2.5 px-2">
         <div className="w-8 shrink-0" />
         <div className="min-w-0 max-w-2xl flex-1" data-help="chat-auto-cards">
+          {showProject && project && (
+            <Link href={`/app/projects/${project.id}?tab=chat`} className="mb-0.5 block text-[11px] font-medium text-indigo-600 hover:underline">{project.name}{project.jobNumber ? ` · ${project.jobNumber}` : ''}</Link>
+          )}
           <SystemCard event={m.event} actor={name} time={timeOf(m.createdAt)} projectId={m.projectId} />
         </div>
         {canDelete && (

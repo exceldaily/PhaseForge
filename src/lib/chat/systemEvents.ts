@@ -59,6 +59,50 @@ export interface ScheduleEvent {
 
 export type ChatEvent = CoEvent | BoardMoveEvent | ScheduleEvent | PunchEvent | PlansEvent
 
+/**
+ * Notification rows that belong to chat. They show under the Chat alerts
+ * icon and are kept out of the main bell.
+ */
+export const CHAT_ALERT_TYPES = ['mention', 'chat_event'] as const
+
+export type ChatAlertPref = 'all' | 'following' | 'off'
+export const CHAT_ALERT_PREFS: { value: ChatAlertPref; label: string; hint: string }[] = [
+  { value: 'all', label: 'Every job', hint: 'Card moves, punch items, plans, and change orders on any job.' },
+  { value: 'following', label: 'Jobs I follow', hint: 'Only jobs whose chat you have opened, jobs you created, and jobs in your trades.' },
+  { value: 'off', label: 'Off', hint: 'No job activity alerts. @ pings still reach you.' },
+]
+
+/** A two or three word label for the alert title. */
+export function eventHeadline(e: ChatEvent): string {
+  if (e.type === 'change_order') return e.action === 'created' ? 'Change order opened' : 'Change order moved'
+  if (e.type === 'board_move') return !e.to ? 'Taken off the board' : e.from ? 'Card moved' : 'Placed on a board'
+  if (e.type === 'punch') return e.action === 'imported' ? 'Punch items imported' : e.action === 'completed' ? 'Punch item completed' : 'Punch item added'
+  if (e.type === 'plans') return e.action === 'revised' ? 'Plans revised' : 'Plans added'
+  return e.updated ? 'Schedule updated' : 'Schedule posted'
+}
+
+export interface AlertPerson { id: string; pref: ChatAlertPref | null; trades: string[] | null }
+
+/**
+ * Who gets a job activity alert. Never the person who did it, never anyone
+ * who turned alerts off. "Jobs I follow" means: you have opened the job's
+ * chat, you created the job, or the job's trade is one of yours.
+ */
+export function alertRecipients(people: AlertPerson[], job: {
+  actorId: string; followerIds: string[]; createdBy: string | null; trade: string | null
+}): string[] {
+  const followers = new Set(job.followerIds)
+  const trade = job.trade?.trim().toLowerCase() || null
+  return people.filter((p) => {
+    if (p.id === job.actorId) return false
+    const pref = p.pref ?? 'all'
+    if (pref === 'off') return false
+    if (pref === 'all') return true
+    if (followers.has(p.id) || p.id === job.createdBy) return true
+    return !!trade && (p.trades ?? []).some((t) => t.toLowerCase() === trade)
+  }).map((p) => p.id)
+}
+
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function mmdd(iso: string) { return `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` }

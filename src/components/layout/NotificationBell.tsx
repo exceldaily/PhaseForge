@@ -5,6 +5,10 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Bell, CheckCheck, AlertTriangle, Clock, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { CHAT_ALERT_TYPES } from '@/lib/chat/systemEvents'
+
+// Chat pings and job activity live under the Chat alerts icon instead.
+const NOT_CHAT = `(${CHAT_ALERT_TYPES.join(',')})`
 
 interface Notification {
   id: string
@@ -59,7 +63,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
 
     const [{ data: stored }, { data: projects }, { data: alertStates }] = await Promise.all([
       supabase.from('notifications').select('*')
-        .eq('user_id', userId).eq('read', false)
+        .eq('user_id', userId).eq('read', false).not('type', 'in', NOT_CHAT)
         .order('created_at', { ascending: false }).limit(20),
       supabase.from('projects').select('id, name, end_date, status, color, phases(*)')
         .eq('company_id', companyId).eq('is_archived', false).neq('status', 'closed'),
@@ -158,7 +162,7 @@ export function NotificationBell({ userId, companyId }: NotificationBellProps) {
     const supabase = createClient()
 
     // Mark stored notifications as read
-    await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false)
+    await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false).not('type', 'in', NOT_CHAT)
 
     // Dismiss all computed alerts in alert_states
     for (const item of items) {

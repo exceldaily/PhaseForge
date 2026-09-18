@@ -10,7 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { STANDARD_TRADES } from '@/lib/constants'
 import { canEditCompanyData } from '@/lib/permissions'
 import { parseMentions } from '@/lib/chat/mentions'
-import type { ChatEvent } from '@/lib/chat/systemEvents'
+import { CHAT_ALERT_PREFS, CHAT_ALERT_TYPES, type ChatAlertPref, type ChatEvent } from '@/lib/chat/systemEvents'
 
 export type ChannelKind = 'general' | 'updates' | 'trade' | 'project' | 'direct'
 
@@ -221,6 +221,51 @@ export async function markRead(input: { channelId: string }): Promise<void> {
     { channel_id: input.channelId, profile_id: userId, company_id: companyId, last_read_at: new Date().toISOString() },
     { onConflict: 'channel_id,profile_id' },
   )
+  // Reading a space clears the chat alerts that point at it.
+  await supabase.from('notifications').update({ read: true })
+    .eq('user_id', userId).eq('read', false).in('type', [...CHAT_ALERT_TYPES]).eq('link', `/app/chat?c=${input.channelId}`)
+}
+
+export interface ChatAlert { id: string; type: string; title: string; body: string | null; link: string | null; createdAt: string }
+
+/** The Chat alerts inbox: unread pings and job activity, newest first, plus the person's setting. */
+export async function listChatAlerts(): Promise<{ alerts: ChatAlert[]; total: number; pref: ChatAlertPref }> {
+  try {
+    const { supabase, userId } = await ctx()
+    const [{ data, count }, { data: me }] = await Promise.all([
+      supabase.from('notifications').select('id, type, title, body, link, created_at', { count: 'exact' })
+        .eq('user_id', userId).eq('read', false).in('type', [...CHAT_ALERT_TYPES])
+        .order('created_at', { ascending: false }).limit(30),
+      supabase.from('profiles').select('chat_alerts').eq('id', userId).single(),
+    ])
+    return {
+      alerts: (data ?? []).map((n) => ({ id: n.id, type: n.type, title: n.title, body: n.body, link: n.link, createdAt: n.created_at })),
+      total: count ?? 0,
+      pref: ((me?.chat_alerts as ChatAlertPref | null) ?? 'all'),
+    }
+  } catch { return { alerts: [], total: 0, pref: 'all' } }
+}
+
+/** Mark one chat alert read, or all of them when no id is given. */
+export async function readChatAlerts(input: { id?: string }) {
+  try {
+    const { supabase, userId } = await ctx()
+    let q = supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false).in('type', [...CHAT_ALERT_TYPES])
+    if (input.id) q = q.eq('id', input.id)
+    const { error } = await q
+    if (error) return { ok: false as const, error: error.message }
+    return { ok: true as const }
+  } catch (e) { return fail(e) }
+}
+
+export async function setChatAlertPref(input: { pref: ChatAlertPref }) {
+  try {
+    const { supabase, userId } = await ctx()
+    if (!CHAT_ALERT_PREFS.some((p) => p.value === input.pref)) return { ok: false as const, error: 'Pick one of the three.' }
+    const { error } = await supabase.from('profiles').update({ chat_alerts: input.pref }).eq('id', userId)
+    if (error) return { ok: false as const, error: error.message }
+    return { ok: true as const }
+  } catch (e) { return fail(e) }
 }
 
 export async function sendMessage(input: { channelId: string; body: string; asUpdate?: boolean; attachments?: Omit<ChatAttachment, 'url'>[] }) {

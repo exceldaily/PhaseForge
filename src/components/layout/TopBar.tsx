@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Menu } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { NotificationBell } from './NotificationBell'
+import { ChatAlerts } from './ChatAlerts'
 import { ThemeToggle } from './ThemeToggle'
 import { TradeSwitcher } from './TradeSwitcher'
 import { HelpPanel } from '@/components/help/HelpPanel'
@@ -33,6 +34,7 @@ export function TopBar({ profile, title, canUseDarkMode = false, onMenuClick, tr
         {tradeFilter && <TradeSwitcher current={tradeFilter.current} trades={tradeFilter.trades} />}
         <HelpPanel />
         {canUseDarkMode && <ThemeToggle />}
+        {profile?.id && profile?.company_id && <ChatAlerts />}
         {profile?.id && profile?.company_id && (
           <NotificationBell userId={profile.id} companyId={profile.company_id} />
         )}

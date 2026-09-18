@@ -1,5 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { dayRangeLabel, departmentLabel, eventText, groupDays } from './systemEvents'
+import { alertRecipients, dayRangeLabel, departmentLabel, eventHeadline, eventText, groupDays } from './systemEvents'
+
+describe('alertRecipients', () => {
+  const people = [
+    { id: 'actor', pref: 'all' as const, trades: [] },
+    { id: 'everything', pref: null, trades: null },
+    { id: 'muted', pref: 'off' as const, trades: ['Refrigeration'] },
+    { id: 'follows-opened', pref: 'following' as const, trades: [] },
+    { id: 'follows-trade', pref: 'following' as const, trades: ['refrigeration'] },
+    { id: 'follows-creator', pref: 'following' as const, trades: [] },
+    { id: 'follows-nothing', pref: 'following' as const, trades: ['Electrical'] },
+  ]
+  it('skips the actor and muted people, and honors Jobs I follow', () => {
+    expect(alertRecipients(people, { actorId: 'actor', followerIds: ['follows-opened', 'actor'], createdBy: 'follows-creator', trade: 'Refrigeration' }))
+      .toEqual(['everything', 'follows-opened', 'follows-trade', 'follows-creator'])
+  })
+  it('handles a job with no trade', () => {
+    expect(alertRecipients(people, { actorId: 'actor', followerIds: [], createdBy: null, trade: null })).toEqual(['everything'])
+  })
+})
+
+describe('eventHeadline', () => {
+  it('names each kind', () => {
+    expect(eventHeadline({ type: 'punch', action: 'added', number: 1 })).toBe('Punch item added')
+    expect(eventHeadline({ type: 'plans', action: 'uploaded', setName: 'x', added: 1, revised: 0 })).toBe('Plans added')
+    expect(eventHeadline({ type: 'board_move', projectName: 'x', board: 'b', from: null, to: 'Queue' })).toBe('Placed on a board')
+    expect(eventHeadline({ type: 'board_move', projectName: 'x', board: 'b', from: 'Queue', to: 'Done' })).toBe('Card moved')
+  })
+})
 
 describe('groupDays', () => {
   it('collapses consecutive days with the same crew', () => {

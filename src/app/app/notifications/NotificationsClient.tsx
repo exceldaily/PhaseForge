@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Bell, CheckCheck, AlertTriangle, Clock, Info, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { CHAT_ALERT_TYPES } from '@/lib/chat/systemEvents'
 
 interface Notification {
   id: string
@@ -75,7 +76,7 @@ export function NotificationsClient({ notifications: initial, userId }: Notifica
     setNotifications([])
     const supabase = createClient()
     await supabase.from('notifications').update({ read: true })
-      .eq('user_id', userId).eq('read', false)
+      .eq('user_id', userId).eq('read', false).not('type', 'in', `(${CHAT_ALERT_TYPES.join(',')})`)
   }
 
   return (

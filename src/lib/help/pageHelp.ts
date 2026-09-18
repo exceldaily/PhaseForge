@@ -120,6 +120,7 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'chat-photos', label: 'Photos', text: 'Attach up to ten photos to a message. You can also paste or drag them into the box. They are shrunk before upload so they send fast from a phone.' },
       { key: 'chat-trade-strip', label: 'Trade sections', text: 'In a project space, pick a trade to see only that trade\u2019s messages on the job. Anything you send while a trade is picked pings that trade.' },
       { key: 'chat-ping-trade', label: 'Ping trade', text: 'Drops @Trade into the message box for the trade you have picked, or the project\u2019s own trade.' },
+      { key: 'chat-alerts', label: 'Chat alerts', text: 'Pings and job activity you have not seen yet, kept apart from the bell. The gear picks Every job, Jobs I follow, or Off.' },
       { key: 'chat-auto-cards', label: 'Automatic cards', text: 'Card moves, board links, new punch items, plan uploads, and change orders post themselves into the job\u2019s space. Tap a card to open the thing that changed.' },
       { key: 'chat-update', label: 'Project update', text: 'In a project space, tick this and the message is also posted to the company-wide Project updates feed.' },
     ],

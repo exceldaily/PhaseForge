@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { NotificationsClient } from './NotificationsClient'
+import { CHAT_ALERT_TYPES } from '@/lib/chat/systemEvents'
 
 // Always reflect live data (derived alerts + dismiss/star state), never a cache.
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,8 @@ export default async function NotificationsPage() {
     .select('*')
     .eq('user_id', user.id)
     .eq('read', false)
+    // Chat pings and job activity live under the Chat alerts icon instead.
+    .not('type', 'in', `(${CHAT_ALERT_TYPES.join(',')})`)
     .order('created_at', { ascending: false })
     .limit(50)
 
