@@ -70,6 +70,9 @@ export function GridSchedule({
   const [editor, setEditor] = useState<{ jobId: string; day: number; top: number; left: number; up: boolean; idx?: number } | null>(null)
   // Drag-to-fill: press a cell and drag across others to copy its entries.
   const drag = useRef<{ src: GridCell[]; from: string; moved: boolean } | null>(null)
+  // Set for one tick after a drag that copied something, so the click that
+  // ends it on a name doesn't also open that name's editor.
+  const justDragged = useRef(false)
 
   const persist = (jobId: string, day: number, entries: GridCell[]) => {
     setCells((cur) => {
@@ -82,7 +85,13 @@ export function GridSchedule({
   }
 
   useEffect(() => {
-    const up = () => { drag.current = null }
+    const up = () => {
+      if (drag.current?.moved) {
+        justDragged.current = true
+        setTimeout(() => { justDragged.current = false }, 0)
+      }
+      drag.current = null
+    }
     window.addEventListener('pointerup', up)
     return () => window.removeEventListener('pointerup', up)
   }, [])
@@ -145,7 +154,7 @@ export function GridSchedule({
                 jobUrlTemplate={jobUrlTemplate} onChanged={onChanged}
                 onRemove={(day, idx) => persist(job.id, day, (cells[job.id]?.[day] ?? []).filter((_, i) => i !== idx))}
                 onOpenEditor={(day, el) => openEditor(job.id, day, el)}
-                onEditEntry={(day, idx, el) => openEditor(job.id, day, el, idx)}
+                onEditEntry={(day, idx, el) => { if (!justDragged.current) openEditor(job.id, day, el, idx) }}
                 onCellDown={(day) => onCellDown(job.id, day)}
                 onCellEnter={(day) => onCellEnter(job.id, day)} />
             ))}
@@ -289,14 +298,13 @@ function GridRow({
           <td key={d}
             onPointerDown={() => onCellDown(d)}
             onPointerEnter={() => onCellEnter(d)}
-            className="border-r-2 border-slate-300 px-1.5 py-1 align-top last:border-r-0 print:px-1 pointer-fine:[touch-action:none] dark:border-slate-600">
+            className="border-r-2 border-slate-300 px-1.5 py-1 align-top last:border-r-0 print:px-1 pointer-fine:select-none pointer-fine:[touch-action:none] dark:border-slate-600">
             <div className="flex flex-col gap-0.5">
               {entries.map((e, i) => (
                 <span key={i} className="group inline-flex items-center gap-1 text-[12px] font-semibold leading-tight"
                   style={{ color: shiftColor(e.shift, shiftColors) }}>
                   {canEdit ? (
-                    <button onPointerDown={(ev) => ev.stopPropagation()}
-                      onClick={(ev) => onEditEntry(d, i, ev.currentTarget)}
+                    <button onClick={(ev) => onEditEntry(d, i, ev.currentTarget)}
                       title="Tap to change this person or shift"
                       className="text-left underline-offset-2 pointer-coarse:py-0.5 hover:underline">
                       {e.name}{e.shift ? ` (${e.shift})` : ''}
