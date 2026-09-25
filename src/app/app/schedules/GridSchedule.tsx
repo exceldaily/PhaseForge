@@ -111,7 +111,7 @@ export function GridSchedule({
       {canEdit && (
         <p className="mb-2 text-[11px] text-slate-400 print:hidden">Tip: tap &ldquo;add&rdquo; to place a person, press a cell and drag across the row/column to copy it, or drag a row by its grip to reorder the week.</p>
       )}
-      <div className="min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:overflow-visible print:rounded-none print:border-0 print:shadow-none"
+      <div className="pf-print-zoom min-w-[900px] overflow-hidden rounded-lg border-2 border-slate-400 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900 print:overflow-visible print:rounded-none print:border-0 print:shadow-none"
         style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
         <table className="pf-print-sheet w-full border-collapse text-sm">
           <thead>
@@ -123,9 +123,9 @@ export function GridSchedule({
               </th>
             </tr>
             <tr className="bg-slate-800 text-white print:bg-slate-200 print:text-black">
-              <th className="w-56 border-2 border-slate-600 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide print:border-black">Job</th>
+              <th className="w-56 border-2 border-slate-600 px-3 py-2 text-left print:w-[1.9in] print:px-1.5 print:py-1 text-xs font-bold uppercase tracking-wide print:border-black">Job</th>
               {DAY_NAMES.map((dn, d) => (
-                <th key={d} className="border-2 border-slate-600 px-2 py-2 text-center text-[11px] font-bold uppercase print:border-black">
+                <th key={d} className="border-2 border-slate-600 px-2 py-2 print:px-1 print:py-1 text-center text-[11px] font-bold uppercase print:border-black">
                   {dn}<br /><span className="font-medium opacity-80">{mmdd(shiftDate(weekStart, d))}</span>
                 </th>
               ))}
@@ -220,10 +220,10 @@ function GridRow({
   return (
     <tr ref={rowRef}
       style={highlight ? { backgroundColor: highlight } : undefined}
-      className={`border-b-2 border-slate-300 dark:border-slate-600 ${skipPrint ? 'print:hidden' : ''} ${
+      className={`border-b-2 border-slate-300 dark:border-slate-600 print:break-inside-avoid ${skipPrint ? 'print:hidden' : ''} ${
         highlight ? '' : 'odd:bg-white even:bg-slate-100 dark:odd:bg-slate-900 dark:even:bg-slate-800/60'
       } ${dragging ? 'relative z-10 opacity-90 shadow-lg outline outline-2 outline-indigo-500' : ''}`}>
-      <td className="w-56 border-r-2 border-slate-300 px-2 py-1.5 align-top dark:border-slate-600">
+      <td className="w-56 border-r-2 border-slate-300 px-2 py-1.5 align-top print:w-[1.9in] print:px-1.5 print:py-1 dark:border-slate-600">
         <div className="flex items-start gap-1">
           {canEdit && (
             <button {...gripProps} data-help="sched-reorder" aria-label={`Reorder ${title}`} title="Drag to reorder this job"
@@ -289,7 +289,7 @@ function GridRow({
           <td key={d}
             onPointerDown={() => onCellDown(d)}
             onPointerEnter={() => onCellEnter(d)}
-            className="border-r-2 border-slate-300 px-1.5 py-1 align-top last:border-r-0 pointer-fine:[touch-action:none] dark:border-slate-600">
+            className="border-r-2 border-slate-300 px-1.5 py-1 align-top last:border-r-0 print:px-1 pointer-fine:[touch-action:none] dark:border-slate-600">
             <div className="flex flex-col gap-0.5">
               {entries.map((e, i) => (
                 <span key={i} className="group inline-flex items-center gap-1 text-[12px] font-semibold leading-tight"
