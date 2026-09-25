@@ -660,11 +660,11 @@ export function SchedulesClient({
         ) : (
         <div className="schedule-print-root flex-1 bg-slate-100 p-3 sm:p-4 md:overflow-y-auto dark:bg-slate-950 print:overflow-visible print:bg-white print:p-0">
           <PrintBrand />
-          <div suppressHydrationWarning style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left', width: `${100 / zoom}%` }}>
+          <div suppressHydrationWarning className="pf-print-zoom" style={zoom === 1 ? undefined : { transform: `scale(${zoom})`, transformOrigin: 'top left', width: `${100 / zoom}%` }}>
         {/* Full width: every job block gets the whole sheet, and the name
             chips inside sit in fixed columns (see JobBlock) so a name lands in
             the same spot on every day row. Print is unaffected, the print
-            root is forced to 7.5in. */}
+            root fills the paper width and zoom is dropped. */}
         {/* On screen these table elements lay out as plain blocks. In print
             they are a real table: the <thead> band (title, with the logo in
             its left corner) repeats on every page, and each job is its own
@@ -708,10 +708,16 @@ export function SchedulesClient({
 
       <style>{`
         @media print {
-          @page { size: portrait; margin: 0.5in; }
+          @page { size: ${scheduleStyle === 'grid' ? 'landscape' : 'portrait'}; margin: 0.5in; }
           body * { visibility: hidden !important; }
           .schedule-print-root, .schedule-print-root * { visibility: visible !important; }
-          .schedule-print-root { position: absolute !important; inset: 0 !important; width: 7.5in !important; }
+          /* Fills the printable width of whatever paper the browser uses.
+             iPhone and iPad Safari ignore the landscape request above and
+             print portrait, so a fixed sheet width cut off the last days. */
+          .schedule-print-root {
+            position: absolute !important; inset: 0 !important; width: auto !important;
+          }
+          .schedule-print-root .pf-print-zoom { transform: none !important; width: 100% !important; min-width: 0 !important; }
           .schedule-print-root input { border: none !important; }
           .schedule-print-root input::placeholder { color: transparent !important; }
           .schedule-print-root table, .schedule-print-root td, .schedule-print-root th {
