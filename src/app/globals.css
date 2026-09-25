@@ -115,6 +115,12 @@ body {
     print-color-adjust: exact;
   }
 
+  /* The phone overflow-x clip on the scroll container would cut off
+     anything printed wider than the paper. */
+  .pf-main-scroll {
+    overflow: visible !important;
+  }
+
   img,
   svg,
   canvas,

@@ -664,8 +664,7 @@ export function SchedulesClient({
         {/* Full width: every job block gets the whole sheet, and the name
             chips inside sit in fixed columns (see JobBlock) so a name lands in
             the same spot on every day row. Print is unaffected, the print
-            root is forced to 7.5in portrait (10in landscape for the Startup
-            grid) and zoom is dropped. */}
+            root fills the paper width and zoom is dropped. */}
         {/* On screen these table elements lay out as plain blocks. In print
             they are a real table: the <thead> band (title, with the logo in
             its left corner) repeats on every page, and each job is its own
@@ -712,9 +711,11 @@ export function SchedulesClient({
           @page { size: ${scheduleStyle === 'grid' ? 'landscape' : 'portrait'}; margin: 0.5in; }
           body * { visibility: hidden !important; }
           .schedule-print-root, .schedule-print-root * { visibility: visible !important; }
+          /* Fills the printable width of whatever paper the browser uses.
+             iPhone and iPad Safari ignore the landscape request above and
+             print portrait, so a fixed sheet width cut off the last days. */
           .schedule-print-root {
-            position: absolute !important; inset: 0 !important;
-            width: ${scheduleStyle === 'grid' ? '10in' : '7.5in'} !important;
+            position: absolute !important; inset: 0 !important; width: auto !important;
           }
           .schedule-print-root .pf-print-zoom { transform: none !important; width: 100% !important; min-width: 0 !important; }
           .schedule-print-root input { border: none !important; }
