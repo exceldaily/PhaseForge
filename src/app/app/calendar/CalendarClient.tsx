@@ -14,7 +14,7 @@ import {
   monthOf, monthWeeks, startOfWeekIso, weekDays, yearOf,
 } from '@/lib/calendar/dates'
 import {
-  DEFAULT_ITEM_COLOR, applyWorkWeek, listDivisions, passesFilter, superColor, type CalItem, type CalKind,
+  DEFAULT_OFF_DAYS, applyWorkWeek, listDivisions, passesFilter, superColor, type CalItem, type CalKind,
 } from '@/lib/calendar/model'
 import type { QaPoolItem } from '@/lib/calendar/quickAdd'
 import {
@@ -24,16 +24,20 @@ import {
 import { MonthView } from './MonthView'
 import { TimeGrid } from './TimeGrid'
 import { AGENDA_DAYS, AgendaView } from './AgendaView'
+import { JOBS_DAYS, JobsView } from './JobsView'
 import { Rail } from './Rail'
 import { QuickAdd } from './QuickAdd'
 import { DayList, EntryEditor, MoveGateDialog, draftFor, newDraft, type Draft } from './EntryEditor'
 import type { DragApi } from './parts'
 
-export type CalView = 'month' | 'week' | 'day' | 'agenda'
+export type CalView = 'jobs' | 'month' | 'week' | 'day' | 'agenda'
 const VIEWS: { id: CalView; label: string; key: string }[] = [
-  { id: 'month', label: 'Month', key: 'm' }, { id: 'week', label: 'Week', key: 'w' },
+  { id: 'jobs', label: 'Jobs', key: 'j' }, { id: 'month', label: 'Month', key: 'm' }, { id: 'week', label: 'Week', key: 'w' },
   { id: 'day', label: 'Day', key: 'd' }, { id: 'agenda', label: 'Agenda', key: 'a' },
 ]
+const NONE: number[] = []
+const EVENT_COLOR = '#0f766e'
+const NO_SUPER_COLOR = '#64748b'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 function localToday(): string { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
@@ -76,6 +80,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   const [hiddenSupers, setHiddenSupers] = useState(() => new Set(readPref<string[]>('pf-cal-hidden-supers', [])))
   const [hiddenKinds, setHiddenKinds] = useState(() => new Set(readPref<CalKind[]>('pf-cal-hidden-kinds', ['deadline'])))
   const [workWeek, setWorkWeek] = useState(() => readPref('pf-cal-work-week', true))
+  const [colorBy, setColorBy] = useState<'job' | 'super'>(() => (readPref<string>('pf-cal-color-by', 'job') === 'super' ? 'super' : 'job'))
   const [projectId, setProjectId] = useState(initialProjectId)
   const [railOpen, setRailOpen] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -98,6 +103,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   useEffect(() => { writePref('pf-cal-hidden-supers', [...hiddenSupers]) }, [hiddenSupers])
   useEffect(() => { writePref('pf-cal-hidden-kinds', [...hiddenKinds]) }, [hiddenKinds])
   useEffect(() => { writePref('pf-cal-work-week', workWeek) }, [workWeek])
+  useEffect(() => { writePref('pf-cal-color-by', colorBy) }, [colorBy])
   useEffect(() => {
     const q = new URLSearchParams({ d: anchor, v: view })
     if (projectId) q.set('project', projectId)
@@ -108,6 +114,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   const range = useMemo(() => {
     if (view === 'month') { const w = monthWeeks(anchor); return { from: w[0], to: addDaysIso(w[5], 6) } }
     if (view === 'week') { const ws = startOfWeekIso(anchor); return { from: ws, to: addDaysIso(ws, 6) } }
+    if (view === 'jobs') { const ws = startOfWeekIso(anchor); return { from: ws, to: addDaysIso(ws, JOBS_DAYS - 1) } }
     if (view === 'day') return { from: anchor, to: anchor }
     return { from: anchor, to: addDaysIso(anchor, AGENDA_DAYS - 1) }
   }, [view, anchor])
@@ -144,11 +151,20 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   const superColors = useMemo(() => new Map(supers.map((s, i) => [s.id, superColor(s, i)])), [supers])
   const superNames = useMemo(() => new Map(supers.map((s) => [s.id, s.name])), [supers])
   const projectColors = useMemo(() => new Map(refs.projects.map((p) => [p.id, p.color])), [refs.projects])
+  // One rule for color everywhere. By job: every bar of a job wears the job's
+  // color and the super rides along as a dot. By super: the label color.
   const colorFor = useCallback((item: CalItem) => {
     if (item.kind === 'deadline') return '#e11d48'
     if (item.kind === 'event' && item.color) return item.color
-    return (item.superId && superColors.get(item.superId)) || item.color || (item.projectId && projectColors.get(item.projectId)) || DEFAULT_ITEM_COLOR
-  }, [superColors, projectColors])
+    const job = item.projectId ? projectColors.get(item.projectId) : undefined
+    const sup = item.superId ? superColors.get(item.superId) : undefined
+    if (colorBy === 'super') return sup ?? (item.projectId ? NO_SUPER_COLOR : EVENT_COLOR)
+    return job ?? sup ?? EVENT_COLOR
+  }, [superColors, projectColors, colorBy])
+  const dotFor = useCallback((item: CalItem) => {
+    if (colorBy !== 'job' || item.kind === 'deadline' || !item.projectId) return null
+    return (item.superId && superColors.get(item.superId)) || null
+  }, [superColors, colorBy])
   const superName = useCallback((id: string | null) => (id ? superNames.get(id) ?? null : null), [superNames])
 
   const filter = useMemo(() => ({ division: divisions.includes(division) ? division : '', hiddenSupers, hiddenKinds, projectId }), [division, divisions, hiddenSupers, hiddenKinds, projectId])
@@ -215,7 +231,10 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
     if (item.kind === 'deadline') { window.location.assign(`/app/projects/${item.projectId}`); return }
     setDraft(draftFor(item, item.ownSuperId ?? null))
   }
-  const openNew = (date: string, time?: string | null) => { setDayList(null); setError(null); setDraft(newDraft(date, time ?? null, projectId)) }
+  const openNew = (date: string, time?: string | null, forProject?: string | null) => {
+    setDayList(null); setError(null)
+    setDraft(newDraft(date, time ?? null, forProject !== undefined ? forProject : projectId))
+  }
 
   const entryOf = (d: Draft): EntryInput => ({
     as: d.as, title: d.title, projectId: d.projectId, superId: d.superId || null, start: d.start, end: d.end,
@@ -288,7 +307,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
 
   /* ── Getting around ── */
   const step = useCallback((dir: 1 | -1) => {
-    setAnchor((a) => view === 'month' ? addMonthsIso(`${a.slice(0, 8)}01`, dir) : view === 'week' ? addDaysIso(a, 7 * dir) : view === 'day' ? addDaysIso(a, dir) : addDaysIso(a, AGENDA_DAYS * dir))
+    setAnchor((a) => view === 'month' ? addMonthsIso(`${a.slice(0, 8)}01`, dir) : view === 'week' || view === 'jobs' ? addDaysIso(a, 7 * dir) : view === 'day' ? addDaysIso(a, dir) : addDaysIso(a, AGENDA_DAYS * dir))
   }, [view])
 
   useEffect(() => {
@@ -298,8 +317,8 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
       if (document.querySelector('[data-cal-modal]')) return
       const k = e.key.toLowerCase()
       if (k === 't') setAnchor(localToday())
-      else if (k === 'arrowleft' || k === 'k') step(-1)
-      else if (k === 'arrowright' || k === 'j') step(1)
+      else if (k === 'arrowleft') step(-1)
+      else if (k === 'arrowright') step(1)
       else { const v = VIEWS.find((x) => x.key === k); if (v) setView(v.id) }
     }
     window.addEventListener('keydown', onKey)
@@ -309,14 +328,15 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   const heading = useMemo(() => {
     if (view === 'month') return `${MONTH_LONG[monthOf(anchor) - 1]} ${yearOf(anchor)}`
     if (view === 'day') return `${DAY_LONG[dowIso(anchor)]}, ${MONTH_LONG[monthOf(anchor) - 1]} ${dayOf(anchor)}, ${yearOf(anchor)}`
-    const from = view === 'week' ? startOfWeekIso(anchor) : anchor
-    const to = view === 'week' ? addDaysIso(from, 6) : addDaysIso(from, AGENDA_DAYS - 1)
+    const from = view === 'agenda' ? anchor : startOfWeekIso(anchor)
+    const to = view === 'week' ? addDaysIso(from, 6) : view === 'jobs' ? addDaysIso(from, JOBS_DAYS - 1) : addDaysIso(from, AGENDA_DAYS - 1)
     const a = `${MONTH_SHORT[monthOf(from) - 1]} ${dayOf(from)}`
     const b = monthOf(from) === monthOf(to) ? `${dayOf(to)}` : `${MONTH_SHORT[monthOf(to) - 1]} ${dayOf(to)}`
     return `${a} to ${b}, ${yearOf(to)}`
   }, [view, anchor])
 
-  const viewProps = { items, today, canEdit, colorFor, superName, onOpen: openItem, onNew: openNew, onShowDay: setDayList, drag }
+  const restDays = workWeek ? DEFAULT_OFF_DAYS : NONE
+  const viewProps = { items, today, canEdit, colorFor, dotFor, superName, restDays, onOpen: openItem, onNew: openNew, onShowDay: setDayList, drag }
   const modalOpen = !!draft || !!ask || !!dayList
 
   const rail = (
@@ -324,7 +344,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
       supers={supers} superColors={superColors} division={filter.division}
       hiddenSupers={hiddenSupers} onToggleSuper={(id) => setHiddenSupers((s) => toggle(s, id))} onSuperColor={changeSuperColor}
       hiddenKinds={hiddenKinds} onToggleKind={(k) => setHiddenKinds((s) => toggle(s, k))}
-      workWeek={workWeek} onWorkWeek={setWorkWeek}
+      workWeek={workWeek} onWorkWeek={setWorkWeek} colorBy={colorBy} onColorBy={setColorBy}
       projects={refs.projects} projectId={projectId} onProject={setProjectId} canEdit={canEdit} />
   )
 
@@ -394,6 +414,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
         )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-auto">
           <div className={cn('flex min-h-0 flex-1 flex-col', view === 'week' && 'min-w-[720px]', view === 'month' && 'min-w-[560px]')}>
+            {view === 'jobs' && <JobsView from={startOfWeekIso(anchor)} projects={refs.projects} supers={supers} superColors={superColors} {...viewProps} />}
             {view === 'month' && <MonthView anchor={anchor} {...viewProps} />}
             {view === 'week' && <TimeGrid days={weekDays(startOfWeekIso(anchor))} nowMinutes={nowMinutes} {...viewProps} />}
             {view === 'day' && <TimeGrid days={[anchor]} nowMinutes={nowMinutes} {...viewProps} />}
@@ -406,7 +427,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
         <div className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-xl">{toast}</div>
       )}
       {dayList && (
-        <DayList date={dayList} items={items} colorFor={colorFor} superName={superName} canEdit={canEdit}
+        <DayList date={dayList} items={items} colorFor={colorFor} dotFor={dotFor} superName={superName} canEdit={canEdit}
           onOpen={openItem} onNew={() => openNew(dayList)} onWeek={() => { setAnchor(dayList); setView('day'); setDayList(null) }} onClose={() => setDayList(null)} />
       )}
       {draft && (

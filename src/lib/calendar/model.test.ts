@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  applyWorkWeek, coversDay, fitWeek, keywordDivision, layoutTimed, layoutWeek, listDivisions, passesFilter, phaseOffDays,
+  applyWorkWeek, coversDay, fitWeek, groupByJob, jobColor, jobTag, keywordDivision, layoutTimed, layoutWeek, listDivisions, passesFilter, phaseOffDays,
   resolveDivision, resolveSuper, superColor, textOn,
   type CalItem, type CalSuper,
 } from './model'
@@ -67,6 +67,50 @@ describe('layoutWeek', () => {
       item('work', '2026-10-06', '2026-10-06'),
     ], WEEK)
     expect(segments.map((s) => [s.item.id, s.lane])).toEqual([['work', 0], ['meeting', 1]])
+  })
+})
+
+describe('jobs', () => {
+  it('splits a job name into its tag and the rest', () => {
+    expect(jobTag('2533-1012 Gulf Breeze Capx')).toEqual({ code: '2533', label: 'Gulf Breeze Capx' })
+    expect(jobTag('1087-278 Stuart ZE (Carlos, Gau')).toEqual({ code: '1087', label: 'Stuart ZE' })
+    expect(jobTag("Sam's Club 6387-1017 Pinelles Park Capx Condensers")).toEqual({ code: '6387', label: "Sam's Club Pinelles Park Capx Condensers" })
+    expect(jobTag("760 Trader Joe's Jacksonville (FMGI/AMS)")).toEqual({ code: '760', label: "Trader Joe's Jacksonville" })
+    expect(jobTag('Aldi 0611 Lutz')).toEqual({ code: '0611', label: 'Aldi Lutz' })
+    expect(jobTag('WM 2345 & Fuel Station Lady Lake')).toEqual({ code: '2345', label: 'WM & Fuel Station Lady Lake' })
+    expect(jobTag("Buckee's")).toEqual({ code: null, label: "Buckee's" })
+    expect(jobTag('Aldi Boynton Beach')).toEqual({ code: null, label: 'Aldi Boynton Beach' })
+  })
+  it('prefers the store number saved on the project', () => {
+    expect(jobTag('BJs Club 260 Ocala (Darrow)', '260')).toEqual({ code: '260', label: 'BJs Club Ocala' })
+    expect(jobTag('0697-1018 Ocala Cap-X', '0697')).toEqual({ code: '0697', label: 'Ocala Cap-X' })
+    expect(jobTag('Warehouse remodel', '9001')).toEqual({ code: '9001', label: 'Warehouse remodel' })
+  })
+  it('gives every job a steady color', () => {
+    expect(jobColor('abc', '#10B981')).toBe('#10b981')
+    expect(jobColor('abc', null)).toBe(jobColor('abc', 'nope'))
+    expect(jobColor('abc', null)).toMatch(/^#[0-9a-f]{6}$/)
+  })
+  it('keeps one job\u2019s bars together in a week', () => {
+    const j = (id: string, pid: string, start: string, end: string) => item(id, start, end, { projectId: pid, projectName: pid })
+    const { segments } = layoutWeek([
+      j('a1', 'A', '2026-10-05', '2026-10-05'),
+      j('b1', 'B', '2026-10-05', '2026-10-08'),
+      j('a2', 'A', '2026-10-06', '2026-10-08'),
+      j('b2', 'B', '2026-10-06', '2026-10-06'),
+    ], '2026-10-04')
+    // A's two bars share a lane before B is placed, even though B's first bar is longer.
+    const lane = Object.fromEntries(segments.map((s) => [s.item.id, s.lane]))
+    expect(lane).toEqual({ a1: 0, a2: 0, b1: 1, b2: 2 })
+  })
+  it('buckets by job with the no-job bucket last', () => {
+    const groups = groupByJob([
+      item('x', '2026-10-05', '2026-10-05'),
+      item('z', '2026-10-05', '2026-10-05', { projectId: 'p2', projectName: 'Zeta', jobLabel: 'Zeta' }),
+      item('a', '2026-10-05', '2026-10-05', { projectId: 'p1', projectName: 'Alpha', jobLabel: 'Alpha' }),
+      item('a2', '2026-10-06', '2026-10-06', { projectId: 'p1', projectName: 'Alpha', jobLabel: 'Alpha' }),
+    ])
+    expect(groups.map((g) => [g.projectId, g.items.map((i) => i.id)])).toEqual([['p1', ['a', 'a2']], ['p2', ['z']], [null, ['x']]])
   })
 })
 

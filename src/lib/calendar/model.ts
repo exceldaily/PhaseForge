@@ -20,6 +20,9 @@ export interface CalItem {
   projectId: string | null
   projectName: string | null
   jobNumber: string | null
+  /** The job's short tag ("2533") and its name without it ("Gulf Breeze Capx"). */
+  jobCode?: string | null
+  jobLabel?: string | null
   /** The super whose label it wears: its own, or the job's. */
   superId: string | null
   /** Only when a super was set on this item itself, not inherited from the job. */
@@ -54,6 +57,35 @@ export const LABEL_COLORS: { hex: string; label: string }[] = [
   { hex: '#5f6368', label: 'Graphite' },
 ]
 export const DEFAULT_ITEM_COLOR = '#4f46e5'
+
+/** For a job with no color of its own: a steady pick from these by its id. */
+export const JOB_COLORS = ['#2563eb', '#0d9488', '#c2410c', '#7c3aed', '#be123c', '#15803d', '#a16207', '#0369a1', '#a21caf', '#4d7c0f', '#b91c1c', '#475569']
+export function jobColor(projectId: string, own: string | null | undefined): string {
+  const c = safeColor(own)
+  if (c) return c
+  let h = 0
+  for (let i = 0; i < projectId.length; i++) h = (h * 31 + projectId.charCodeAt(i)) >>> 0
+  return JOB_COLORS[h % JOB_COLORS.length]
+}
+
+/**
+ * Split a job name into the short tag people know it by and the rest.
+ * "2533-1012 Gulf Breeze Capx" is tag 2533, label "Gulf Breeze Capx".
+ * The store number on the project wins; otherwise the first 3 to 5 digit
+ * number in the name. Notes in brackets are dropped from the label.
+ */
+export function jobTag(name: string, storeId?: string | null): { code: string | null; label: string } {
+  const clean = name.replace(/\([^)]*\)?/g, ' ').replace(/\s+/g, ' ').trim()
+  const store = storeId?.trim() || null
+  const code = store ?? /(?:^|[^\d])(\d{3,5})(?!\d)/.exec(clean)?.[1] ?? null
+  if (!code) return { code: null, label: clean || name.trim() }
+  const bare = code.replace(/^0+(?=\d)/, '')
+  const hit = new RegExp(`(^|[^\\d])0*${bare}(?:-\\d+)*(?!\\d)`).exec(clean)
+  const label = hit
+    ? `${clean.slice(0, hit.index + hit[1].length)} ${clean.slice(hit.index + hit[0].length)}`.replace(/\s+/g, ' ').replace(/^[\s&,\-]+|[\s&,\-]+$/g, '').trim()
+    : clean
+  return { code, label: label || clean }
+}
 
 export const safeColor = (hex: string | null | undefined): string | null =>
   hex && /^#[0-9a-f]{6}$/i.test(hex.trim()) ? hex.trim().toLowerCase() : null
@@ -217,10 +249,22 @@ const isTimed = (i: CalItem) => !!i.startTime && i.start === i.end
 export function layoutWeek(items: CalItem[], weekStart: string, days = 7): { segments: WeekSegment[]; lanes: number } {
   const weekEnd = addDaysIso(weekStart, days - 1)
   const inWeek = items.filter((i) => i.start <= weekEnd && i.end >= weekStart)
+  const clamp = (i: CalItem) => (i.start < weekStart ? weekStart : i.start)
+  // One job's bars sit together: a job takes its place by its earliest bar
+  // this week, and the rest of its bars follow it before the next job starts.
+  const groupOf = (i: CalItem) => (i.projectId && !isTimed(i) ? `job:${i.projectId}` : `own:${i.key}`)
+  const groupStart = new Map<string, string>()
+  for (const i of inWeek) {
+    const g = groupOf(i)
+    const s = clamp(i)
+    if (!groupStart.has(g) || s < groupStart.get(g)!) groupStart.set(g, s)
+  }
   const order = [...inWeek].sort((a, b) => {
-    const as = a.start < weekStart ? weekStart : a.start
-    const bs = b.start < weekStart ? weekStart : b.start
+    const as = clamp(a)
+    const bs = clamp(b)
     return Number(isTimed(a)) - Number(isTimed(b))
+      || groupStart.get(groupOf(a))!.localeCompare(groupStart.get(groupOf(b))!)
+      || groupOf(a).localeCompare(groupOf(b))
       || as.localeCompare(bs)
       || diffDaysIso(b.start, b.end) - diffDaysIso(a.start, a.end)
       || (a.startTime ?? '').localeCompare(b.startTime ?? '')
@@ -282,6 +326,27 @@ export function fitWeek(segments: WeekSegment[], maxLanes: number, days = 7): { 
   const more = Array(days).fill(0) as number[]
   for (const s of segments) if (!shown.has(s.key)) for (let c = s.col; c < s.col + s.span; c++) more[c]++
   return { visible, more }
+}
+
+/* ── Grouping by job ─────────────────────────────────────────────────────── */
+
+export interface JobGroup {
+  /** null gathers everything that is not tied to a job. */
+  projectId: string | null
+  items: CalItem[]
+}
+
+/** Items bucketed by job, jobs in name order, the no-job bucket last. */
+export function groupByJob(items: CalItem[]): JobGroup[] {
+  const map = new Map<string, JobGroup>()
+  for (const i of items) {
+    const k = i.projectId ?? ''
+    const g = map.get(k) ?? { projectId: i.projectId, items: [] }
+    g.items.push(i)
+    map.set(k, g)
+  }
+  const name = (g: JobGroup) => g.items[0]?.jobLabel ?? g.items[0]?.projectName ?? ''
+  return [...map.values()].sort((a, b) => Number(a.projectId === null) - Number(b.projectId === null) || name(a).localeCompare(name(b)))
 }
 
 /* ── Timed events in a day column ────────────────────────────────────────── */

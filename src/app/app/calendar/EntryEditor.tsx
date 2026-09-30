@@ -5,15 +5,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, Flag, GanttChartSquare, Trash2 } from 'lucide-react'
+import { ExternalLink, GanttChartSquare, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { SCHEDULE_CHANGE_REASONS } from '@/lib/activity/log'
-import { fmtDay, fmtRange, fmtTime } from '@/lib/calendar/dates'
+import { fmtDay, fmtRange } from '@/lib/calendar/dates'
 import { LABEL_COLORS, coversDay, textOn, type CalItem, type CalSuper } from '@/lib/calendar/model'
 import type { CalProject, MoveGate } from './actions'
-import { isDone, isTimed } from './parts'
+import { JobGroupList } from './parts'
 
 export interface Draft {
   /** 'new' adds; the others edit the thing they name. */
@@ -260,35 +260,18 @@ export function MoveGateDialog({ gate, busy, onCancel, onConfirm }: {
 }
 
 /** Everything on one day, from "+N more" or a day number. */
-export function DayList({ date, items, colorFor, superName, canEdit, onOpen, onNew, onWeek, onClose }: {
+export function DayList({ date, items, colorFor, dotFor, superName, canEdit, onOpen, onNew, onWeek, onClose }: {
   date: string; items: CalItem[]
-  colorFor: (i: CalItem) => string; superName: (id: string | null) => string | null
+  colorFor: (i: CalItem) => string; dotFor: (i: CalItem) => string | null; superName: (id: string | null) => string | null
   canEdit: boolean; onOpen: (i: CalItem) => void; onNew: () => void; onWeek: () => void; onClose: () => void
 }) {
   const rows = items.filter((i) => coversDay(i, date))
-    .sort((a, b) => Number(isTimed(a)) - Number(isTimed(b)) || (a.startTime ?? '').localeCompare(b.startTime ?? '') || a.title.localeCompare(b.title))
   return (
-    <Modal open onClose={onClose} title={fmtDay(date, true)} size="sm">
+    <Modal open onClose={onClose} title={fmtDay(date, true)} size="md">
       <div className="p-4">
         {rows.length === 0 && <p className="py-4 text-center text-sm text-slate-400">Nothing on this day.</p>}
-        <div className="max-h-[55vh] space-y-1 overflow-y-auto">
-          {rows.map((it) => {
-            const color = colorFor(it)
-            const sup = superName(it.superId)
-            return (
-              <button key={it.key} type="button" onClick={() => onOpen(it)}
-                className={cn('flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100', isDone(it) && 'opacity-60')}>
-                {it.kind === 'deadline' ? <Flag size={12} className="mt-1 shrink-0 text-rose-600" /> : <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-slate-800">{it.projectName ?? it.title}</span>
-                  <span className="block truncate text-xs text-slate-500">
-                    {[it.projectName ? (it.kind === 'deadline' ? 'Project end date' : it.title) : null,
-                      it.startTime ? fmtTime(it.startTime) : it.start !== it.end ? fmtRange(it.start, it.end) : null, sup].filter(Boolean).join(' · ')}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
+        <div className="max-h-[60vh] overflow-y-auto pr-0.5">
+          <JobGroupList items={rows} colorFor={colorFor} dotFor={dotFor} superName={superName} onOpen={onOpen} />
         </div>
         <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
           <button type="button" onClick={onWeek} className="text-xs font-medium text-indigo-600 hover:underline">Open this day</button>

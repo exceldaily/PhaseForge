@@ -13,7 +13,7 @@ import { canEditCompanyData } from '@/lib/permissions'
 import { logActivity, REASON_PROMPT_THRESHOLD_DAYS } from '@/lib/activity/log'
 import { computeMoveImpact, type ScheduleDependency, type SchedulePhase } from '@/lib/schedule/engine'
 import { addDaysIso, diffDaysIso, isIsoDate } from '@/lib/calendar/dates'
-import { resolveDivision, resolveSuper, safeColor, type CalItem, type CalSuper } from '@/lib/calendar/model'
+import { jobColor, jobTag, resolveDivision, resolveSuper, safeColor, type CalItem, type CalSuper } from '@/lib/calendar/model'
 import type { QaPoolItem } from '@/lib/calendar/quickAdd'
 import { autoSyncPhaseIfEnabled } from '@/app/app/projects/[id]/scheduleActions'
 
@@ -43,7 +43,11 @@ const skipDows = (codes: string[] | null | undefined): number[] | null => {
 }
 
 export interface CalProject {
-  id: string; name: string; jobNumber: string | null; color: string | null
+  id: string; name: string; jobNumber: string | null
+  /** The job's own color: the one on the project, else a steady pick. */
+  color: string
+  /** Short tag ("2533") and the name without it. */
+  code: string | null; label: string
   superId: string | null; division: string | null
 }
 export interface CalendarRefs { projects: CalProject[]; supers: CalSuper[] }
@@ -53,12 +57,13 @@ interface ProjectRow {
   id: string; name: string; job_number: string | null; color: string | null; end_date: string | null
   status: string | null; superintendent_id: string | null; superintendent: string | null; trade: string | null
   gcal_skip_days: string[] | null
+  store_site_id: string | null
 }
 
 async function loadRefRows(supabase: Db, companyId: string) {
   const [{ data: projects }, { data: supers }] = await Promise.all([
     supabase.from('projects')
-      .select('id, name, job_number, color, end_date, status, superintendent_id, superintendent, trade, gcal_skip_days')
+      .select('id, name, job_number, color, end_date, status, superintendent_id, superintendent, trade, gcal_skip_days, store_site_id')
       .eq('company_id', companyId).eq('is_archived', false).order('name'),
     supabase.from('superintendents').select('id, name, division, default_color')
       .eq('company_id', companyId).eq('is_active', true).order('name'),
@@ -81,7 +86,8 @@ export async function loadCalendarRefs(): Promise<CalendarRefs> {
     supers,
     projects: projects.map((p) => {
       const superId = projectSuper(p, supers)
-      return { id: p.id, name: p.name, jobNumber: p.job_number, color: safeColor(p.color), superId, division: resolveDivision(superId, p.trade, supers) }
+      const tag = jobTag(p.name, p.store_site_id)
+      return { id: p.id, name: p.name, jobNumber: p.job_number, color: jobColor(p.id, p.color), code: tag.code, label: tag.label, superId, division: resolveDivision(superId, p.trade, supers) }
     }),
   }
 }
@@ -93,6 +99,11 @@ export async function loadCalendar(input: { from: string; to: string }): Promise
   const { projects, supers } = await loadRefRows(supabase, companyId)
   const byId = new Map(projects.map((p) => [p.id, p]))
   const superOf = new Map(projects.map((p) => [p.id, projectSuper(p, supers)]))
+  const tagOf = new Map(projects.map((p) => [p.id, jobTag(p.name, p.store_site_id)]))
+  const job = (id: string | null | undefined) => {
+    const t = id ? tagOf.get(id) : undefined
+    return { jobCode: t?.code ?? null, jobLabel: t?.label ?? null }
+  }
 
   // Every phase on a live project. Paged, because one request stops at 1000 rows.
   const phases: { id: string; project_id: string; name: string; start_date: string; end_date: string; status: string | null; color: string | null; is_milestone: boolean | null; superintendent_id: string | null; gcal_skip_days: string[] | null }[] = []
@@ -125,7 +136,7 @@ export async function loadCalendar(input: { from: string; to: string }): Promise
     const superId = own ?? superOf.get(ph.project_id) ?? null
     items.push({
       key: `phase:${ph.id}`, kind: 'phase', id: ph.id, title: ph.name, start: ph.start_date, end,
-      startTime: null, endTime: null, projectId: proj.id, projectName: proj.name, jobNumber: proj.job_number,
+      startTime: null, endTime: null, projectId: proj.id, projectName: proj.name, jobNumber: proj.job_number, ...job(proj.id),
       superId, ownSuperId: own, division: resolveDivision(superId, proj.trade, supers, ph.name), color: safeColor(ph.color),
       status: ph.status, milestone: !!ph.is_milestone,
       // The phase's own skip days, else the project's: the same order Google Calendar sync uses.
@@ -139,7 +150,7 @@ export async function loadCalendar(input: { from: string; to: string }): Promise
     items.push({
       key: `event:${e.id}`, kind: 'event', id: e.id as string, title: e.title as string,
       start: e.start_date as string, end: e.end_date as string, startTime: hhmm(e.start_time as string | null), endTime: hhmm(e.end_time as string | null),
-      projectId: proj?.id ?? null, projectName: proj?.name ?? null, jobNumber: proj?.job_number ?? null,
+      projectId: proj?.id ?? null, projectName: proj?.name ?? null, jobNumber: proj?.job_number ?? null, ...job(proj?.id),
       superId, ownSuperId: own,
       division: resolveDivision(superId, proj?.trade ?? null, supers, e.title as string) ?? (e.division as string | null) ?? null,
       color: safeColor(e.color as string | null), notes: (e.notes as string | null) ?? null,
@@ -153,7 +164,7 @@ export async function loadCalendar(input: { from: string; to: string }): Promise
     const superId = superOf.get(p.id) ?? null
     items.push({
       key: `deadline:${p.id}`, kind: 'deadline', id: p.id, title: 'Project end date', start: p.end_date, end: p.end_date,
-      startTime: null, endTime: null, projectId: p.id, projectName: p.name, jobNumber: p.job_number,
+      startTime: null, endTime: null, projectId: p.id, projectName: p.name, jobNumber: p.job_number, ...job(p.id),
       superId, division: resolveDivision(superId, p.trade, supers), color: null,
     })
   }

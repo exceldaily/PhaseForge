@@ -65,13 +65,14 @@ const KINDS: { kind: CalKind; label: string; color: string; hint: string }[] = [
 
 export function Rail({
   anchor, today, view, onPick, supers, superColors, division, hiddenSupers, onToggleSuper, onSuperColor,
-  hiddenKinds, onToggleKind, workWeek, onWorkWeek, projects, projectId, onProject, canEdit,
+  hiddenKinds, onToggleKind, workWeek, onWorkWeek, colorBy, onColorBy, projects, projectId, onProject, canEdit,
 }: {
   anchor: string; today: string; view: string; onPick: (date: string) => void
   supers: CalSuper[]; superColors: Map<string, string>; division: string
   hiddenSupers: Set<string>; onToggleSuper: (id: string) => void; onSuperColor: (id: string, hex: string) => void
   hiddenKinds: Set<CalKind>; onToggleKind: (k: CalKind) => void
   workWeek: boolean; onWorkWeek: (on: boolean) => void
+  colorBy: 'job' | 'super'; onColorBy: (v: 'job' | 'super') => void
   projects: CalProject[]; projectId: string | null; onProject: (id: string | null) => void
   canEdit: boolean
 }) {
@@ -80,6 +81,19 @@ export function Rail({
   return (
     <div className="space-y-5">
       <MiniMonth anchor={anchor} today={today} view={view} onPick={onPick} />
+
+      <section data-help="cal-color-by">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Color by</p>
+        <div className="flex rounded-lg border border-slate-200 p-0.5 text-xs font-medium">
+          {([['job', 'Job'], ['super', 'Super']] as const).map(([v, text]) => (
+            <button key={v} type="button" aria-pressed={colorBy === v} onClick={() => onColorBy(v)}
+              className={cn('flex-1 rounded-md px-2 py-1', colorBy === v ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100')}>{text}</button>
+          ))}
+        </div>
+        <p className="mt-1 px-0.5 text-[11px] leading-snug text-slate-400">
+          {colorBy === 'job' ? 'Each job keeps its own color. The dot at the end of a bar is the super.' : 'Every bar wears its super\u2019s label color.'}
+        </p>
+      </section>
 
       <section data-help="cal-supers">
         <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Supers</p>
