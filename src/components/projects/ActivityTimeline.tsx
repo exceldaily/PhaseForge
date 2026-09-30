@@ -43,6 +43,9 @@ const ACTION_LABELS: Record<string, string> = {
   link_removed: 'removed a link from',
   file_uploaded: 'uploaded',
   file_deleted: 'removed a file from',
+  calendar_added: 'put on the calendar',
+  calendar_moved: 'moved on the calendar',
+  calendar_removed: 'took off the calendar',
   comment_added: 'left a comment',
   co_event: '',
 }
@@ -56,6 +59,7 @@ const ACTION_CATEGORY: Record<string, string> = {
   punch_created: 'punch', punch_completed: 'punch', punch_reopened: 'punch', punch_deleted: 'punch',
   link_created: 'links', link_removed: 'links',
   file_uploaded: 'files', file_deleted: 'files',
+  calendar_added: 'schedule', calendar_moved: 'schedule', calendar_removed: 'schedule',
   co_event: 'change_orders',
 }
 

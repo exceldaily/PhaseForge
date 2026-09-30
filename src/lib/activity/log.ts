@@ -17,7 +17,7 @@
 
 export type ActivityEntityType =
   | 'project' | 'phase' | 'change_order' | 'punch_item'
-  | 'plan_sheet' | 'file' | 'baseline' | 'link' | 'dependency'
+  | 'plan_sheet' | 'file' | 'baseline' | 'link' | 'dependency' | 'calendar_event'
 
 export type ActivityAction =
   // project (existing vocabulary, unchanged)
@@ -35,6 +35,8 @@ export type ActivityAction =
   | 'link_created' | 'link_removed'
   // files
   | 'file_uploaded' | 'file_deleted'
+  // calendar events tied to a project (phases on the calendar log as phase_*)
+  | 'calendar_added' | 'calendar_moved' | 'calendar_removed'
 
 export interface ActivityEvent {
   companyId: string

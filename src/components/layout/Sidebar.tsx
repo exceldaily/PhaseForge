@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BedDouble, MessageSquare,
-  LayoutDashboard, FolderKanban, GanttChartSquare,
+  LayoutDashboard, FolderKanban, GanttChartSquare, CalendarRange,
   Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
   Contact, HardHat, Truck, FolderOpen, Receipt, CalendarDays, BadgeDollarSign, FileDiff,
@@ -51,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/app/quotes',   label: 'Quotes',   icon: BadgeDollarSign, gate: 'dispatch' },
       { href: '/app/boards',   label: 'Boards',   icon: Layers },
       { href: '/app/gantt',    label: 'Gantt',    icon: GanttChartSquare },
+      { href: '/app/calendar', label: 'Calendar', icon: CalendarRange },
       { href: '/app/schedules', label: 'Schedules', icon: CalendarDays, gate: 'schedules' },
       { href: '/app/lodging',   label: 'Lodging',   icon: BedDouble,    gate: 'schedules' },
     ],

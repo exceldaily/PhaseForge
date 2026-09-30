@@ -400,6 +400,9 @@ function RecentActivityRow({ log, memberMap }: { log: ActivityLog; memberMap: Re
     punch_completed: `completed punch item ${label ?? ''}`.trim(),
     link_created: 'linked two items',
     file_uploaded: `uploaded ${label ?? 'a file'}`,
+    calendar_added: `put ${label ?? 'an event'} on the calendar`,
+    calendar_moved: `moved ${label ?? 'an event'} on the calendar`,
+    calendar_removed: `took ${label ?? 'an event'} off the calendar`,
   }
   const verb = VERBS[log.action] ?? log.action.replace(/_/g, ' ')
 

@@ -241,9 +241,14 @@ export function ProjectHub({
         <section className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-900">Schedule at a glance</h3>
-            <button onClick={() => onNavigate('gantt')} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
-              Open Gantt <ArrowUpRight size={12} />
-            </button>
+            <span className="flex items-center gap-3">
+              <Link href={`/app/calendar?project=${project.id}`} data-help="hub-calendar" className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
+                Open in Calendar <ArrowUpRight size={12} />
+              </Link>
+              <button onClick={() => onNavigate('gantt')} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline">
+                Open Gantt <ArrowUpRight size={12} />
+              </button>
+            </span>
           </div>
           <div className="mt-3 max-h-[420px] overflow-y-auto pr-1">
             <MiniGantt phases={phases} maxRows={40} onOpen={() => onNavigate('gantt')} />

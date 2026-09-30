@@ -71,6 +71,7 @@ export const PAGE_HELP: PageHelp[] = [
     pins: [
       { key: 'project-hub', label: 'Tiles', text: 'One box per part of the job with a live preview. Click a box to open that section; Hub in the strip brings you back.' },
       { key: 'hub-schedule', label: 'Schedule', text: 'A small timeline of the phases with today marked. Click it for the full Gantt.' },
+      { key: 'hub-calendar', label: 'Open in Calendar', text: 'Opens the company calendar narrowed to this job, with every phase on it.' },
       { key: 'hub-health', label: 'Command Center', text: 'Health score and the top things needing eyes, with the full breakdown one click away.' },
       { key: 'hub-chat', label: 'Job chat', text: 'The chat space for this job, with the last few messages. Opens the Chat section right here on the project.' },
       { key: 'hub-details', label: 'Project details', text: 'Every field on the project in one list: customer, job number, address with a map link, dates, people, permit, tags, and notes.' },
@@ -146,6 +147,21 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'lodging-far', label: 'Only 2+ hours away', text: 'Leaves out anyone whose home is under two hours from the job. People with no address are kept and flagged.' },
       { key: 'lodging-drive', label: 'Check drive times', text: 'Works out each guest\u2019s drive from home to the job again after addresses change.' },
       { key: 'lodging-job-address', label: 'Job address', text: 'The same address the pin on the Schedules job list holds. Change it in either place and both update, and the drive times re-run.' },
+    ],
+  },
+  {
+    match: /^\/app\/calendar$/,
+    title: 'Calendar',
+    sectionIds: ['calendar'],
+    pins: [
+      { key: 'cal-quick-add', label: 'Type it', text: 'Type a date, a job, and what is being done, like Oct 12 Gulf Breeze set cases. It shows what it read and whether it will add or move before anything saves.' },
+      { key: 'cal-views', label: 'Views', text: 'Month, Week, Day, or Agenda. The keys M, W, D, and A switch too, T jumps to today, and the arrow keys step.' },
+      { key: 'cal-division', label: 'Division', text: 'Show one division at a time, the same departments Schedules uses.' },
+      { key: 'cal-supers', label: 'Supers', text: 'Tick a super to show or hide their work. The palette sets the label color their bars wear.' },
+      { key: 'cal-show', label: 'Show', text: 'Turn project phases, events, and project end dates on or off.' },
+      { key: 'cal-project', label: 'Job', text: 'Narrow the calendar to one job.' },
+      { key: 'cal-new', label: 'New', text: 'Add a phase to a job, or an event like a meeting or an inspection.' },
+      { key: 'cal-today', label: 'Today', text: 'Jumps back to today.' },
     ],
   },
   {
