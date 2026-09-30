@@ -17,7 +17,7 @@ export function describe(item: CalItem, superName: string | null): string {
     ? `${fmtDay(item.start)}, ${fmtTime(item.startTime)}${item.endTime ? ` to ${fmtTime(item.endTime)}` : ''}`
     : fmtRange(item.start, item.end)
   const what = item.kind === 'deadline' ? `${item.projectName} ends` : item.title
-  return [what, item.kind !== 'deadline' ? item.projectName : null, when, superName].filter(Boolean).join('\n')
+  return [item.kind !== 'deadline' ? item.projectName : null, what, when, superName].filter(Boolean).join('\n')
 }
 
 export function MonthView({ anchor, items, today, canEdit, colorFor, superName, onOpen, onNew, onShowDay, drag }: ViewProps & { anchor: string }) {

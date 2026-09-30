@@ -33,13 +33,18 @@ export const isTimed = (i: CalItem) => !!i.startTime && i.start === i.end
 export const isDone = (i: CalItem) => i.kind === 'phase' && (i.status === 'completed' || i.status === 'skipped')
 export const canDrag = (i: CalItem, canEdit: boolean) => canEdit && i.kind !== 'deadline'
 
-/** "Set cases · Gulf Breeze" for a bar, "Gulf Breeze" alone for an end date. */
+/**
+ * Job first, then what is being done: "Gulf Breeze · Set cases". The job is
+ * what people scan a busy day for. Something with no job is just its title,
+ * and an end date reads "Gulf Breeze ends".
+ */
 export function ItemLabel({ item }: { item: CalItem }) {
   if (item.kind === 'deadline') return <span className="font-semibold">{item.projectName} ends</span>
+  if (!item.projectName) return <span className="font-semibold">{item.title}</span>
   return (
     <>
-      <span className="font-semibold">{item.title}</span>
-      {item.projectName && <span className="opacity-80"> · {item.projectName}</span>}
+      <span className="font-semibold">{item.projectName}</span>
+      <span className="opacity-90"> · {item.title}</span>
     </>
   )
 }

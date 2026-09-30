@@ -60,8 +60,9 @@ export function AgendaView({ anchor, items, today, colorFor, superName, onOpen, 
                     {it.startTime ? `${fmtTime(it.startTime)}${it.endTime ? ` to ${fmtTime(it.endTime)}` : ''}` : it.start === it.end ? 'All day' : fmtRange(it.start, it.end)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm text-slate-800">
-                    <span className="font-semibold">{it.kind === 'deadline' ? 'Project end date' : it.title}</span>
-                    {it.projectName && <span className="text-slate-500"> · {it.projectName}</span>}
+                    {it.projectName
+                      ? <><span className="font-semibold">{it.projectName}</span><span className="text-slate-500"> · {it.kind === 'deadline' ? 'Project end date' : it.title}</span></>
+                      : <span className="font-semibold">{it.title}</span>}
                   </span>
                   {sup && (
                     <span className="hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:inline" style={{ backgroundColor: color, color: textOn(color) }}>{sup}</span>

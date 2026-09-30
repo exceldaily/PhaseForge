@@ -280,9 +280,10 @@ export function DayList({ date, items, colorFor, superName, canEdit, onOpen, onN
                 className={cn('flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100', isDone(it) && 'opacity-60')}>
                 {it.kind === 'deadline' ? <Flag size={12} className="mt-1 shrink-0 text-rose-600" /> : <span className="mt-1 h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: color }} />}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-slate-800">{it.kind === 'deadline' ? 'Project end date' : it.title}</span>
+                  <span className="block truncate text-sm font-semibold text-slate-800">{it.projectName ?? it.title}</span>
                   <span className="block truncate text-xs text-slate-500">
-                    {[it.projectName, it.startTime ? fmtTime(it.startTime) : it.start !== it.end ? fmtRange(it.start, it.end) : null, sup].filter(Boolean).join(' · ')}
+                    {[it.projectName ? (it.kind === 'deadline' ? 'Project end date' : it.title) : null,
+                      it.startTime ? fmtTime(it.startTime) : it.start !== it.end ? fmtRange(it.start, it.end) : null, sup].filter(Boolean).join(' · ')}
                   </span>
                 </span>
               </button>
