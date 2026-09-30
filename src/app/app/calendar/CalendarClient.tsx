@@ -14,7 +14,7 @@ import {
   monthOf, monthWeeks, startOfWeekIso, weekDays, yearOf,
 } from '@/lib/calendar/dates'
 import {
-  DEFAULT_ITEM_COLOR, listDivisions, passesFilter, superColor, type CalItem, type CalKind,
+  DEFAULT_ITEM_COLOR, applyWorkWeek, listDivisions, passesFilter, superColor, type CalItem, type CalKind,
 } from '@/lib/calendar/model'
 import type { QaPoolItem } from '@/lib/calendar/quickAdd'
 import {
@@ -75,6 +75,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   const [division, setDivision] = useState(() => readPref('pf-cal-division', ''))
   const [hiddenSupers, setHiddenSupers] = useState(() => new Set(readPref<string[]>('pf-cal-hidden-supers', [])))
   const [hiddenKinds, setHiddenKinds] = useState(() => new Set(readPref<CalKind[]>('pf-cal-hidden-kinds', ['deadline'])))
+  const [workWeek, setWorkWeek] = useState(() => readPref('pf-cal-work-week', true))
   const [projectId, setProjectId] = useState(initialProjectId)
   const [railOpen, setRailOpen] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -96,6 +97,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   useEffect(() => { writePref('pf-cal-division', division) }, [division])
   useEffect(() => { writePref('pf-cal-hidden-supers', [...hiddenSupers]) }, [hiddenSupers])
   useEffect(() => { writePref('pf-cal-hidden-kinds', [...hiddenKinds]) }, [hiddenKinds])
+  useEffect(() => { writePref('pf-cal-work-week', workWeek) }, [workWeek])
   useEffect(() => {
     const q = new URLSearchParams({ d: anchor, v: view })
     if (projectId) q.set('project', projectId)
@@ -125,7 +127,20 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
     try { setData(await loadCalendar({ from: data.from, to: data.to })) } catch { /* the next move retries */ }
   }, [data.from, data.to])
 
-  const divisions = useMemo(() => listDivisions(supers), [supers])
+  // Keep up with the Gantt and the project pages: whatever changed there is
+  // picked up when you come back to this tab, and once a minute while it is
+  // open. Held off while a dialog or a drag is in progress.
+  const quiet = !!draft || !!ask || dragging || busy
+  useEffect(() => {
+    if (quiet) return
+    const refresh = () => { if (document.visibilityState === 'visible') void reload() }
+    const id = setInterval(refresh, 60000)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { clearInterval(id); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
+  }, [quiet, reload])
+
+  const divisions = useMemo(() => listDivisions(supers, data.items), [supers, data.items])
   const superColors = useMemo(() => new Map(supers.map((s, i) => [s.id, superColor(s, i)])), [supers])
   const superNames = useMemo(() => new Map(supers.map((s) => [s.id, s.name])), [supers])
   const projectColors = useMemo(() => new Map(refs.projects.map((p) => [p.id, p.color])), [refs.projects])
@@ -137,7 +152,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
   const superName = useCallback((id: string | null) => (id ? superNames.get(id) ?? null : null), [superNames])
 
   const filter = useMemo(() => ({ division: divisions.includes(division) ? division : '', hiddenSupers, hiddenKinds, projectId }), [division, divisions, hiddenSupers, hiddenKinds, projectId])
-  const items = useMemo(() => data.items.filter((i) => passesFilter(i, filter)), [data.items, filter])
+  const items = useMemo(() => applyWorkWeek(data.items.filter((i) => passesFilter(i, filter)), workWeek), [data.items, filter, workWeek])
   const filtersOn = (filter.division ? 1 : 0) + hiddenSupers.size + (projectId ? 1 : 0)
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast((cur) => (cur === msg ? null : cur)), 6000) }
@@ -309,6 +324,7 @@ function Calendar({ refs, initial, canEdit, initialAnchor, initialView, initialP
       supers={supers} superColors={superColors} division={filter.division}
       hiddenSupers={hiddenSupers} onToggleSuper={(id) => setHiddenSupers((s) => toggle(s, id))} onSuperColor={changeSuperColor}
       hiddenKinds={hiddenKinds} onToggleKind={(k) => setHiddenKinds((s) => toggle(s, k))}
+      workWeek={workWeek} onWorkWeek={setWorkWeek}
       projects={refs.projects} projectId={projectId} onProject={setProjectId} canEdit={canEdit} />
   )
 

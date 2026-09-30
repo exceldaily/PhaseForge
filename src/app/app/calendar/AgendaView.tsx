@@ -7,7 +7,7 @@ import { useMemo } from 'react'
 import { CalendarDays, Flag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DAY_SHORT, MONTH_SHORT, addDaysIso, dayOf, dowIso, fmtRange, fmtTime, monthOf } from '@/lib/calendar/dates'
-import { textOn, type CalItem } from '@/lib/calendar/model'
+import { coversDay, textOn, type CalItem } from '@/lib/calendar/model'
 import { isDone, isTimed, type ViewProps } from './parts'
 
 export const AGENDA_DAYS = 30
@@ -17,7 +17,7 @@ export function AgendaView({ anchor, items, today, colorFor, superName, onOpen, 
     const out: { date: string; rows: CalItem[] }[] = []
     for (let i = 0; i < AGENDA_DAYS; i++) {
       const date = addDaysIso(anchor, i)
-      const rows = items.filter((it) => it.start <= date && it.end >= date)
+      const rows = items.filter((it) => coversDay(it, date))
         .sort((a, b) => Number(isTimed(a)) - Number(isTimed(b)) || (a.startTime ?? '').localeCompare(b.startTime ?? '') || a.title.localeCompare(b.title))
       if (rows.length) out.push({ date, rows })
     }

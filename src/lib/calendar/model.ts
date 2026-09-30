@@ -2,7 +2,7 @@
 // bar sits in across a week, how overlapping timed events share a day column,
 // which super and division an item belongs to, and what color it wears.
 
-import { addDaysIso, diffDaysIso, minutesOf } from './dates'
+import { addDaysIso, diffDaysIso, dowIso, minutesOf } from './dates'
 
 export type CalKind = 'phase' | 'event' | 'deadline'
 
@@ -30,6 +30,10 @@ export interface CalItem {
   status?: string | null
   milestone?: boolean
   notes?: string | null
+  /** Weekdays (0 = Sunday) switched off for this phase on the Gantt's skip-days setting. */
+  skipDays?: number[] | null
+  /** Weekdays it is not drawn on, worked out by applyWorkWeek. */
+  off?: number[]
 }
 
 export interface CalSuper { id: string; name: string; division: string | null; color: string | null }
@@ -91,11 +95,29 @@ export function resolveSuper(
   return hit?.id ?? null
 }
 
+/**
+ * Work that belongs to a division because of what it is, whoever runs the
+ * job. Anything EMS is Electrical. Checked against the phase or event name,
+ * whole words only, so "items" or "systems" never match.
+ */
+export const DIVISION_KEYWORDS: { match: RegExp; division: string }[] = [
+  { match: /\bems\b/i, division: 'ELECTRICAL' },
+]
+export function keywordDivision(title: string | null | undefined): string | null {
+  if (!title) return null
+  return DIVISION_KEYWORDS.find((k) => k.match.test(title))?.division ?? null
+}
+
 /** Divisions are compared without case: REFRIGERATION and Refrigeration are one. */
 export const divisionKey = (d: string | null | undefined): string => d?.trim().toLowerCase() ?? ''
 
-/** An item's division: its super's, else the project's trade when that names a division. */
-export function resolveDivision(superId: string | null, trade: string | null, supers: CalSuper[]): string | null {
+/**
+ * An item's division: what the work is (EMS is Electrical) comes first, then
+ * its super's division, then the project's trade when that names a division.
+ */
+export function resolveDivision(superId: string | null, trade: string | null, supers: CalSuper[], title?: string | null): string | null {
+  const byWork = keywordDivision(title)
+  if (byWork) return byWork
   const own = supers.find((s) => s.id === superId)?.division
   if (own?.trim()) return own.trim()
   const t = divisionKey(trade)
@@ -103,10 +125,54 @@ export function resolveDivision(superId: string | null, trade: string | null, su
   return supers.find((s) => divisionKey(s.division) === t)?.division?.trim() ?? null
 }
 
-export function listDivisions(supers: CalSuper[]): string[] {
+/** Every division to offer: the supers' own, plus any that items carry (Electrical, from EMS work). */
+export function listDivisions(supers: CalSuper[], items: { division: string | null }[] = []): string[] {
   const seen = new Map<string, string>()
-  for (const s of supers) if (s.division?.trim() && !seen.has(divisionKey(s.division))) seen.set(divisionKey(s.division), s.division.trim())
+  for (const d of [...supers.map((s) => s.division), ...items.map((i) => i.division)]) {
+    if (d?.trim() && !seen.has(divisionKey(d))) seen.set(divisionKey(d), d.trim())
+  }
   return [...seen.values()].sort((a, b) => a.localeCompare(b))
+}
+
+/* ── The work week ───────────────────────────────────────────────────────── */
+
+/** Crews work Monday through Thursday. Friday, Saturday, and Sunday are off by default. */
+export const DEFAULT_OFF_DAYS = [5, 6, 0]
+
+/**
+ * The weekdays a phase is not drawn on.
+ *  1. Skip days set on the phase or its project (the Gantt's setting) win.
+ *  2. Otherwise, with the work week on, Friday through Sunday are off,
+ *     except a day the phase itself starts or ends on: scheduling a phase
+ *     to start Sunday or finish Friday is how it "lists" that day.
+ * A phase is never hidden outright: if that would leave it no days at all,
+ * every day shows.
+ */
+export function phaseOffDays(item: { start: string; end: string; skipDays?: number[] | null }, workWeek: boolean): number[] {
+  let off: number[]
+  if (item.skipDays?.length) off = item.skipDays
+  else if (!workWeek) return []
+  else {
+    const listed = new Set([dowIso(item.start), dowIso(item.end)])
+    off = DEFAULT_OFF_DAYS.filter((d) => !listed.has(d))
+  }
+  const span = Math.min(7, diffDaysIso(item.start, item.end) + 1)
+  for (let i = 0; i < span; i++) if (!off.includes(dowIso(addDaysIso(item.start, i)))) return off
+  return []
+}
+
+/** Stamp each phase with the days it is off. Events and end dates always show as typed. */
+export function applyWorkWeek(items: CalItem[], workWeek: boolean): CalItem[] {
+  return items.map((i) => {
+    if (i.kind !== 'phase') return i
+    const off = phaseOffDays(i, workWeek)
+    return off.length ? { ...i, off } : i
+  })
+}
+
+/** Is this item drawn on this day? */
+export function coversDay(item: CalItem, date: string): boolean {
+  return item.start <= date && item.end >= date && !(item.off?.length && item.off.includes(dowIso(date)))
 }
 
 export interface CalFilter {
@@ -130,6 +196,8 @@ export function passesFilter(item: CalItem, f: CalFilter): boolean {
 /* ── Month and all-day lanes ─────────────────────────────────────────────── */
 
 export interface WeekSegment {
+  /** Unique per bar: a phase with days off has several bars in one week. */
+  key: string
   item: CalItem
   /** 0 to 6, Sunday first. */
   col: number
@@ -164,16 +232,32 @@ export function layoutWeek(items: CalItem[], weekStart: string, days = 7): { seg
   for (const item of order) {
     const from = item.start < weekStart ? weekStart : item.start
     const to = item.end > weekEnd ? weekEnd : item.end
-    const col = diffDaysIso(weekStart, from)
-    const span = diffDaysIso(from, to) + 1
+    const first = diffDaysIso(weekStart, from)
+    const last = diffDaysIso(weekStart, to)
+    // Runs of days it is actually on. Days off split the bar in two.
+    const runs: [number, number][] = []
+    for (let c = first; c <= last; c++) {
+      if (item.off?.length && item.off.includes(dowIso(addDaysIso(weekStart, c)))) continue
+      const open = runs[runs.length - 1]
+      if (open && open[1] === c - 1) open[1] = c
+      else runs.push([c, c])
+    }
+    if (!runs.length) continue
+    // All of one item's bars share a lane, so the eye follows it across the gap.
     let lane = 0
     for (;; lane++) {
       const row = taken[lane] ?? (taken[lane] = Array(days).fill(false))
-      let free = true
-      for (let c = col; c < col + span; c++) if (row[c]) { free = false; break }
-      if (free) { for (let c = col; c < col + span; c++) row[c] = true; break }
+      if (runs.every(([a, b]) => { for (let c = a; c <= b; c++) if (row[c]) return false; return true })) {
+        for (const [a, b] of runs) for (let c = a; c <= b; c++) row[c] = true
+        break
+      }
     }
-    segments.push({ item, col, span, lane, startsBefore: item.start < weekStart, endsAfter: item.end > weekEnd })
+    for (const [a, b] of runs) {
+      segments.push({
+        key: `${item.key}@${a}`, item, col: a, span: b - a + 1, lane,
+        startsBefore: item.start < addDaysIso(weekStart, a), endsAfter: item.end > addDaysIso(weekStart, b),
+      })
+    }
   }
   return { segments, lanes: taken.length }
 }
@@ -194,9 +278,9 @@ export function fitWeek(segments: WeekSegment[], maxLanes: number, days = 7): { 
     for (let c = s.col; c < s.col + s.span; c++) if (crowded[c]) return false
     return true
   })
-  const shown = new Set(visible.map((s) => s.item.key))
+  const shown = new Set(visible.map((s) => s.key))
   const more = Array(days).fill(0) as number[]
-  for (const s of segments) if (!shown.has(s.item.key)) for (let c = s.col; c < s.col + s.span; c++) more[c]++
+  for (const s of segments) if (!shown.has(s.key)) for (let c = s.col; c < s.col + s.span; c++) more[c]++
   return { visible, more }
 }
 

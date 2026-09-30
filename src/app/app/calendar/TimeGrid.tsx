@@ -68,7 +68,7 @@ export function TimeGrid({ days, items, today, nowMinutes, canEdit, colorFor, su
         </div>
         <div className="pointer-events-none relative grid content-start gap-y-0.5 py-1" style={{ ...cols, gridAutoRows: 20 }}>
           {strip.visible.map((seg) => (
-            <div key={seg.item.key} className="min-w-0 px-0.5" style={{ gridColumn: `${seg.col + 2} / span ${seg.span}`, gridRow: seg.lane + 1 }}>
+            <div key={seg.key} className="min-w-0 px-0.5" style={{ gridColumn: `${seg.col + 2} / span ${seg.span}`, gridRow: seg.lane + 1 }}>
               <Bar item={seg.item} color={colorFor(seg.item)} title={describe(seg.item, superName(seg.item.superId))}
                 cutLeft={seg.startsBefore} cutRight={seg.endsAfter} muted={drag.active}
                 onOpen={() => onOpen(seg.item)} draggable={canDrag(seg.item, canEdit)}

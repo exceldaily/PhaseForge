@@ -65,12 +65,13 @@ const KINDS: { kind: CalKind; label: string; color: string; hint: string }[] = [
 
 export function Rail({
   anchor, today, view, onPick, supers, superColors, division, hiddenSupers, onToggleSuper, onSuperColor,
-  hiddenKinds, onToggleKind, projects, projectId, onProject, canEdit,
+  hiddenKinds, onToggleKind, workWeek, onWorkWeek, projects, projectId, onProject, canEdit,
 }: {
   anchor: string; today: string; view: string; onPick: (date: string) => void
   supers: CalSuper[]; superColors: Map<string, string>; division: string
   hiddenSupers: Set<string>; onToggleSuper: (id: string) => void; onSuperColor: (id: string, hex: string) => void
   hiddenKinds: Set<CalKind>; onToggleKind: (k: CalKind) => void
+  workWeek: boolean; onWorkWeek: (on: boolean) => void
   projects: CalProject[]; projectId: string | null; onProject: (id: string | null) => void
   canEdit: boolean
 }) {
@@ -125,6 +126,17 @@ export function Rail({
             </div>
           ))}
         </div>
+      </section>
+
+      <section data-help="cal-workweek">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Work week</p>
+        <div className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-slate-100">
+          <Tick on={workWeek} color="#4f46e5" onClick={() => onWorkWeek(!workWeek)} label="Monday to Thursday work week" />
+          <button type="button" onClick={() => onWorkWeek(!workWeek)} className="min-w-0 flex-1 truncate text-left text-sm text-slate-700">Monday to Thursday</button>
+        </div>
+        <p className="mt-1 px-1.5 text-[11px] leading-snug text-slate-400">
+          Phases skip Friday, Saturday, and Sunday, unless the phase starts or ends on that day.
+        </p>
       </section>
 
       <section data-help="cal-project">

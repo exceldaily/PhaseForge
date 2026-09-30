@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  fitWeek, layoutTimed, layoutWeek, listDivisions, passesFilter, resolveDivision, resolveSuper, superColor, textOn,
+  applyWorkWeek, coversDay, fitWeek, keywordDivision, layoutTimed, layoutWeek, listDivisions, passesFilter, phaseOffDays,
+  resolveDivision, resolveSuper, superColor, textOn,
   type CalItem, type CalSuper,
 } from './model'
 import { addMonthsIso, fmtRange, fmtTime, monthWeeks, startOfWeekIso } from './dates'
@@ -105,6 +106,73 @@ describe('layoutTimed', () => {
     const by = Object.fromEntries(boxes.map((b) => [b.item.id, b]))
     expect(by.a).toMatchObject({ startMin: 420, endMin: 480, col: 0 })
     expect(by.c).toMatchObject({ col: 0, cols: 2 })
+  })
+})
+
+describe('the Monday to Thursday work week', () => {
+  // Oct 5 2026 is a Monday.
+  it('takes Friday through Sunday off a phase that does not list them', () => {
+    expect(phaseOffDays({ start: '2026-10-05', end: '2026-10-15' }, true)).toEqual([5, 6, 0])
+    expect(phaseOffDays({ start: '2026-10-05', end: '2026-10-15' }, false)).toEqual([])
+  })
+  it('keeps a day the phase starts or ends on', () => {
+    expect(phaseOffDays({ start: '2026-10-05', end: '2026-10-09' }, true)).toEqual([6, 0])       // ends Friday
+    expect(phaseOffDays({ start: '2026-10-04', end: '2026-10-08' }, true)).toEqual([5, 6])       // starts Sunday
+    expect(phaseOffDays({ start: '2026-10-09', end: '2026-10-09' }, true)).toEqual([6, 0])       // a Friday only
+    expect(phaseOffDays({ start: '2026-10-10', end: '2026-10-11' }, true)).toEqual([5])          // Saturday and Sunday
+  })
+  it('lets skip days set on the Gantt win, but never hides a phase outright', () => {
+    expect(phaseOffDays({ start: '2026-10-05', end: '2026-10-09', skipDays: [3] }, true)).toEqual([3])
+    expect(phaseOffDays({ start: '2026-10-05', end: '2026-10-09', skipDays: [3] }, false)).toEqual([3])
+    expect(phaseOffDays({ start: '2026-10-10', end: '2026-10-11', skipDays: [6, 0] }, true)).toEqual([])
+  })
+  it('only touches phases', () => {
+    const out = applyWorkWeek([
+      item('ph', '2026-10-05', '2026-10-15'),
+      item('ev', '2026-10-05', '2026-10-15', { kind: 'event', key: 'event:ev' }),
+    ], true)
+    expect(out[0].off).toEqual([5, 6, 0])
+    expect(out[1].off).toBeUndefined()
+    expect(coversDay(out[0], '2026-10-08')).toBe(true)
+    expect(coversDay(out[0], '2026-10-09')).toBe(false)
+    expect(coversDay(out[1], '2026-10-09')).toBe(true)
+  })
+  it('splits the bar around the days off and keeps it in one lane', () => {
+    const [ph] = applyWorkWeek([item('ph', '2026-10-01', '2026-10-13')], true)   // Thu to Tue, two weekends inside
+    const w1 = layoutWeek([ph], '2026-09-27').segments
+    expect(w1.map((s) => [s.col, s.span, s.startsBefore, s.endsAfter])).toEqual([[4, 1, false, true]])
+    const w2 = layoutWeek([ph], '2026-10-04').segments
+    expect(w2.map((s) => [s.col, s.span, s.startsBefore, s.endsAfter])).toEqual([[1, 4, true, true]])
+    const w3 = layoutWeek([ph], '2026-10-11').segments
+    expect(w3.map((s) => [s.col, s.span, s.startsBefore, s.endsAfter])).toEqual([[1, 2, true, false]])
+  })
+  it('gives a phase with a mid-week day off two bars in the same lane', () => {
+    const ph = { ...item('ph', '2026-10-05', '2026-10-08'), off: [3] }
+    const { segments } = layoutWeek([ph, item('other', '2026-10-07', '2026-10-07')], '2026-10-04')
+    const mine = segments.filter((s) => s.item.id === 'ph')
+    expect(mine.map((s) => [s.col, s.span, s.lane])).toEqual([[1, 2, 0], [4, 1, 0]])
+    expect(new Set(segments.map((s) => s.key)).size).toBe(3)
+    expect(segments.find((s) => s.item.id === 'other')).toMatchObject({ col: 3, lane: 0 })
+  })
+})
+
+describe('EMS is Electrical', () => {
+  it('reads the word, not the letters', () => {
+    expect(keywordDivision('EMS Checkout')).toBe('ELECTRICAL')
+    expect(keywordDivision('ems work')).toBe('ELECTRICAL')
+    expect(keywordDivision('EMS/ELE Prep')).toBe('ELECTRICAL')
+    expect(keywordDivision('Reinstall all ELE, EMS, Refrigeration')).toBe('ELECTRICAL')
+    expect(keywordDivision('Punch list items')).toBeNull()
+    expect(keywordDivision('Systems check')).toBeNull()
+    expect(keywordDivision(null)).toBeNull()
+  })
+  it('beats the super and the job trade', () => {
+    expect(resolveDivision('bet', 'Refrigeration', SUPERS, 'EMS Programming')).toBe('ELECTRICAL')
+    expect(resolveDivision('bet', 'Refrigeration', SUPERS, 'Set cases')).toBe('REFRIGERATION')
+  })
+  it('shows up as a division to filter by once something carries it', () => {
+    expect(listDivisions(SUPERS, [{ division: 'ELECTRICAL' }, { division: 'refrigeration' }, { division: null }]))
+      .toEqual(['ELECTRICAL', 'REFRIGERATION', 'STARTUP'])
   })
 })
 

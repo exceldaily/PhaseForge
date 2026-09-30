@@ -156,7 +156,8 @@ export const PAGE_HELP: PageHelp[] = [
     pins: [
       { key: 'cal-quick-add', label: 'Type it', text: 'Type a date, a job, and what is being done, like Oct 12 Gulf Breeze set cases. It shows what it read and whether it will add or move before anything saves.' },
       { key: 'cal-views', label: 'Views', text: 'Month, Week, Day, or Agenda. The keys M, W, D, and A switch too, T jumps to today, and the arrow keys step.' },
-      { key: 'cal-division', label: 'Division', text: 'Show one division at a time, the same departments Schedules uses.' },
+      { key: 'cal-division', label: 'Division', text: 'Show one division at a time, the same departments Schedules uses. Anything with EMS in its name is Electrical.' },
+      { key: 'cal-workweek', label: 'Work week', text: 'Phases are drawn Monday to Thursday. Friday through Sunday only show when the phase starts or ends on that day. Untick to see full spans.' },
       { key: 'cal-supers', label: 'Supers', text: 'Tick a super to show or hide their work. The palette sets the label color their bars wear.' },
       { key: 'cal-show', label: 'Show', text: 'Turn project phases, events, and project end dates on or off.' },
       { key: 'cal-project', label: 'Job', text: 'Narrow the calendar to one job.' },

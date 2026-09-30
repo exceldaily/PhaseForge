@@ -87,7 +87,7 @@ export function MonthView({ anchor, items, today, canEdit, colorFor, superName, 
               <div className="pointer-events-none absolute inset-x-0 bottom-0 grid grid-cols-7 content-start gap-y-0.5"
                 style={{ top: HEAD, gridAutoRows: LANE - 2 }}>
                 {visible.map((seg) => (
-                  <div key={seg.item.key} className="min-w-0 px-0.5"
+                  <div key={seg.key} className="min-w-0 px-0.5"
                     style={{ gridColumn: `${seg.col + 1} / span ${seg.span}`, gridRow: seg.lane + 1 }}>
                     <Bar item={seg.item} color={colorFor(seg.item)} title={describe(seg.item, superName(seg.item.superId))}
                       cutLeft={seg.startsBefore} cutRight={seg.endsAfter} muted={drag.active}

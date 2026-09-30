@@ -35,6 +35,12 @@ async function ctx(write = false) {
 }
 const fail = (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : 'Failed' })
 const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : null)
+// The Gantt stores skip days as calendar codes; the calendar wants weekday numbers.
+const DAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
+const skipDows = (codes: string[] | null | undefined): number[] | null => {
+  const out = (codes ?? []).map((c) => DAY_CODES.indexOf(String(c).toUpperCase())).filter((n) => n >= 0)
+  return out.length ? out : null
+}
 
 export interface CalProject {
   id: string; name: string; jobNumber: string | null; color: string | null
@@ -46,12 +52,13 @@ export interface CalendarData { items: CalItem[]; pool: QaPoolItem[]; from: stri
 interface ProjectRow {
   id: string; name: string; job_number: string | null; color: string | null; end_date: string | null
   status: string | null; superintendent_id: string | null; superintendent: string | null; trade: string | null
+  gcal_skip_days: string[] | null
 }
 
 async function loadRefRows(supabase: Db, companyId: string) {
   const [{ data: projects }, { data: supers }] = await Promise.all([
     supabase.from('projects')
-      .select('id, name, job_number, color, end_date, status, superintendent_id, superintendent, trade')
+      .select('id, name, job_number, color, end_date, status, superintendent_id, superintendent, trade, gcal_skip_days')
       .eq('company_id', companyId).eq('is_archived', false).order('name'),
     supabase.from('superintendents').select('id, name, division, default_color')
       .eq('company_id', companyId).eq('is_active', true).order('name'),
@@ -88,10 +95,10 @@ export async function loadCalendar(input: { from: string; to: string }): Promise
   const superOf = new Map(projects.map((p) => [p.id, projectSuper(p, supers)]))
 
   // Every phase on a live project. Paged, because one request stops at 1000 rows.
-  const phases: { id: string; project_id: string; name: string; start_date: string; end_date: string; status: string | null; color: string | null; is_milestone: boolean | null; superintendent_id: string | null }[] = []
+  const phases: { id: string; project_id: string; name: string; start_date: string; end_date: string; status: string | null; color: string | null; is_milestone: boolean | null; superintendent_id: string | null; gcal_skip_days: string[] | null }[] = []
   for (let page = 0; page < 10; page++) {
     const { data } = await supabase.from('phases')
-      .select('id, project_id, name, start_date, end_date, status, color, is_milestone, superintendent_id, projects!inner(company_id, is_archived)')
+      .select('id, project_id, name, start_date, end_date, status, color, is_milestone, superintendent_id, gcal_skip_days, projects!inner(company_id, is_archived)')
       .eq('projects.company_id', companyId).eq('projects.is_archived', false)
       .order('id').range(page * 1000, page * 1000 + 999)
     phases.push(...((data ?? []) as unknown as typeof phases))
@@ -119,8 +126,10 @@ export async function loadCalendar(input: { from: string; to: string }): Promise
     items.push({
       key: `phase:${ph.id}`, kind: 'phase', id: ph.id, title: ph.name, start: ph.start_date, end,
       startTime: null, endTime: null, projectId: proj.id, projectName: proj.name, jobNumber: proj.job_number,
-      superId, ownSuperId: own, division: resolveDivision(superId, proj.trade, supers), color: safeColor(ph.color),
+      superId, ownSuperId: own, division: resolveDivision(superId, proj.trade, supers, ph.name), color: safeColor(ph.color),
       status: ph.status, milestone: !!ph.is_milestone,
+      // The phase's own skip days, else the project's: the same order Google Calendar sync uses.
+      skipDays: skipDows(ph.gcal_skip_days) ?? skipDows(proj.gcal_skip_days),
     })
   }
   for (const e of events ?? []) {
@@ -131,7 +140,8 @@ export async function loadCalendar(input: { from: string; to: string }): Promise
       key: `event:${e.id}`, kind: 'event', id: e.id as string, title: e.title as string,
       start: e.start_date as string, end: e.end_date as string, startTime: hhmm(e.start_time as string | null), endTime: hhmm(e.end_time as string | null),
       projectId: proj?.id ?? null, projectName: proj?.name ?? null, jobNumber: proj?.job_number ?? null,
-      superId, ownSuperId: own, division: (e.division as string | null) ?? resolveDivision(superId, proj?.trade ?? null, supers),
+      superId, ownSuperId: own,
+      division: resolveDivision(superId, proj?.trade ?? null, supers, e.title as string) ?? (e.division as string | null) ?? null,
       color: safeColor(e.color as string | null), notes: (e.notes as string | null) ?? null,
     })
   }
@@ -176,12 +186,12 @@ function checkDates(i: { start: string; end: string; startTime?: string | null; 
   return null
 }
 
-async function eventDivision(supabase: Db, companyId: string, superId: string | null, projectId: string | null): Promise<{ superId: string | null; division: string | null }> {
+async function eventDivision(supabase: Db, companyId: string, superId: string | null, projectId: string | null, title: string): Promise<{ superId: string | null; division: string | null }> {
   const { projects, supers } = await loadRefRows(supabase, companyId)
   const proj = projects.find((p) => p.id === projectId)
   const own = supers.some((s) => s.id === superId) ? superId : null
   const effective = own ?? (proj ? projectSuper(proj, supers) : null)
-  return { superId: own, division: resolveDivision(effective, proj?.trade ?? null, supers) }
+  return { superId: own, division: resolveDivision(effective, proj?.trade ?? null, supers, title) }
 }
 
 export async function createEntry(input: EntryInput) {
@@ -218,7 +228,7 @@ export async function createEntry(input: EntryInput) {
       return { ok: true as const, kind: 'phase' as const, id: phase.id as string }
     }
 
-    const tag = await eventDivision(supabase, companyId, input.superId, input.projectId)
+    const tag = await eventDivision(supabase, companyId, input.superId, input.projectId, title)
     const { data: row, error } = await supabase.from('calendar_events').insert({
       company_id: companyId, project_id: input.projectId, superintendent_id: tag.superId, division: tag.division,
       title, start_date: input.start, end_date: input.end,
@@ -249,7 +259,7 @@ export async function updateEvent(input: { id: string } & Omit<EntryInput, 'as'>
     if (bad) return { ok: false as const, error: bad }
     const { data: before } = await supabase.from('calendar_events').select('start_date, end_date, project_id').eq('id', input.id).eq('company_id', companyId).single()
     if (!before) return { ok: false as const, error: 'That event is gone.' }
-    const tag = await eventDivision(supabase, companyId, input.superId, input.projectId)
+    const tag = await eventDivision(supabase, companyId, input.superId, input.projectId, title)
     const { error } = await supabase.from('calendar_events').update({
       title, project_id: input.projectId, superintendent_id: tag.superId, division: tag.division,
       start_date: input.start, end_date: input.end,

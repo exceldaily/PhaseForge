@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { SCHEDULE_CHANGE_REASONS } from '@/lib/activity/log'
 import { fmtDay, fmtRange, fmtTime } from '@/lib/calendar/dates'
-import { LABEL_COLORS, textOn, type CalItem, type CalSuper } from '@/lib/calendar/model'
+import { LABEL_COLORS, coversDay, textOn, type CalItem, type CalSuper } from '@/lib/calendar/model'
 import type { CalProject, MoveGate } from './actions'
 import { isDone, isTimed } from './parts'
 
@@ -190,6 +190,7 @@ export function EntryEditor({ draft, projects, supers, superColors, canEdit, bus
         {draft.mode === 'phase' && (
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
             This is the same phase the project and the Gantt show. Changing its name or dates here changes it there.
+            Anything with EMS in the name is filed under Electrical.
             {draft.status ? ` Status: ${draft.status.replace(/_/g, ' ')}.` : ''} Status, percent, checklists, and deleting live on the Gantt.
           </p>
         )}
@@ -264,7 +265,7 @@ export function DayList({ date, items, colorFor, superName, canEdit, onOpen, onN
   colorFor: (i: CalItem) => string; superName: (id: string | null) => string | null
   canEdit: boolean; onOpen: (i: CalItem) => void; onNew: () => void; onWeek: () => void; onClose: () => void
 }) {
-  const rows = items.filter((i) => i.start <= date && i.end >= date)
+  const rows = items.filter((i) => coversDay(i, date))
     .sort((a, b) => Number(isTimed(a)) - Number(isTimed(b)) || (a.startTime ?? '').localeCompare(b.startTime ?? '') || a.title.localeCompare(b.title))
   return (
     <Modal open onClose={onClose} title={fmtDay(date, true)} size="sm">
