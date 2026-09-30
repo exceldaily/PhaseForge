@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { InviteMemberButton } from '@/components/settings/InviteMemberButton'
 import { MembersClient } from './MembersClient'
 import { Profile } from '@/types/app'
+import { getMemberActivity } from '@/app/app/presenceActions'
 
 export default async function MembersPage() {
   const supabase = await createClient()
@@ -20,6 +21,9 @@ export default async function MembersPage() {
   const members = membersRaw ?? []
 
   const canManage = profile.role === 'owner' || profile.role === 'admin'
+  // When each person last used the site. Owners and admins only; the
+  // database returns nothing for anyone else.
+  const activity = canManage ? await getMemberActivity() : null
 
   return (
     <div className="p-6 max-w-none mx-auto space-y-6">
@@ -37,6 +41,7 @@ export default async function MembersPage() {
         currentUserRole={profile.role}
         companyId={profile.company_id}
         canManage={canManage}
+        activity={activity}
       />
     </div>
   )

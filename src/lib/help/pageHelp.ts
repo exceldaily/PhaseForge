@@ -284,7 +284,12 @@ export const PAGE_HELP: PageHelp[] = [
     title: 'Scheduling settings',
     sectionIds: ['calendar-sync', 'schedules'],
   },
-  { match: /^\/app\/settings\/members$/, title: 'Members', sectionIds: ['teams', 'organization-billing'] },
+  {
+    match: /^\/app\/settings\/members$/, title: 'Members', sectionIds: ['teams', 'organization-billing', 'settings-account'],
+    pins: [
+      { key: 'members-last-active', label: 'Last active', text: 'When each person last used PhaseForge. Hover a time for the exact moment and the page they were on. Owners and admins only.' },
+    ],
+  },
   { match: /^\/app\/settings\/modules$/, title: 'Modules', sectionIds: ['operations'] },
   {
     match: /^\/app\/settings$/,

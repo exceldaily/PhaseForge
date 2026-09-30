@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { UsersTable } from '@/components/admin/UsersTable'
+import { getMemberActivity } from '@/app/app/presenceActions'
 
 export default async function AdminUsersPage() {
   const supabase = createAdminClient()
@@ -16,6 +17,9 @@ export default async function AdminUsersPage() {
     .select('id, name, slug')
     .order('name', { ascending: true })
 
+  // Last activity for every user, across companies (super admins only).
+  const activity = await getMemberActivity(true)
+
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -24,7 +28,7 @@ export default async function AdminUsersPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-slate-200">
-        <UsersTable users={users || []} companies={companies || []} />
+        <UsersTable users={users || []} companies={companies || []} activity={activity} />
       </div>
     </div>
   )

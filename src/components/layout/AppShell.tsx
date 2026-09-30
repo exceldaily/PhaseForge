@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { FirstRunTour } from '@/components/onboarding/WelcomeTour'
+import { PresencePing } from './PresencePing'
 import { RouteProgress } from './RouteProgress'
 import { Suspense } from 'react'
 import { Profile } from '@/types/app'
@@ -67,6 +68,7 @@ export function AppShell({ profile, isSuperAdmin, canUseReports = false, canUseD
           <JobLinkProvider template={jobUrlTemplate}>{children}</JobLinkProvider>
         </main>
         <FirstRunTour />
+        <PresencePing />
       </div>
     </div>
   )

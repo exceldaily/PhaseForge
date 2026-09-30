@@ -456,6 +456,7 @@ export const SECTIONS: GuideSection[] = [
       { heading: 'Profile', text: 'Edit your name and job title; your email and role are shown read-only (only owners/admins change roles).' },
       { heading: 'Light & dark mode (paid plans)', text: 'On any paid plan (Individual, Pro, Business) a sun/moon button appears in the top bar, tap it to switch the whole app between light and dark. Your choice is remembered on that device. The toggle is hidden on the Free plan.' },
       { heading: 'Members', text: 'Owners and admins see the full roster and invite new people from Settings → Members.' },
+      { heading: 'Last active', text: 'On Settings → Members, owners and admins see when each person last used PhaseForge: Active now with a green dot, a few minutes ago, Today or Yesterday with the time, the weekday for the past week, or a date for anything older. Hover it for the exact time and which part of the site they were on, like Schedules or Chat. It counts real use only: someone has to click, type, or scroll with the tab in front, so a tab left open overnight does not count. Most recent first sorts the list by it. For someone who has not used the site since this was added, it shows Signed in and the date of their last sign-in instead, which can be weeks old because people stay signed in; it switches to real activity the next time they use the site. Never signed in means the invite was never accepted. Only the section is recorded, never which project or record, and members and managers cannot see anyone\u2019s activity.' },
       { heading: 'Account & password', text: 'Sign-up creates your company workspace and requires email confirmation. Passwords currently need at least 8 characters. Tap the eye icon in any password field to reveal what you typed and double-check it. Forgot it? The login page sends a reset link to the email on your account.' },
     ],
   },
@@ -466,7 +467,7 @@ export const SECTIONS: GuideSection[] = [
     summary: 'Super-admin tools for managing the whole platform.',
     items: [
       { heading: 'Overview', text: 'Super-admins get an Admin section in the sidebar with platform totals (users, companies, projects) and recent admin actions.' },
-      { heading: 'User management', text: 'Search all users, edit names/titles, change roles, move users between companies, deactivate/reactivate accounts, promote or demote super-admins, or permanently delete a user.' },
+      { heading: 'User management', text: 'Search all users, edit names/titles, change roles, move users between companies, deactivate/reactivate accounts, promote or demote super-admins, or permanently delete a user. The Last active column shows when each user, in any company, last used the site; click the column heading to put the most recent first.' },
       { heading: 'Companies & audit', text: 'View every company with member/project counts and change its plan tier. Every admin action lands in the audit log with actor, action, target, and timestamp.' },
     ],
   },

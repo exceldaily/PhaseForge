@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Trash2, AlertCircle } from 'lucide-react'
+import { LastActive } from '@/components/settings/LastActive'
+import { activityTime, type ActivityRow } from '@/lib/presence'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { ROLE_LABELS, ROLE_COLORS as ROLE_COLOR_MAP } from '@/lib/constants'
@@ -14,11 +16,19 @@ interface MembersClientProps {
   currentUserRole: string
   companyId: string
   canManage: boolean
+  /** Last activity per person; null when the viewer may not see it. */
+  activity?: ActivityRow[] | null
 }
 
 const ROLES = ['owner', 'manager', 'member']
 
-export function MembersClient({ members, currentUserId, companyId, canManage }: MembersClientProps) {
+export function MembersClient({ members, currentUserId, companyId, canManage, activity = null }: MembersClientProps) {
+  const [sortBy, setSortBy] = useState<'joined' | 'active'>('joined')
+  const byId = useMemo(() => new Map((activity ?? []).map((a) => [a.profileId, a])), [activity])
+  const rows = useMemo(
+    () => (sortBy === 'active' ? [...members].sort((a, b) => activityTime(byId.get(b.id)) - activityTime(byId.get(a.id))) : members),
+    [members, sortBy, byId],
+  )
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>('')
@@ -67,14 +77,32 @@ export function MembersClient({ members, currentUserId, companyId, canManage }: 
         </div>
       )}
 
+      {activity && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs sm:px-6" data-help="members-last-active">
+          <span className="font-medium text-slate-600">Last active shows when each person last used PhaseForge.</span>
+          <span className="ml-auto flex items-center rounded-lg border border-slate-200 bg-white p-0.5 font-medium">
+            {([['joined', 'Order joined'], ['active', 'Most recent first']] as const).map(([v, text]) => (
+              <button key={v} type="button" aria-pressed={sortBy === v} onClick={() => setSortBy(v)}
+                className={`rounded-md px-2.5 py-1 ${sortBy === v ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{text}</button>
+            ))}
+          </span>
+        </div>
+      )}
       <div className="divide-y divide-slate-100">
-        {members.map(member => (
+        {rows.map(member => (
           <div key={member.id} className="flex items-center gap-3 px-4 sm:px-6 py-4">
             <Avatar name={member.full_name} avatarUrl={member.avatar_url} size="md" />
             <div className="flex-1 min-w-0">
               <p className="font-medium text-slate-900">{member.full_name}</p>
               <p className="text-sm text-slate-400">{member.email}</p>
+              {activity && <p className="mt-0.5 sm:hidden"><LastActive row={byId.get(member.id)} compact /></p>}
             </div>
+            {activity && (
+              <div className="hidden w-56 shrink-0 sm:block">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Last active</p>
+                <LastActive row={byId.get(member.id)} />
+              </div>
+            )}
             {member.job_title && <p className="text-sm text-slate-500 hidden md:block">{member.job_title}</p>}
 
             {/* Role Badge / Dropdown */}

@@ -8,6 +8,8 @@ import { ChevronDown, Trash2, Lock, Shield, Edit, Unlock } from 'lucide-react'
 import { deactivateUser, deleteUser, promoteToSuperAdmin, demoteFromSuperAdmin, updateUserProfile, reactivateUser, updateUserRole } from '@/app/admin/actions'
 import { Badge } from '@/components/ui/Badge'
 import { CompanySelectorModal } from '@/components/admin/CompanySelectorModal'
+import { LastActive } from '@/components/settings/LastActive'
+import { activityTime, type ActivityRow } from '@/lib/presence'
 
 const ROLES: UserRole[] = ['owner', 'manager', 'member']
 
@@ -24,9 +26,13 @@ interface Company {
 interface UsersTableProps {
   users: User[]
   companies?: Company[]
+  /** Last activity per user. */
+  activity?: ActivityRow[]
 }
 
-export function UsersTable({ users: initialUsers, companies = [] }: UsersTableProps) {
+export function UsersTable({ users: initialUsers, companies = [], activity = [] }: UsersTableProps) {
+  const [sortByActive, setSortByActive] = useState(false)
+  const activityById = useMemo(() => new Map(activity.map((a) => [a.profileId, a])), [activity])
   const [users, setUsers] = useState(initialUsers)
   const [searchTerm, setSearchTerm] = useState('')
   const [actionInProgress, setActionInProgress] = useState<string | null>(null)
@@ -38,13 +44,16 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
 
   const filteredUsers = useMemo(() => {
     const q = searchTerm.toLowerCase()
-    return q
+    const found = q
       ? users.filter(u =>
           u.full_name.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q)
         )
       : users
-  }, [users, searchTerm])
+    return sortByActive
+      ? [...found].sort((a, b) => activityTime(activityById.get(b.id)) - activityTime(activityById.get(a.id)))
+      : found
+  }, [users, searchTerm, sortByActive, activityById])
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
   const pagedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -184,6 +193,13 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
               <th className="text-left py-3 px-4 font-medium text-slate-700">Company</th>
               <th className="text-left py-3 px-4 font-medium text-slate-700">Role</th>
               <th className="text-left py-3 px-4 font-medium text-slate-700">Status</th>
+              <th className="text-left py-3 px-4 font-medium text-slate-700">
+                <button type="button" onClick={() => { setSortByActive((v) => !v); setPage(1) }}
+                  title={sortByActive ? 'Back to newest accounts first' : 'Sort by most recently active'}
+                  className={`inline-flex items-center gap-1 ${sortByActive ? 'text-indigo-600' : 'hover:text-indigo-600'}`}>
+                  Last active {sortByActive ? '↓' : ''}
+                </button>
+              </th>
               <th className="text-left py-3 px-4 font-medium text-slate-700">Actions</th>
             </tr>
           </thead>
@@ -229,6 +245,9 @@ export function UsersTable({ users: initialUsers, companies = [] }: UsersTablePr
                   ) : (
                     <Badge className="bg-gray-100 text-gray-700">Inactive</Badge>
                   )}
+                </td>
+                <td className="py-3 px-4">
+                  <LastActive row={activityById.get(user.id)} compact />
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2">
