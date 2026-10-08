@@ -71,23 +71,73 @@ describe('the PM report', () => {
     expect(wrapText('A'.repeat(80), font, 9, 60).every((l) => font.widthOfTextAtSize(l, 9) <= 60)).toBe(true)
     expect(wrapText('', font, 9, 100)).toEqual([''])
   })
-  it('builds a multi-page PDF with every part of the sheet', async () => {
-    const bytes = await buildPmReport(sample())
+  const out = (name: string, bytes: Uint8Array) => { if (process.env.PM_REPORT_OUT) writeFileSync(`${process.env.PM_REPORT_OUT}/${name}.pdf`, bytes) }
+
+  it('fills in the ALDI form itself: four pages, nothing added', async () => {
+    const data = sample()
+    // Every cell of the data entry pages, so the placement of each one can be looked at.
+    const layout = data.cycle.layout!
+    for (const c of layout.compressors) {
+      for (const col of ['l1_v', 'l2_v', 'l3_v', 'l1l2_v', 'l2l3_v', 'l3l1_v', 'l1l2_ohm', 'l2l3_ohm', 'l3l1_ohm', 'l2_a', 'l3_a', 'l1_prior', 'l2_prior', 'l3_prior']) data.readings.push({ tableKey: 'electrical', rowKey: c.key, colKey: col, value: col.endsWith('_v') ? '205' : '13.7' })
+      data.readings.push({ tableKey: 'oil_discharge', rowKey: c.key, colKey: 'oil_reservoir', value: '-' })
+    }
+    layout.hvac_compressors.forEach((c, i) => ['l1l2', 'l1l3', 'l2l3'].forEach((col) => data.readings.push({ tableKey: 'hvac_amps', rowKey: c.key, colKey: col, value: String(30 + i) })))
+    for (const row of ['wb', 'oat', 'rat']) for (const col of ['controller', 'actual', 'offset']) data.readings.push({ tableKey: 'hvac_sensors', rowKey: row, colKey: col, value: '70' })
+    data.readings.push({ tableKey: 'refrigeration_comments', rowKey: 'comments', colKey: 'text', value: 'Compressor 4 is shorted to ground and is pending replacement\nA8 holdback leaking actively\nLiquid Filter Driers and Oil Filter Need replaced.' })
+    data.readings.push({ tableKey: 'hvac_comments', rowKey: 'rla', colKey: 'text', value: 'RTU 2 compressor 1 drawing high on L2.' })
+    data.cycle.timeIn = '7:30 AM'; data.cycle.timeOut = '3:15 PM'; data.cycle.fmSpotChecked = true
+    const bytes = await buildPmReport(data)
     expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe('%PDF-')
     const doc = await PDFDocument.load(bytes)
-    expect(doc.getPageCount()).toBeGreaterThanOrEqual(5)
-    expect(doc.getTitle()).toBe('PM Report 474-026 Q2 2026')
-    if (process.env.PM_REPORT_OUT) writeFileSync(process.env.PM_REPORT_OUT, bytes)
+    expect(doc.getPageCount()).toBe(4)
+    expect(doc.getPage(0).getSize()).toEqual({ width: 1054, height: 1366 })
+    expect(doc.getTitle()).toBe('ALDI PM Checklist 474-026 Q2 2026')
+    out('aldi-q2-filled', bytes)
   })
-  it('still builds with nothing filled in, and with a photo', async () => {
+  it('prints a blank PM as the blank sheet, relabelled for its quarter', async () => {
+    const blank = sample()
+    blank.cycle = { ...blank.cycle, quarter: 4, actualStart: null, actualEnd: null, techNotes: null, serviceProvider: null, status: 'awaiting_job_number' }
+    blank.responses = []; blank.readings = []; blank.deficiencies = []; blank.materials = []
+    blank.progress = computeProgress({ items, system: null, exclusions: [], responses: [], photoCounts: {}, readings: [], deficiencyItemIds: [] })
+    const bytes = await buildPmReport(blank)
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(4)
+    // The form's own wording is rewritten, not papered over: no trace of Quarter 2 is left in the file.
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+    const read = await pdfjs.getDocument({ data: new Uint8Array(bytes), useSystemFonts: true }).promise
+    let text = ''
+    for (let n = 1; n <= read.numPages; n++) text += (await (await read.getPage(n)).getTextContent()).items.map((i) => ('str' in i ? i.str : '')).join(' ') + ' '
+    expect(text).toContain('QUARTER 4')
+    expect(text).toContain('OCTOBER / NOVEMBER / DECEMBER')
+    expect(text).toContain('Refrigeration Data Entry (Q4)')
+    expect(text).toContain('HVAC Data Entry (Q4)')
+    expect(text).not.toMatch(/Q2|QUARTER 2|APRIL/)
+    expect((text.match(/Q4/g) ?? []).length).toBe(9)
+    // Nothing answered, so nothing is written on it beyond the store number.
+    expect(text).not.toContain('FAIL')
+    out('aldi-q4-blank', bytes)
+  })
+  it('prints a store\'s own equipment in the rows, and carries on to another page when the form runs out', async () => {
+    const own = sample()
+    const circuits = Array.from({ length: 22 }, (_, i) => ({ key: `eq:c${i}`, label: i < 3 ? `B-${i + 1} Dairy` : `C-${i} Case ${i}` }))
+    const comps = Array.from({ length: 7 }, (_, i) => ({ key: `eq:k${i}`, label: i === 0 ? 'Rack A Comp 1' : `Compressor ${i + 1}` }))
+    own.cycle = { ...own.cycle, quarter: 3, layout: { circuits, compressors: comps.slice(0, 7), hvac_compressors: [{ key: 'eq:h0', label: 'RTU 1' }, { key: 'eq:h1', label: 'RTU 2' }] } }
+    own.readings = [
+      ...circuits.map((c, i) => ({ tableKey: 'component', rowKey: c.key, colKey: 'superheat', value: String(6 + (i % 5)) })),
+      ...comps.map((c) => ({ tableKey: 'electrical', rowKey: c.key, colKey: 'fla', value: '21.5' })),
+      { tableKey: 'hvac_amps', rowKey: 'eq:h1', colKey: 'l1l2', value: '33' },
+    ]
+    own.cycle.techNotes = Array.from({ length: 40 }, (_, i) => `Note line ${i + 1}: checked and found in working order.`).join('\n')
+    const bytes = await buildPmReport(own)
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(5)
+    out('aldi-q3-own-equipment', bytes)
+  })
+  it('adds the photos after the form, and skips a damaged one', async () => {
     const empty = sample()
-    empty.responses = []; empty.readings = []; empty.deficiencies = []; empty.materials = []
-    empty.progress = computeProgress({ items, system: null, exclusions: [], responses: [], photoCounts: {}, readings: [], deficiencyItemIds: [] })
     // A 1x1 PNG.
     const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))
     empty.photos = [{ bytes: png, mime: 'image/png', caption: 'COND11' }, { bytes: new Uint8Array([1, 2, 3]), mime: 'image/jpeg', caption: 'broken file' }]
     empty.photosLeftOut = 2
     const doc = await PDFDocument.load(await buildPmReport(empty))
-    expect(doc.getPageCount()).toBeGreaterThanOrEqual(4)
+    expect(doc.getPageCount()).toBe(5)
   })
 })

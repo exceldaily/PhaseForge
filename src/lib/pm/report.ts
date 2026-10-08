@@ -1,18 +1,24 @@
-// The completed PM report, as a real PDF. It carries everything on the ALDI
-// sheet (store, job, every check with its result, the refrigeration and HVAC
-// readings, the electrical chart, technician comments) plus what the sheet
-// has no room for: deficiencies, materials, and the inspection photos.
+// The PM report: ALDI's own HVACR Preventative Maintenance Checklist, filled in.
 //
-// It is built for the coordinator to review and attach to the PM work order
-// in ServiceChannel. PhaseForge does not submit it anywhere.
+// The four pages are ALDI's blank form (see aldiForm.ts), not a redrawing of
+// it. This file only writes answers into the cells: the Store and Date boxes,
+// a mark beside every check, the refrigeration, electrical, and HVAC data
+// entry tables, and the Service Technician Comments rows. A PM with nothing
+// answered therefore prints as the blank sheet, and a store with different
+// equipment prints its own circuits and compressors in the rows.
+//
+// Anything that cannot fit in the form's rows goes on a continuation page
+// after it, and the inspection photos follow. PhaseForge does not submit the
+// report anywhere: the coordinator attaches it in ServiceChannel.
 
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib'
-import { itemApplies, type Progress } from './progress'
-import { fmtDate, quarterMonths } from './quarters'
-import { isNotesTable, rowLabels, rowsFor } from './template'
 import {
-  MATERIAL_STATUS_LABEL, PROPOSAL_LABEL, REPAIR_LABEL, SEVERITY_LABEL, STATUS_LABEL, SYSTEM_LABEL,
-  type DataTable, type PmCycle, type PmDeficiency, type PmMaterial, type PmReading, type PmResponse, type PmStore, type TemplateItem, type TemplateVersion,
+  PDFArray, PDFDocument, PDFHexString, PDFName, PDFRawStream, StandardFonts, beginText, decodePDFRawStream, endText, moveText, rgb, setFillingRgbColor, setFontAndSize, showText,
+  type PDFFont, type PDFImage, type PDFPage, type PDFRef,
+} from 'pdf-lib'
+import { ALDI_CHECK_ROWS, ALDI_CIRCUIT_ROWS, ALDI_FONT_WIDTHS, ALDI_FORM_PDF_BASE64 } from './aldiForm'
+import type { Progress } from './progress'
+import type {
+  DataRow, PmCycle, PmDeficiency, PmMaterial, PmReading, PmResponse, PmStore, TemplateItem, TemplateVersion,
 } from './types'
 
 export interface ReportPhoto { bytes: Uint8Array; mime: string; caption: string }
@@ -34,18 +40,8 @@ export interface ReportData {
   photosLeftOut: number
   version: number
   generatedBy: string
-  /** Shown as the generated date, in the coordinator's local time. */
   generatedAt: string
 }
-
-const W = 612
-const H = 792
-const M = 36
-const INK = rgb(0.06, 0.09, 0.16)
-const MUTED = rgb(0.39, 0.45, 0.55)
-const LINE = rgb(0.8, 0.84, 0.88)
-const NAVY = rgb(0, 0.13, 0.4)
-const BAND = rgb(0.93, 0.95, 0.98)
 
 /**
  * The built-in PDF fonts only know Western characters. Anything else is
@@ -56,7 +52,7 @@ export function pdfSafe(text: string | null | undefined): string {
   return String(text ?? '')
     .replace(/[‘’‚′]/g, "'").replace(/[“”„″]/g, '"')
     .replace(/[–—−]/g, '-').replace(/…/g, '...').replace(/≥/g, '>=').replace(/≤/g, '<=')
-    .replace(/[✓✔]/g, 'x').replace(/ /g, ' ').replace(/\t/g, ' ')
+    .replace(/[✓✔]/g, 'x').replace(/ /g, ' ').replace(/\t/g, ' ')
     .replace(/[^\x20-\x7E¡-ÿ\n]/g, '')
 }
 
@@ -83,265 +79,346 @@ export function wrapText(text: string, font: PDFFont, size: number, width: numbe
   return out.length ? out : ['']
 }
 
-const RESULT_TEXT: Record<string, string> = { pass: 'PASS', fail: 'FAIL', na: 'N/A' }
+/* ── The form's geometry (PDF points, 1054 x 1366 page, origin bottom left) ── */
+
+const PAGE_W = 1054
+const PAGE_H = 1366
+const INK = rgb(0, 0, 0)
+const RED = rgb(0.78, 0.05, 0.05)
+const WHITE = rgb(1, 1, 1)
+const COMP_GRAY = rgb(0.650391, 0.650391, 0.650391)
+const ELEC_GRAY = rgb(0.634766, 0.634766, 0.634766)
+const NAVY = rgb(0, 0.11792, 0.470947)
+
+/** Center of the answer column on the two checklist pages. */
+const MARK_X = 968.5
+/** WICF8's answer cell already holds ALDI's "Link to Order form": its answer goes beside the second line of that. */
+const MARK_SHIFT: Record<string, { dx: number; dy: number }> = { WICF8: { dx: 18, dy: -10.5 } }
+/** Values in the tall circuit rows sit a little above the row's label baseline, as on a hand-filled sheet. */
+const CIRCUIT_LIFT = 4
+/** Column edges of the compressor tables on the data entry page. */
+const COMP_EDGES = [119.5, 269.4, 396.4, 520.7, 651, 789.4, 933.5]
+const COMP_CENTERS = COMP_EDGES.slice(0, 6).map((x, i) => (x + COMP_EDGES[i + 1]) / 2)
+/** The three value columns shared by the circuit table and the HVAC tables. */
+const VALUE_CENTERS = [332.9, 458.6, 585.9]
+const VALUE_WIDTH = 118
+
+const OIL_ROWS: Record<string, number> = { oil_compressor: 589.2, oil_reservoir: 575.5, discharge_temp: 561.8 }
+const ELECTRICAL_ROWS: Record<string, number> = {
+  fla: 512.9, l1_v: 491.6, l2_v: 476.8, l3_v: 462.5, l1l2_v: 448.8, l2l3_v: 435.3, l3l1_v: 421.6, l1l2_ohm: 407.9, l2l3_ohm: 394.2, l3l1_ohm: 380.6,
+  l1_a: 366.9, l2_a: 353.2, l3_a: 339.5, l1_prior: 326, l2_prior: 312.3, l3_prior: 298.6,
+}
+const HVAC_AMP_ROWS = [1188.6, 1175, 1161.3, 1147.7]
+const HVAC_SENSOR_ROWS: Record<string, number> = { space: 1105.8, wb: 1091.7, oat: 1077.6, rat: 1063.6, co2: 1049.4 }
+/** Comment lines beside the superheat tables: five header-height rows, then one per circuit row. */
+const REFRIG_COMMENT_ROWS = [1218.3, 1193.4, 1168.6, 1144.1, 1119, ...ALDI_CIRCUIT_ROWS.map((r) => r.y + 4)]
+/** Service Technician Comments: the first empty row under the "Ex. COMP5" example, and the row pitch. */
+const TECH_ROW_TOP = 767
+const TECH_ROW_PITCH = 13.667
+const TECH_ROWS = 34
+
+const QUARTER_MONTHS = ['JANUARY / FEBRUARY / MARCH', 'APRIL / MAY / JUNE', 'JULY / AUGUST / SEPTEMBER', 'OCTOBER / NOVEMBER / DECEMBER']
+
+const FORM_MONTHS_LINE = "For PM's being completed inside the following months: "
+const aldiTextWidth = (key: 'R7' | 'R9', text: string, size: number): number | null => {
+  let w = 0
+  for (const ch of text) { const g = ALDI_FONT_WIDTHS[key][ch]; if (g === undefined) return null; w += g }
+  return (w / 1000) * size
+}
+
+/**
+ * The form is printed for Quarter 2. For another quarter its own wording is
+ * rewritten in place, "QUARTER 2", the months line, and every "Q2" label, so
+ * the page reads as that quarter's sheet in ALDI's own lettering, with no
+ * patch laid over the top.
+ */
+function relabelQuarter(doc: PDFDocument, quarter: number) {
+  const months = QUARTER_MONTHS[quarter - 1]
+  const was = FORM_MONTHS_LINE + QUARTER_MONTHS[1]
+  const now = FORM_MONTHS_LINE + months
+  // The months line is placed by its left edge: keep it centered where it was.
+  const shift = ((aldiTextWidth('R7', was, 10.575) ?? 0) - (aldiTextWidth('R7', now, 10.575) ?? 0)) / 2
+  for (const page of doc.getPages()) {
+    const contents = page.node.Contents()
+    const refs = (contents instanceof PDFArray ? contents.asArray() : []) as PDFRef[]
+    for (const ref of refs) {
+      const stream = doc.context.lookup(ref)
+      if (!(stream instanceof PDFRawStream)) continue
+      const before = Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1')
+      const after = before
+        .replace(/\(QUARTER 2\)/g, `(QUARTER ${quarter})`)
+        .replace(/\(Q2\)/g, `(Q${quarter})`)
+        .replace(/\\\(Q2\\\)/g, `\\(Q${quarter}\\)`)
+        .replace(/([\d.]+) ([\d.]+) Td\n0 Ts\n\(For PM's being completed inside the following months: APRIL \/ MAY \/ JUNE\)/, (_, x: string, y: string) => `${(Number(x) + shift).toFixed(2)} ${y} Td\n0 Ts\n(${now})`)
+      if (after !== before) doc.context.assign(ref, doc.context.flateStream(Uint8Array.from(Buffer.from(after, 'latin1'))))
+    }
+  }
+}
+
+const usDate = (iso: string | null | undefined): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '')
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : ''
+}
 
 export async function buildPmReport(d: ReportData): Promise<Uint8Array> {
-  const doc = await PDFDocument.create()
+  const doc = await PDFDocument.load(Uint8Array.from(Buffer.from(ALDI_FORM_PDF_BASE64, 'base64')))
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const bold = await doc.embedFont(StandardFonts.HelveticaBold)
   const italic = await doc.embedFont(StandardFonts.HelveticaOblique)
-  const label = `Store ${d.store.storeNumber}  |  Q${d.cycle.quarter} ${d.cycle.year}  |  ${d.cycle.jobNumber ? `Job ${d.cycle.jobNumber}` : 'No job number'}`
-  doc.setTitle(pdfSafe(`PM Report ${d.store.storeNumber} Q${d.cycle.quarter} ${d.cycle.year}`))
+  const [p1, p2, p3, p4] = doc.getPages()
+  const q = d.cycle.quarter >= 1 && d.cycle.quarter <= 4 ? d.cycle.quarter : 2
+  const job = d.cycle.jobNumber ? `Job ${d.cycle.jobNumber}` : ''
+  doc.setTitle(`ALDI PM Checklist ${d.store.storeNumber} Q${q} ${d.cycle.year}`)
   doc.setAuthor(pdfSafe(d.company))
+  doc.setSubject(pdfSafe(`Store ${d.store.storeNumber}, Q${q} ${d.cycle.year}${job ? `, ${job}` : ''}, report version ${d.version}`))
   doc.setCreator('PhaseForge')
+  doc.setProducer('PhaseForge')
 
-  let page!: PDFPage
-  let y = 0
-  const newPage = () => {
-    page = doc.addPage([W, H])
-    page.drawRectangle({ x: 0, y: H - 46, width: W, height: 46, color: NAVY })
-    page.drawText('ALDI HVACR Preventative Maintenance Report', { x: M, y: H - 22, size: 12, font: bold, color: rgb(1, 1, 1) })
-    page.drawText(pdfSafe(label), { x: M, y: H - 37, size: 8.5, font, color: rgb(0.85, 0.9, 1) })
-    y = H - 64
+  /* ── Small drawing helpers ── */
+
+  /** One line of text, shrunk if needed so it never leaves its cell. */
+  const put = (page: PDFPage, text: string | null | undefined, x: number, y: number, o: { size?: number; f?: PDFFont; color?: ReturnType<typeof rgb>; width?: number; align?: 'left' | 'center' } = {}) => {
+    const s = pdfSafe(text).replace(/\n/g, ' ').trim()
+    if (!s) return
+    const f = o.f ?? font
+    let size = o.size ?? 9
+    if (o.width) while (size > 5 && f.widthOfTextAtSize(s, size) > o.width) size -= 0.25
+    let line = s
+    if (o.width) while (line.length > 1 && f.widthOfTextAtSize(line, size) > o.width) line = line.slice(0, -1)
+    const w = f.widthOfTextAtSize(line, size)
+    page.drawText(line, { x: o.align === 'center' ? x - w / 2 : x, y, size, font: f, color: o.color ?? INK })
   }
-  const need = (h: number) => { if (y - h < M + 18) newPage() }
-  const text = (s: string, x: number, size = 9, f: PDFFont = font, color = INK) => page.drawText(pdfSafe(s), { x, y, size, font: f, color })
-  const heading = (s: string) => {
-    need(34)
-    y -= 6
-    page.drawRectangle({ x: M, y: y - 5, width: W - 2 * M, height: 17, color: NAVY })
-    page.drawText(pdfSafe(s), { x: M + 6, y, size: 10, font: bold, color: rgb(1, 1, 1) })
-    y -= 20
+  const cover = (page: PDFPage, x: number, y: number, w: number, h: number, color = WHITE) => page.drawRectangle({ x, y, width: w, height: h, color })
+
+  /**
+   * Text in ALDI's own typeface, which is embedded in the form (R7 regular,
+   * R9 bold). The embedded copy only holds the letters the form uses, so
+   * anything it lacks falls back to Helvetica.
+   */
+  const aldiWidth = aldiTextWidth
+  const aldi = (page: PDFPage, key: 'R7' | 'R9', text: string, x: number, y: number, size: number, o: { align?: 'left' | 'center'; color?: [number, number, number] } = {}) => {
+    const w = aldiWidth(key, text, size)
+    if (w === null) { put(page, text, x, y, { size: size * 0.92, f: key === 'R9' ? bold : font, align: o.align, color: o.color ? rgb(...o.color) : INK }); return }
+    const [r, g, b] = o.color ?? [0, 0, 0]
+    const hex = [...text].map((ch) => ch.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+    page.pushOperators(beginText(), setFillingRgbColor(r, g, b), setFontAndSize(PDFName.of(key), size), moveText(o.align === 'center' ? x - w / 2 : x, y), showText(PDFHexString.of(hex)), endText())
   }
-  const sub = (s: string) => {
-    need(26)
-    page.drawRectangle({ x: M, y: y - 4, width: W - 2 * M, height: 14, color: BAND })
-    page.drawText(pdfSafe(s), { x: M + 6, y, size: 9, font: bold, color: INK })
-    y -= 17
+  const check = (page: PDFPage, cx: number, cy: number) => {
+    const opts = { thickness: 1.5, color: INK }
+    page.drawLine({ start: { x: cx - 4.2, y: cy + 0.2 }, end: { x: cx - 1.3, y: cy - 3.2 }, ...opts })
+    page.drawLine({ start: { x: cx - 1.3, y: cy - 3.2 }, end: { x: cx + 4.6, y: cy + 4.4 }, ...opts })
   }
-  const para = (s: string, opts: { x?: number; width?: number; size?: number; f?: PDFFont; color?: ReturnType<typeof rgb>; gap?: number } = {}) => {
-    const size = opts.size ?? 9
-    const x = opts.x ?? M
-    const lines = wrapText(s, opts.f ?? font, size, opts.width ?? W - M - x)
-    for (const l of lines) { need(size + 3); page.drawText(l, { x, y, size, font: opts.f ?? font, color: opts.color ?? INK }); y -= size + 3 }
-    y -= opts.gap ?? 0
-  }
-  /** Label and value pairs in columns. */
-  const facts = (pairs: [string, string | null | undefined][], cols = 3) => {
-    const colW = (W - 2 * M) / cols
-    for (let i = 0; i < pairs.length; i += cols) {
-      const row = pairs.slice(i, i + cols)
-      const heights = row.map(([, v]) => wrapText(v || '-', font, 9, colW - 8).length)
-      const h = 11 + Math.max(...heights) * 11 + 3
-      need(h)
-      row.forEach(([k, v], c) => {
-        const x = M + c * colW
-        page.drawText(pdfSafe(k.toUpperCase()), { x, y, size: 6.5, font: bold, color: MUTED })
-        wrapText(v || '-', font, 9, colW - 8).forEach((l, n) => page.drawText(l, { x, y: y - 11 - n * 11, size: 9, font, color: INK }))
-      })
-      y -= h
+
+  if (q !== 2) relabelQuarter(doc, q)
+
+  /* ── Page 1 header ── */
+  put(p1, d.store.storeNumber, 206, 1170, { size: 12, f: bold, width: 180 })
+  put(p1, usDate(d.cycle.actualStart ?? d.cycle.actualEnd), 531, 1170, { size: 12, f: bold })
+
+  /* ── The checks ── */
+  const byItem = new Map(d.responses.map((r) => [r.itemId, r]))
+  const comments: { id: string; text: string }[] = []
+  for (const it of d.items) {
+    const ev = d.progress.byId[it.id]
+    const r = byItem.get(it.id)
+    const excluded = ev?.state === 'excluded'
+    const result = excluded ? 'na' : r?.result ?? null
+    // A check written as a question ("Is there any physical damage?") is answered Yes or No.
+    const question = it.description.trim().endsWith('?')
+    const cell = ALDI_CHECK_ROWS[it.code]
+    if (cell) {
+      const page = cell.page === 0 ? p1 : p2
+      const mx = MARK_X + (MARK_SHIFT[it.code]?.dx ?? 0)
+      const my = cell.y + (MARK_SHIFT[it.code]?.dy ?? 0)
+      if (result === 'pass') { if (question) put(page, 'No', mx, my, { size: 9, f: bold, align: 'center' }); else check(page, mx, my + 3.4) }
+      else if (result === 'fail') put(page, question ? 'Yes' : 'FAIL', mx, my, { size: 9, f: bold, align: 'center', color: RED })
+      else if (result === 'na') put(page, 'N/A', mx, my, { size: 9, f: bold, align: 'center' })
+    } else if (result) {
+      // A check added in a later revision has no row on this form: it is reported in the comments.
+      comments.push({ id: it.code, text: `${result === 'pass' ? 'Completed' : result === 'fail' ? 'FAILED' : 'N/A'}: ${it.description}` })
     }
+    const notes: string[] = []
+    if (r?.measureValue) notes.push(`${it.measureLabel ?? 'Value'} ${r.measureValue}${it.measureUnit && !r.measureValue.includes(it.measureUnit) ? it.measureUnit : ''}`)
+    if (r?.note) notes.push(r.note)
+    if (excluded && ev?.excludedWhy) notes.push(`N/A: ${ev.excludedWhy}`)
+    else if (r?.result === 'na' && r.naReason) notes.push(`N/A: ${r.naReason}`)
+    if (notes.length) comments.push({ id: it.code, text: notes.join('. ') })
   }
-  /** A ruled grid. `widths` are fractions of the usable width. */
-  const grid = (head: string[], rows: string[][], widths: number[], size = 8) => {
-    const usable = W - 2 * M
-    const xs = widths.reduce<number[]>((acc, w, i) => [...acc, (acc[i - 1] ?? M) + (i ? widths[i - 1] * usable : 0)], [])
-    const drawRow = (cells: string[], f: PDFFont, fill?: ReturnType<typeof rgb>) => {
-      const lines = cells.map((c, i) => wrapText(c, f, size, widths[i] * usable - 6))
-      const h = Math.max(...lines.map((l) => l.length)) * (size + 2) + 5
-      need(h)
-      if (fill) page.drawRectangle({ x: M, y: y - h + size + 1, width: usable, height: h, color: fill })
-      lines.forEach((ls, i) => ls.forEach((l, n) => page.drawText(l, { x: xs[i] + 3, y: y - n * (size + 2), size, font: f, color: INK })))
-      page.drawLine({ start: { x: M, y: y - h + size + 1 }, end: { x: M + usable, y: y - h + size + 1 }, thickness: 0.5, color: LINE })
-      y -= h
+
+  /* ── Data entry: refrigeration and electrical (page 3) ── */
+  const reading = new Map(d.readings.map((r) => [`${r.tableKey}|${r.rowKey}|${r.colKey}`, r.value]))
+  const val = (t: string, row: string, col: string) => reading.get(`${t}|${row}|${col}`) ?? ''
+  const table = (key: string) => d.template.dataTables.find((t) => t.key === key)
+  const layoutRows = (source: 'circuits' | 'compressors' | 'hvac_compressors', tableKey: string): DataRow[] => {
+    const own = d.cycle.layout?.[source]
+    return own?.length ? own : table(tableKey)?.rows ?? []
+  }
+  /** Rows that do not fit on the form, printed on the continuation page. */
+  const overflow: { title: string; lines: string[] }[] = []
+
+  put(p3, val('system_superheat', 'lt', 'reading'), 395, 1193.4, { size: 11, f: bold, align: 'center', width: 240 })
+  put(p3, val('system_superheat', 'mt', 'reading'), 395, 1168.6, { size: 11, f: bold, align: 'center', width: 240 })
+
+  const circuits = layoutRows('circuits', 'component')
+  const extraCircuits: string[] = []
+  ALDI_CIRCUIT_ROWS.forEach((row, i) => {
+    const c = circuits[i]
+    // The form prints one store's circuits. Another store's own list replaces them, row for row.
+    if (!c || c.label.trim() !== row.label) {
+      cover(p3, 32.6, row.y - 1.5, row.w + 5, 11.5)
+      if (c) aldi(p3, 'R9', pdfSafe(c.label).slice(0, 34), 33.5, row.y, 11)
     }
-    need(40)
-    drawRow(head, bold, BAND)
-    for (const r of rows) drawRow(r, font)
-    y -= 6
+    if (!c) return
+    put(p3, val('component', c.key, 'superheat'), VALUE_CENTERS[0], row.y + CIRCUIT_LIFT, { align: 'center', width: VALUE_WIDTH })
+    put(p3, val('component', c.key, 'cfm'), VALUE_CENTERS[1], row.y + CIRCUIT_LIFT, { align: 'center', width: VALUE_WIDTH })
+  })
+  for (const c of circuits.slice(ALDI_CIRCUIT_ROWS.length)) {
+    const sh = val('component', c.key, 'superheat'); const cfm = val('component', c.key, 'cfm')
+    extraCircuits.push(`${c.label}: superheat ${sh || 'not recorded'}, fan CFM ${cfm || 'not recorded'}`)
   }
+  if (extraCircuits.length) overflow.push({ title: 'Component Superheat / Fan CFM, more circuits', lines: extraCircuits })
 
-  const today = d.generatedAt.slice(0, 10)
-  const day = (s: string | null | undefined) => (s ? fmtDate(s, '1900-01-01') : '')
-  const responses = new Map(d.responses.map((r) => [r.itemId, r]))
-  const value = (table: string, row: string, col: string) => d.readings.find((r) => r.tableKey === table && r.rowKey === row && r.colKey === col)?.value ?? ''
+  const refrigComments = wrapText(val('refrigeration_comments', 'comments', 'text'), font, 8.5, 465).filter((l) => l.trim())
+  refrigComments.slice(0, REFRIG_COMMENT_ROWS.length).forEach((line, i) => put(p3, line, 762, REFRIG_COMMENT_ROWS[i], { size: 8.5, align: 'center', width: 470 }))
+  if (refrigComments.length > REFRIG_COMMENT_ROWS.length) overflow.push({ title: 'Refrigeration Data Entry comments, continued', lines: refrigComments.slice(REFRIG_COMMENT_ROWS.length) })
 
-  /* ── Page 1: the job ── */
-  newPage()
-  text(`Store ${d.store.storeNumber}`, M, 18, bold)
-  y -= 16
-  text([d.store.address, d.store.city, d.store.state, d.store.postalCode].filter(Boolean).join(', ') || 'No address on file', M, 10, font, MUTED)
-  y -= 20
-  facts([
-    ['Quarter', `Q${d.cycle.quarter} ${d.cycle.year} (${quarterMonths(d.cycle.quarter)})`],
-    ['Kalos job number', d.cycle.jobNumber ?? 'Not received'],
-    ['ServiceChannel work order', d.cycle.scWorkOrder],
-    ['Status', STATUS_LABEL[d.cycle.status]],
-    ['Technician', d.techName],
-    ['Service provider', d.cycle.serviceProvider || d.company],
-    ['Scheduled visit', day(d.cycle.scheduledDate)],
-    ['Started', day(d.cycle.actualStart)],
-    ['Date of completion', day(d.cycle.actualEnd)],
-    ['Time in', d.cycle.timeIn],
-    ['Time out', d.cycle.timeOut],
-    ['FM spot checked completion', d.cycle.fmSpotChecked === null ? 'Not recorded' : d.cycle.fmSpotChecked ? 'Yes' : 'No'],
-    ['ALDI facility manager', d.store.facilityManager],
-    ['Refrigeration system', d.store.systemType ? SYSTEM_LABEL[d.store.systemType] : 'Not recorded'],
-    ['Region', d.store.region],
-  ])
-  y -= 4
-  facts([
-    ['Checklist', `${d.progress.checklistPct}%  (${d.progress.checklistDone} of ${d.progress.checklistTotal} applicable checks)`],
-    ['Required documentation', `${d.progress.docsPct}%  (${d.progress.docsDone} of ${d.progress.docsTotal})`],
-    ['Failed checks', String(d.progress.fails)],
-    ['Checklist version', `${d.template.name}, Quarter ${d.template.quarter}${d.template.revisionLabel ? `, ${d.template.revisionLabel}` : ''}`],
-    ['Open deficiencies', String(d.deficiencies.filter((x) => !['repaired', 'closed', 'declined'].includes(x.repairStatus)).length)],
-    ['Report', `Version ${d.version}, generated ${day(today)} by ${d.generatedBy}`],
-  ])
-
-  /* ── The checklist ── */
-  heading('Checklist results')
-  const sections: { key: string; label: string }[] = []
-  for (const it of d.items) if (!sections.some((s) => s.key === it.sectionKey)) sections.push({ key: it.sectionKey, label: it.sectionLabel })
-  const C = { code: M + 3, desc: M + 66, result: W - M - 44 }
-  for (const s of sections) {
-    sub(s.label)
-    for (const it of d.items.filter((i) => i.sectionKey === s.key)) {
-      const ev = d.progress.byId[it.id]
-      const r = responses.get(it.id)
-      const applies = itemApplies(it.applicability, d.store.systemType)
-      const desc = wrapText(it.description, font, 8, C.result - C.desc - 8)
-      const extra: string[] = []
-      if (ev?.state === 'excluded') extra.push(`Left off this store's checklist: ${ev.excludedWhy ?? ''}`)
-      if (r?.result === 'na' && r.naReason) extra.push(`Not applicable: ${r.naReason}`)
-      if (r?.measureValue) extra.push(`${it.measureLabel ?? 'Value'}: ${r.measureValue}${it.measureUnit ?? ''}`)
-      if (r?.note) extra.push(`Note: ${r.note}`)
-      if (ev?.missing.length && r?.result) extra.push(`Missing: ${ev.missing.join(', ')}`)
-      const extraLines = extra.flatMap((e) => wrapText(e, italic, 7.5, C.result - C.desc - 8))
-      const excluded = ev?.state === 'excluded'
-      const dated = !!(r?.inspectedAt && r.result && !excluded)
-      const labelled = !!(it.applicability && it.applicability !== 'ALL')
-      // Room for the second line under the code or the result, even on a one-line check.
-      const h = Math.max(desc.length * 10 + extraLines.length * 9.5, dated || labelled ? 19 : 10) + 5
-      need(h)
-      page.drawText(pdfSafe(it.code), { x: C.code, y, size: 8, font: bold, color: INK })
-      if (labelled) page.drawText(pdfSafe(it.applicability), { x: C.code, y: y - 9, size: 6.5, font: italic, color: MUTED })
-      desc.forEach((l, n) => page.drawText(l, { x: C.desc, y: y - n * 10, size: 8, font, color: applies ? INK : MUTED }))
-      extraLines.forEach((l, n) => page.drawText(l, { x: C.desc, y: y - desc.length * 10 - n * 9.5, size: 7.5, font: italic, color: MUTED }))
-      const res = excluded ? 'N/A' : r?.result ? RESULT_TEXT[r.result] : '-'
-      const color = res === 'FAIL' ? rgb(0.75, 0.1, 0.1) : res === 'PASS' ? rgb(0.02, 0.45, 0.25) : MUTED
-      page.drawText(res, { x: C.result, y, size: 9, font: bold, color })
-      if (dated) page.drawText(pdfSafe(day(r!.inspectedAt)), { x: C.result, y: y - 9, size: 6.5, font, color: MUTED })
-      page.drawLine({ start: { x: M, y: y - h + 9 }, end: { x: W - M, y: y - h + 9 }, thickness: 0.4, color: LINE })
-      y -= h
-    }
-    y -= 4
-  }
-
-  /* ── The data entry pages ── */
-  const tableOut = (t: DataTable) => {
-    const named = rowLabels(rowsFor(t, d.cycle.layout))
-    const rows = rowsFor(t, d.cycle.layout).map((r) => ({ ...r, label: named[r.key] ?? r.label }))
-    if (isNotesTable(t)) {
-      for (const r of rows) {
-        const v = value(t.key, r.key, 'text')
-        if (!v) continue
-        need(24)
-        text(r.label.toUpperCase(), M, 6.5, bold, MUTED); y -= 11
-        para(v, { gap: 4 })
+  const compressors = layoutRows('compressors', 'oil_discharge')
+  const printed = (i: number) => `Compressor ${i + 1}`
+  COMP_CENTERS.forEach((cx, i) => {
+    const c = compressors[i]
+    const width = COMP_EDGES[i + 1] - COMP_EDGES[i] - 8
+    if (!c || c.label.trim() !== printed(i)) {
+      // Two header rows carry the compressor names: one above the oil levels, one above the electrical chart.
+      cover(p3, cx - 40, 612.5, 80, 13.5, COMP_GRAY)
+      cover(p3, cx - 40, 537.6, 80, 13.5, ELEC_GRAY)
+      if (c) {
+        const name = pdfSafe(c.label).slice(0, 22)
+        const size = (aldiWidth('R9', name, 10.575) ?? width) > width ? 8 : 10.575
+        aldi(p3, 'R9', name, cx, 615.8, size, { align: 'center' })
+        aldi(p3, 'R9', name, cx, 540.9, size, { align: 'center' })
       }
-      return
     }
-    need(60)
-    sub(t.title)
-    if (t.hint) para(t.hint, { size: 7.5, f: italic, color: MUTED, gap: 2 })
-    if (t.rowSource === 'compressors' || t.rowSource === 'hvac_compressors') {
-      // Laid out like the sheet: one column per compressor.
-      const first = 0.28
-      const each = (1 - first) / Math.max(1, rows.length)
-      grid(['', ...rows.map((r) => r.label)], t.columns.map((c) => [c.label, ...rows.map((r) => value(t.key, r.key, c.key))]), [first, ...rows.map(() => each)], rows.length > 5 ? 7 : 8)
-    } else {
-      const first = 0.34
-      const each = (1 - first) / t.columns.length
-      grid(['', ...t.columns.map((c) => c.label + (c.unit ? ` (${c.unit})` : ''))], rows.map((r) => [r.label, ...t.columns.map((c) => value(t.key, r.key, c.key))]), [first, ...t.columns.map(() => each)])
+    if (!c) return
+    for (const [col, y] of Object.entries(OIL_ROWS)) put(p3, val('oil_discharge', c.key, col), cx, y, { f: bold, align: 'center', width })
+    for (const [col, y] of Object.entries(ELECTRICAL_ROWS)) put(p3, val('electrical', c.key, col), cx, y, { f: bold, align: 'center', width })
+  })
+  const extraCompressors = compressors.slice(6).map((c) => {
+    const cols = [...(table('oil_discharge')?.columns ?? []).map((k) => ['oil_discharge', k] as const), ...(table('electrical')?.columns ?? []).map((k) => ['electrical', k] as const)]
+    const got = cols.map(([t, k]) => { const v = val(t, c.key, k.key); return v ? `${k.label} ${v}` : '' }).filter(Boolean)
+    return `${c.label}: ${got.join(', ') || 'nothing recorded'}`
+  })
+  if (extraCompressors.length) overflow.push({ title: 'Oil level, discharge temp, and electrical readings, more compressors', lines: extraCompressors })
+
+  /* ── Data entry: HVAC (page 4) ── */
+  const HVAC_COLS = ['l1l2', 'l1l3', 'l2l3']
+  HVAC_COLS.forEach((col, i) => put(p4, val('hvac_voltage', 'actual', col), VALUE_CENTERS[i], 1223.7, { align: 'center', width: VALUE_WIDTH }))
+  const hvacComps = layoutRows('hvac_compressors', 'hvac_amps')
+  HVAC_AMP_ROWS.forEach((y, i) => {
+    const c = hvacComps[i]
+    if (!c || c.label.trim() !== printed(i)) {
+      cover(p4, 115, y - 1.5, 71, 10.6)
+      if (c) aldi(p4, 'R9', pdfSafe(c.label).slice(0, 26), 150.5, y, 11, { align: 'center' })
     }
+    if (c) HVAC_COLS.forEach((col, n) => put(p4, val('hvac_amps', c.key, col), VALUE_CENTERS[n], y, { align: 'center', width: VALUE_WIDTH }))
+  })
+  const extraHvac = hvacComps.slice(4).map((c) => `${c.label}: ${HVAC_COLS.map((col) => val('hvac_amps', c.key, col) || '-').join(' / ')} amps (L1 to L2 / L1 to L3 / L2 to L3)`)
+  if (extraHvac.length) overflow.push({ title: 'HVAC compressor amps, more compressors', lines: extraHvac })
+  for (const [row, y] of Object.entries(HVAC_SENSOR_ROWS)) {
+    ;['controller', 'actual', 'offset'].forEach((col, n) => put(p4, val('hvac_sensors', row, col), VALUE_CENTERS[n], y, { align: 'center', width: VALUE_WIDTH }))
   }
-  for (const [group, title] of [['refrigeration', 'Refrigeration Data Entry'], ['electrical', 'Electrical Readings'], ['hvac', 'HVAC Data Entry']] as const) {
-    const tables = d.template.dataTables.filter((t) => t.group === group)
-    if (!tables.length) continue
-    heading(`${title} (Q${d.cycle.quarter})`)
-    tables.forEach(tableOut)
+  const sideNote = (text: string, top: number, lines: number, title: string) => {
+    const wrapped = wrapText(text, font, 8.5, 340).filter((l) => l.trim())
+    wrapped.slice(0, lines).forEach((l, i) => put(p4, l, 657, top - i * 13.2, { size: 8.5, width: 344 }))
+    if (wrapped.length > lines) overflow.push({ title, lines: wrapped.slice(lines) })
   }
+  sideNote(val('hvac_comments', 'rla', 'text'), 1187, 4, 'RLA, Voltage, Comments, continued')
+  sideNote(val('hvac_comments', 'additional', 'text'), 1104.5, 5, 'Additional Comments, continued')
 
-  /* ── Comments ── */
-  heading('Service Technician Comments')
-  const commented = d.items.filter((it) => { const r = responses.get(it.id); return r && (r.note || r.measureValue) })
-  if (commented.length) {
-    grid(['PM ID', 'Notes'], commented.map((it) => {
-      const r = responses.get(it.id)!
-      return [it.code, [r.measureValue && `${it.measureLabel ?? 'Value'} ${r.measureValue}${it.measureUnit ?? ''}`, r.note].filter(Boolean).join('. ')]
-    }), [0.16, 0.84])
+  put(p4, d.cycle.serviceProvider || d.company, 460, 994.6, { size: 9.5, align: 'center', width: 370 })
+  put(p4, usDate(d.cycle.actualEnd), 861.5, 994.6, { size: 9.5, align: 'center', width: 136 })
+  if (d.cycle.fmSpotChecked !== null && d.cycle.fmSpotChecked !== undefined) {
+    // "Y/N" is printed on the form: the answer is circled.
+    p4.drawEllipse({ x: d.cycle.fmSpotChecked ? 452.6 : 464.2, y: 971.2, xScale: 5.4, yScale: 7.2, borderColor: INK, borderWidth: 1.2 })
   }
-  if (d.cycle.techNotes) { text('TECHNICIAN NOTES', M, 6.5, bold, MUTED); y -= 11; para(d.cycle.techNotes, { gap: 6 }) }
-  if (d.cycle.returnVisitNeeded) para(`Return visit needed${d.cycle.returnVisitNote ? `: ${d.cycle.returnVisitNote}` : '.'}`, { f: bold, gap: 6 })
-  if (!commented.length && !d.cycle.techNotes) para('No comments recorded.', { color: MUTED, gap: 4 })
+  put(p4, d.cycle.timeIn, 276, 893.6, { size: 10, width: 116 })
+  put(p4, d.cycle.timeOut, 276, 866.2, { size: 10, width: 116 })
 
-  /* ── Deficiencies and materials ── */
-  heading(`Deficiencies (${d.deficiencies.length})`)
-  if (!d.deficiencies.length) para('None recorded on this PM.', { color: MUTED, gap: 4 })
-  for (const x of d.deficiencies) {
-    need(40)
-    text(`${x.itemCode ? `${x.itemCode}  ` : ''}${SEVERITY_LABEL[x.severity]} severity${x.equipmentLabel ? `  |  ${x.equipmentLabel}` : ''}`, M, 9, bold); y -= 12
-    para(x.description, { gap: 1 })
-    if (x.recommendedRepair) para(`Recommended repair: ${x.recommendedRepair}`, { f: italic, color: MUTED, gap: 1 })
-    para([
-      x.proposalStatus !== 'not_required' ? PROPOSAL_LABEL[x.proposalStatus] + (x.proposalSubmittedDate ? ` ${day(x.proposalSubmittedDate)}` : '') : '',
-      `Repair: ${REPAIR_LABEL[x.repairStatus]}`, x.returnVisitRequired ? 'Return visit required' : '', x.followupJobNumber ? `Follow-up job ${x.followupJobNumber}` : '',
-      `Found ${day(x.createdAt)}${x.createdBy && d.names[x.createdBy] ? ` by ${d.names[x.createdBy]}` : ''}`,
-    ].filter(Boolean).join('   |   '), { size: 7.5, color: MUTED, gap: 7 })
+  /* ── Service Technician Comments ── */
+  for (const def of d.deficiencies) {
+    comments.push({ id: def.itemCode ?? '', text: [def.equipmentLabel ? `${def.equipmentLabel}: ${def.description}` : def.description, def.recommendedRepair ? `Recommended: ${def.recommendedRepair}` : '', def.proposalRequired ? 'FOPM proposal to follow.' : ''].filter(Boolean).join(' ') })
   }
-  if (d.materials.length) {
-    heading(`Filters and parts (${d.materials.length})`)
-    grid(['Material', 'Qty', 'Part number', 'For', 'Status', 'Dates'], d.materials.map((m) => [
-      m.name, String(m.quantity), m.partNumber ?? '', m.unitLabel ?? '', MATERIAL_STATUS_LABEL[m.status],
-      [m.orderedDate && `Ordered ${day(m.orderedDate)}`, m.receivedDate && `Received ${day(m.receivedDate)}`, m.installedDate && `Installed ${day(m.installedDate)}`].filter(Boolean).join(', ') || `Requested ${day(m.requestedDate)}`,
-    ]), [0.28, 0.07, 0.15, 0.16, 0.14, 0.2], 7.5)
+  if (d.cycle.techNotes?.trim()) comments.push({ id: '', text: d.cycle.techNotes.trim() })
+  if (d.cycle.returnVisitNeeded) comments.push({ id: '', text: `Return visit needed${d.cycle.returnVisitNote ? `: ${d.cycle.returnVisitNote}` : '.'}` })
+
+  const techLines: { id: string; text: string }[] = []
+  for (const c of comments) wrapText(c.text, font, 8.5, 652).filter((l) => l.trim()).forEach((line, i) => techLines.push({ id: i === 0 ? c.id : '', text: line }))
+  techLines.slice(0, TECH_ROWS).forEach((l, i) => {
+    const y = TECH_ROW_TOP - i * TECH_ROW_PITCH
+    put(p4, l.id, 150.6, y, { size: 8.5, align: 'center', width: 226 })
+    put(p4, l.text, 274, y, { size: 8.5, width: 655 })
+  })
+  const techOverflow = techLines.slice(TECH_ROWS)
+
+  /* ── Continuation, when the form's rows run out ── */
+  const FOOT = `Store ${d.store.storeNumber}   |   Q${q} ${d.cycle.year}${job ? `   |   ${job}` : ''}`
+  const extraPage = (title: string) => {
+    const page = doc.addPage([PAGE_W, PAGE_H])
+    put(page, 'ALDI HVACR Preventative Maintenance Checklist', PAGE_W / 2, 1304, { size: 24, align: 'center' })
+    page.drawRectangle({ x: 31.8, y: 1256, width: 971.7, height: 16, color: NAVY })
+    put(page, title, PAGE_W / 2, 1260, { size: 12.5, f: bold, color: WHITE, align: 'center' })
+    put(page, FOOT, 33.5, 41, { size: 9.5 })
+    return page
+  }
+  if (techOverflow.length || overflow.length) {
+    let page = extraPage(`Continued from the Q${q} checklist`)
+    let y = 1236
+    const room = (need: number) => { if (y - need < 70) { page = extraPage(`Continued from the Q${q} checklist`); y = 1236 } }
+    if (techOverflow.length) {
+      put(page, 'Service Technician Comments, continued', 33.5, y, { size: 11, f: bold }); y -= 8
+      page.drawLine({ start: { x: 31.8, y }, end: { x: 1003.5, y }, thickness: 0.8, color: INK }); y -= 14
+      put(page, 'PM ID:', 36, y, { size: 9.5, f: bold }); put(page, 'Notes:', 274, y, { size: 9.5, f: bold }); y -= 15
+      for (const l of techOverflow) {
+        room(14)
+        put(page, l.id, 36, y, { size: 9, width: 226 }); put(page, l.text, 274, y, { size: 9, width: 725 })
+        page.drawLine({ start: { x: 31.8, y: y - 4 }, end: { x: 1003.5, y: y - 4 }, thickness: 0.4, color: INK })
+        y -= 14
+      }
+      y -= 14
+    }
+    for (const block of overflow) {
+      room(48)
+      put(page, block.title, 33.5, y, { size: 11, f: bold }); y -= 8
+      page.drawLine({ start: { x: 31.8, y }, end: { x: 1003.5, y }, thickness: 0.8, color: INK }); y -= 15
+      for (const line of block.lines.flatMap((l) => wrapText(l, font, 9, 960))) { room(14); put(page, line, 36, y, { size: 9 }); y -= 13.5 }
+      y -= 14
+    }
   }
 
   /* ── Photos ── */
   if (d.photos.length || d.photosLeftOut) {
     const images: { img: PDFImage; caption: string }[] = []
     for (const p of d.photos) {
-      try { images.push({ img: p.mime === 'image/png' ? await doc.embedPng(p.bytes) : await doc.embedJpg(p.bytes), caption: p.caption }) } catch { /* an unreadable image is skipped, the report still builds */ }
+      try { images.push({ img: p.mime === 'image/png' ? await doc.embedPng(p.bytes) : await doc.embedJpg(p.bytes), caption: p.caption }) } catch { /* a damaged file is skipped, the report still builds */ }
     }
-    if (images.length) {
-      heading(`Inspection photos (${images.length})`)
-      const cols = 2
-      const cellW = (W - 2 * M - 12) / cols
-      const cellH = 196
-      for (let i = 0; i < images.length; i += cols) {
-        need(cellH + 30)
-        images.slice(i, i + cols).forEach(({ img, caption }, c) => {
-          const scale = Math.min(cellW / img.width, cellH / img.height)
-          const w = img.width * scale
-          const h = img.height * scale
-          const x = M + c * (cellW + 12)
-          page.drawImage(img, { x: x + (cellW - w) / 2, y: y - h, width: w, height: h })
-          wrapText(caption, font, 7.5, cellW).slice(0, 2).forEach((l, n) => page.drawText(l, { x, y: y - cellH - 10 - n * 9, size: 7.5, font, color: MUTED }))
-        })
-        y -= cellH + 32
-      }
+    const COLS = 2, ROWS = 3, GAP = 22, LEFT = 40, TOP = 1236
+    const cellW = (PAGE_W - LEFT * 2 - GAP) / COLS
+    const cellH = 372
+    let page: PDFPage | null = null
+    images.forEach((it, n) => {
+      const slot = n % (COLS * ROWS)
+      if (slot === 0) page = extraPage(`Inspection photos, Q${q} PM`)
+      const x = LEFT + (slot % COLS) * (cellW + GAP)
+      const top = TOP - Math.floor(slot / COLS) * cellH
+      const scale = Math.min(cellW / it.img.width, (cellH - 54) / it.img.height)
+      const w = it.img.width * scale, h = it.img.height * scale
+      page!.drawImage(it.img, { x: x + (cellW - w) / 2, y: top - h, width: w, height: h })
+      wrapText(it.caption, italic, 9.5, cellW).slice(0, 2).forEach((line, i) => put(page!, line, x, top - (cellH - 54) - 14 - i * 12, { size: 9.5, f: italic }))
+    })
+    if (d.photosLeftOut) {
+      const last = page ?? extraPage(`Inspection photos, Q${q} PM`)
+      put(last, `${d.photosLeftOut} more ${d.photosLeftOut === 1 ? 'photo is' : 'photos are'} attached to this PM in PhaseForge and not printed here.`, 33.5, 58, { size: 9.5, f: italic })
     }
-    if (d.photosLeftOut) para(`${d.photosLeftOut} more ${d.photosLeftOut === 1 ? 'photo is' : 'photos are'} attached to the PM in PhaseForge and not printed here.`, { color: MUTED })
   }
 
-  /* ── Footers ── */
-  const pages = doc.getPages()
-  pages.forEach((p, i) => {
-    p.drawLine({ start: { x: M, y: M }, end: { x: W - M, y: M }, thickness: 0.5, color: LINE })
-    p.drawText(pdfSafe(`${d.company}  |  ${label}`), { x: M, y: M - 11, size: 7, font, color: MUTED })
-    const n = `Page ${i + 1} of ${pages.length}`
-    p.drawText(n, { x: W - M - font.widthOfTextAtSize(n, 7), y: M - 11, size: 7, font, color: MUTED })
-  })
-  return doc.save({ useObjectStreams: true })
+  return doc.save()
 }
