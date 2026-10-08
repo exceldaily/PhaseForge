@@ -5,7 +5,7 @@ import { BedDouble, MessageSquare,
   LayoutDashboard, FolderKanban, GanttChartSquare, CalendarRange,
   Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
-  Contact, HardHat, Truck, FolderOpen, Receipt, CalendarDays, BadgeDollarSign, FileDiff,
+  Contact, HardHat, Truck, FolderOpen, Receipt, CalendarDays, BadgeDollarSign, FileDiff, ClipboardCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -19,7 +19,7 @@ interface NavItem {
   label: string
   icon: typeof Contact
   // 'reports' | 'dispatch' | 'schedules' gate on plan flags; ops module keys gate on entitlements
-  gate?: 'reports' | 'dispatch' | 'schedules' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices'
+  gate?: 'reports' | 'dispatch' | 'schedules' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices' | 'pm'
 }
 
 interface NavGroup {
@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/app/calendar', label: 'Calendar', icon: CalendarRange },
       { href: '/app/schedules', label: 'Schedules', icon: CalendarDays, gate: 'schedules' },
       { href: '/app/lodging',   label: 'Lodging',   icon: BedDouble,    gate: 'schedules' },
+      { href: '/app/pm',        label: 'Maintenance (PM)', icon: ClipboardCheck, gate: 'pm' },
     ],
   },
   {

@@ -299,6 +299,123 @@ export const PAGE_HELP: PageHelp[] = [
       { key: 'settings-job-link', label: 'Job number link', text: 'One web address with {job} in it. Every Job# in PhaseForge then opens that job in your own system.' },
     ],
   },
+  {
+    match: /^\/app\/pm\/jobs\/[^/]+\/work/,
+    title: 'PM checklist',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-sync', label: 'Saved or waiting', text: 'Shows whether every entry has reached the server. With no signal it counts what is waiting and sends it when the connection is back.' },
+      { key: 'pm-work-summary', label: 'This PM', text: 'Store, job number, due date, checks left, and what materials and issues are open.' },
+      { key: 'pm-resume', label: 'Resume', text: 'Jumps to the next check that is not finished.' },
+      { key: 'pm-request-material', label: 'Request filters or parts', text: 'Ask the office for what you need. It shows up on the Materials tab right away.' },
+      { key: 'pm-add-deficiency', label: 'Write up a deficiency', text: 'Record a problem with photos. Failed checks ask for one.' },
+      { key: 'pm-tech-notes', label: 'Technician notes', text: 'Overall comments for the visit. They print on the PM report.' },
+      { key: 'pm-field-complete', label: 'Field work complete', text: 'Press when you are done at the store. It lists anything still missing instead of letting it through.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/jobs\/[^/]+$/,
+    title: 'PM record',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-status-line', label: 'Status and blockers', text: 'The status is where the PM is in its life. The red chips beside it are what is holding it up.' },
+      { key: 'pm-job-number', label: 'Job number', text: 'Enter the Kalos job number when it arrives. A changed number keeps the old one in the history.' },
+      { key: 'pm-open-checklist', label: 'Open checklist', text: 'The digital ALDI checklist for this PM, sized for a phone.' },
+      { key: 'pm-progress', label: 'Progress', text: 'Counted from the checklist. Nobody can type these numbers in.' },
+      { key: 'pm-closeout', label: 'Closeout', text: 'Field Work Complete and Completed are set with these buttons, and only when their checks pass.' },
+      { key: 'pm-generate-report', label: 'Generate report', text: 'Builds the PM report PDF. Every version is kept.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/stores/,
+    title: 'Store Directory',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-store-search', label: 'Search', text: 'Find a store by number, address, city, or technician.' },
+      { key: 'pm-add-store', label: 'Add a store', text: 'One store at a time. Use Import for a whole list.' },
+      { key: 'pm-import', label: 'Import', text: 'Bring in a spreadsheet of stores. You get a preview to correct before anything saves.' },
+      { key: 'pm-mini-matrix', label: 'This year', text: 'Each store’s four quarters at a glance.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/import/,
+    title: 'PM import',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-import-kind', label: 'What you are importing', text: 'Stores, job numbers, or full PM records.' },
+      { key: 'pm-import-file', label: 'Choose a file', text: 'CSV or Excel. Columns are matched by their headings.' },
+      { key: 'pm-import-commit', label: 'Save the import', text: 'Nothing is saved until you press this. Fix any cell in the preview first.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/tracker/,
+    title: 'Quarterly Tracker',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-tracker-view', label: 'Matrix or list', text: 'Matrix shows all four quarters per store. List shows one quarter with every detail.' },
+      { key: 'pm-matrix', label: 'The year', text: 'One row per store, one cell per quarter. Open Q opens PMs for stores that do not have one yet.' },
+      { key: 'pm-status-filter', label: 'Status filter', text: 'Filter by lifecycle status, by a blocker, by overdue, or by no job number yet.' },
+      { key: 'pm-job-entry', label: 'Job number', text: 'Type the job number here the moment it arrives and press Enter.' },
+      { key: 'pm-bulk', label: 'Bulk changes', text: 'Tick several PMs to assign a technician, a visit date, a due date, or a priority to all of them.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/my/,
+    title: 'My PMs',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-my-list', label: 'Your PMs', text: 'What is assigned to you, in progress first. Tap Resume to pick a checklist back up.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/materials/,
+    title: 'PM materials',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-materials-kpis', label: 'What needs attention', text: 'Tap a box to see only those requests.' },
+      { key: 'pm-materials-table', label: 'Requests', text: 'Every filter and part request. The button on the right moves it to its next step.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/deficiencies/,
+    title: 'PM deficiencies',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-deficiency-kpis', label: 'What needs attention', text: 'Tap a box to see only those deficiencies.' },
+      { key: 'pm-deficiency-list', label: 'Deficiencies', text: 'Problems found on PMs. They stay here until repaired, even after the PM closes.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/reports/,
+    title: 'PM reports',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-report-quarters', label: 'By quarter', text: 'Where each quarter stands across all stores.' },
+      { key: 'pm-exports', label: 'Exports', text: 'Download the quarter, the year, or technician workload as CSV or Excel.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm\/settings/,
+    title: 'PM settings',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-templates', label: 'Checklist templates', text: 'One checklist per quarter, in versions. Copy one to start a draft, then publish it.' },
+      { key: 'pm-rules', label: 'Completion rules', text: 'What has to be true before a PM can be marked Completed.' },
+      { key: 'pm-techs', label: 'Technicians', text: 'The people PMs are assigned to. Linking one to a login lets them work their own PMs.' },
+    ],
+  },
+  {
+    match: /^\/app\/pm/,
+    title: 'PM Dashboard',
+    sectionIds: ['pm'],
+    pins: [
+      { key: 'pm-nav', label: 'PM sections', text: 'Dashboard, stores, the quarterly tracker, your own PMs, materials, deficiencies, reports, and settings.' },
+      { key: 'pm-quarter', label: 'Quarter', text: 'Switch the whole dashboard to another quarter or year.' },
+      { key: 'pm-kpis', label: 'The numbers', text: 'Tap any box to list just those stores below.' },
+      { key: 'pm-dash-filters', label: 'Filters', text: 'Narrow everything on the page by technician, city, region, status, priority, or completion.' },
+      { key: 'pm-buckets', label: 'Checklist completion', text: 'How many PMs sit in each completion range. Tap a bar to list them.' },
+    ],
+  },
   { match: /^\/app\/settings/, title: 'Settings', sectionIds: ['settings-account', 'organization-billing'] },
   { match: /^\/app\/admin/,    title: 'Admin',    sectionIds: ['admin'] },
 ]

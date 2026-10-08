@@ -55,6 +55,15 @@ export const OPERATIONS_MODULES: ModuleDef[] = [
     description: 'Invoice-ready drafts and PDF generation',
     roles: ['owner', 'admin', 'billing', 'project_manager', 'dispatcher'],
   },
+  {
+    key: 'pm',
+    label: 'Preventative Maintenance',
+    href: '/app/pm',
+    description: 'Quarterly refrigeration PMs: store directory, job numbers, digital checklist, materials, and deficiencies',
+    // Open to everyone in the company; what each person can change is decided
+    // per record (administrator, coordinator, assigned technician, read only).
+    roles: 'all',
+  },
 ]
 
 export function moduleAllowsRole(def: ModuleDef, role: OpsRole): boolean {

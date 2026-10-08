@@ -2,7 +2,7 @@
 
 export type ModuleKey =
   | 'customers' | 'staff' | 'vendors' | 'calls'
-  | 'projects' | 'files' | 'invoices' | 'reports'
+  | 'projects' | 'files' | 'invoices' | 'reports' | 'pm'
 
 export type OpsRole =
   | 'owner' | 'admin' | 'dispatcher' | 'project_manager'
