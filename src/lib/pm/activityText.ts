@@ -59,6 +59,7 @@ export function describeActivity(action: string, d: Detail): { text: string; ton
     case 'deficiency_linked': return { text: d.to ? `linked the deficiency${d.item ? ` on ${s(d.item)}` : ''} to follow-up job ${s(d.to)}` : 'removed the follow-up job from a deficiency', tone: 'neutral' }
     case 'check_corrected': return { text: `changed ${s(d.item)} from ${s(d.from)} to ${s(d.to) || 'not inspected'}${d.reason ? ` (${s(d.reason)})` : ''}`, tone: 'warn' }
     case 'checklist_progress': return { text: `checklist reached ${s(d.pct)}% (${s(d.done)} of ${s(d.total)})`, tone: s(d.pct) === '100' ? 'good' : 'neutral' }
+    case 'checklist_attached': return { text: `blank checklist attached: ${s(d.template)}`, tone: 'neutral' }
     case 'checklist_started': return { text: `started the checklist on ${s(d.template)}`, tone: 'neutral' }
     case 'report_generated': return { text: `generated PM report version ${s(d.version)}`, tone: 'neutral' }
     case 'import_committed': return { text: `imported ${s(d.count)} ${s(d.kind)}`, tone: 'neutral' }

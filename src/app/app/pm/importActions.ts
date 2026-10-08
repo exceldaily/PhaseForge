@@ -12,7 +12,7 @@ import {
 } from '@/lib/pm/importers'
 import { isQuarter } from '@/lib/pm/quarters'
 import { existingStoresFor, loadExistingCycles } from '@/lib/pm/importServer'
-import { fail, loadStores, loadTechs, logPm, pmCtx, type PmContext } from '@/lib/pm/server'
+import { attachChecklists, fail, loadStores, loadTechs, logPm, pmCtx, type PmContext } from '@/lib/pm/server'
 import type { PmTech } from '@/lib/pm/types'
 
 const PATH = '/app/pm'
@@ -189,6 +189,7 @@ export async function commitPmImport(input: {
       if (error) failed.push(`${label}: ${error.message}`)
       else { updated++; if (patch.job_number) jobNumbersSet++ }
     }
+    if (created > 0) await attachChecklists(ctx.companyId, ctx.userId)
     const counts = tally(reviews)
     const result = { created, updated, jobNumbersSet, unchanged: counts.same ?? 0, conflicts: counts.conflict ?? 0, notImported: counts.error ?? 0, failed }
     await closeBatch(ctx, input.batchId, result)

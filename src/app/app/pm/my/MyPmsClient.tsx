@@ -86,7 +86,7 @@ export function MyPmsClient({ stores, techs, cycles, myTechIds, canCoordinate, q
                         {canOpen ? (
                           <Link href={`/app/pm/jobs/${c.id}/work`} className={cn('inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold',
                             closed || g.key === 'office' ? 'border border-slate-300 text-slate-700 hover:bg-slate-50' : 'bg-indigo-600 text-white hover:bg-indigo-700')}>
-                            {closed || g.key === 'office' ? 'View checklist' : started ? 'Resume checklist' : 'Start checklist'} <ArrowRight size={16} />
+                            {closed || g.key === 'office' ? 'View checklist' : started && c.checklistDone > 0 ? 'Resume checklist' : 'Start checklist'} <ArrowRight size={16} />
                           </Link>
                         ) : (
                           <p className="flex-1 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">The Q{c.quarter} checklist has not been published yet. The office has to set it up before this PM can be worked.</p>

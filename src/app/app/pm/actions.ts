@@ -10,7 +10,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { completionGaps, fieldCompleteGaps } from '@/lib/pm/progress'
 import { isIsoDate, isQuarter } from '@/lib/pm/quarters'
-import { fail, loadPmBundle, logPm, notifyPm, pmCtx, recalcPm, techProfileId } from '@/lib/pm/server'
+import { attachChecklists, fail, loadPmBundle, logPm, notifyPm, pmCtx, recalcPm, techProfileId } from '@/lib/pm/server'
 import {
   MANUAL_STATUSES, PRIORITIES, STATUS_LABEL, SYSTEM_TYPES,
   type EquipmentKind, type PmStatus, type SystemType,
@@ -182,6 +182,8 @@ export async function createCycle(input: { storeId: string; year: number; quarte
       return { ok: true as const, id: existing?.id as string, existed: true }
     }
     if (error || !data) return { ok: false as const, error: error?.message ?? 'Could not create the PM.' }
+    // The PM starts with its checklist already on it, blank.
+    await attachChecklists(companyId, userId, { pmIds: [data.id as string] })
     revalidatePath(PATH, 'layout')
     return { ok: true as const, id: data.id as string, existed: false }
   } catch (e) { return fail(e) }
@@ -190,7 +192,8 @@ export async function createCycle(input: { storeId: string; year: number; quarte
 /**
  * Open the quarter: one PM record for every active store that does not have
  * one yet. Stores that already have a record are left alone, so running it
- * again is safe. New records start as Awaiting Job Number.
+ * again is safe. New records start as Awaiting Job Number, each with the
+ * quarter's checklist already attached and blank.
  */
 export async function generateQuarter(input: { year: number; quarter: number }) {
   try {
@@ -209,8 +212,10 @@ export async function generateQuarter(input: { year: number; quarter: number }) 
       const { error } = await supabase.from('pm_cycles').upsert(rows, { onConflict: 'store_id,year,quarter', ignoreDuplicates: true })
       if (error) return { ok: false as const, error: error.message }
     }
+    // Also catches PMs opened earlier, before this quarter had a checklist.
+    const { attached, noTemplate } = await attachChecklists(companyId, userId, { quarter: input.quarter })
     revalidatePath(PATH, 'layout')
-    return { ok: true as const, created: rows.length, skipped: have.size }
+    return { ok: true as const, created: rows.length, skipped: have.size, checklists: attached, noChecklist: noTemplate.includes(input.quarter) }
   } catch (e) { return fail(e) }
 }
 

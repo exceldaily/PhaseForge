@@ -3,6 +3,9 @@ import { quarterOf } from '@/lib/pm/quarters'
 import type { PmCycle } from '@/lib/pm/types'
 import { TrackerClient } from './TrackerClient'
 
+// Opening a quarter attaches a checklist to every store's PM.
+export const maxDuration = 60
+
 export default async function PmTrackerPage({ searchParams }: { searchParams: Promise<{ year?: string; q?: string; view?: string }> }) {
   const params = await searchParams
   const ctx = await requirePm()

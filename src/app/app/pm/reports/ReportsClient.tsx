@@ -31,7 +31,7 @@ export function ReportsClient({ stores, techs, cycles, pdfs, names, year, years,
   const byQuarter = [1, 2, 3, 4].map((n) => {
     const list = cycles.filter((c) => c.quarter === n && c.status !== 'cancelled')
     return {
-      n, opened: list.length, jobs: list.filter((c) => !!c.jobNumber).length, started: list.filter((c) => !!c.templateVersionId).length,
+      n, opened: list.length, jobs: list.filter((c) => !!c.jobNumber).length, started: list.filter((c) => c.checklistDone > 0).length,
       field: list.filter((c) => POST_FIELD_STATUSES.includes(c.status)).length, completed: list.filter((c) => c.status === 'completed').length,
       overdue: list.filter((c) => isOverdue(c, today)).length, blocked: list.filter((c) => c.status !== 'completed' && blockersOf(c).length > 0).length, average: averagePct(list),
     }

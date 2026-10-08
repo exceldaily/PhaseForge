@@ -11,7 +11,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { isQuarter } from '@/lib/pm/quarters'
-import { fail, pmCtx } from '@/lib/pm/server'
+import { attachChecklists, fail, pmCtx } from '@/lib/pm/server'
 import { ALDI_Q2_TEMPLATE, SECTIONS, sectionLabel, seedItemRows } from '@/lib/pm/template'
 import { mergeNotify, mergeRules, type CompletionRules, type DataTable, type NotifyRules } from '@/lib/pm/types'
 
@@ -222,7 +222,7 @@ export async function deleteTemplateItem(input: { id: string; versionId: string 
  */
 export async function publishTemplate(input: { id: string }) {
   try {
-    const { supabase, companyId } = await pmCtx('admin')
+    const { supabase, companyId, userId } = await pmCtx('admin')
     const { data: version } = await supabase.from('pm_template_versions').select('id, status, quarter').eq('id', input.id).eq('company_id', companyId).maybeSingle()
     if (!version) return { ok: false as const, error: 'That checklist is gone.' }
     if (version.status !== 'draft') return { ok: false as const, error: 'Only a draft can be published.' }
@@ -230,8 +230,10 @@ export async function publishTemplate(input: { id: string }) {
     if (!count) return { ok: false as const, error: 'Add at least one check before publishing.' }
     const { error } = await supabase.from('pm_template_versions').update({ status: 'active' }).eq('id', input.id).eq('company_id', companyId)
     if (error) return { ok: false as const, error: error.message }
+    // Open PMs for this quarter that had no checklist yet get this one, blank.
+    const { attached } = await attachChecklists(companyId, userId, { quarter: version.quarter as number })
     revalidatePath(PATH, 'layout')
-    return { ok: true as const, quarter: version.quarter as number }
+    return { ok: true as const, quarter: version.quarter as number, attached }
   } catch (e) { return fail(e) }
 }
 

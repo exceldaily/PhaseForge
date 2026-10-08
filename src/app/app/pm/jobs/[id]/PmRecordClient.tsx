@@ -295,12 +295,13 @@ export function PmRecordClient({
             {!started ? (
               <p className="px-4 py-5 text-sm text-slate-500">
                 {checklistAvailable
-                  ? 'The checklist has not been started. It attaches to this PM the first time someone opens it, and stays on that version from then on.'
+                  ? 'No checklist is attached yet. Open it to attach the live one for this quarter.'
                   : `No Q${cycle.quarter} checklist has been published yet, so this PM cannot be worked. An administrator sets one up under Settings, Checklist Templates.`}
               </p>
             ) : (
               <div className="space-y-4 p-4" data-help="pm-progress">
                 <CycleBars cycle={cycle} />
+                {cycle.checklistDone === 0 && <p className="text-xs font-medium text-slate-600">Blank. The checklist was attached when this PM was created and nothing has been inspected yet.</p>}
                 <p className="text-xs text-slate-500">
                   Both numbers are counted from the checklist itself and cannot be typed in. Checks marked Not Applicable, and checks that do not apply to this store, are left out of the total.
                   {counts.uninspected > 0 && <> <span className="font-medium text-slate-700">{counts.uninspected} not inspected yet.</span></>}

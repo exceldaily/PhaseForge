@@ -4,6 +4,8 @@ import { SettingsClient, type TemplateRow } from './SettingsClient'
 
 export const metadata = { title: 'PM Settings | PhaseForge' }
 
+export const maxDuration = 60
+
 export default async function PmSettingsPage() {
   const ctx = await requirePm()
   const [settings, techs, { data: people }, { data: versions }, { data: items }, { data: used }] = await Promise.all([

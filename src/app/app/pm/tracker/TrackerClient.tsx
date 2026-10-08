@@ -82,7 +82,7 @@ export function TrackerClient({ stores, techs, cycles, year, initialQuarter, ini
   }
   const openQuarter = async (n: number) => {
     const res = await run(() => generateQuarter({ year, quarter: n }))
-    if (res.ok && 'created' in res) setNote(`Q${n} ${year}: ${res.created} PM ${res.created === 1 ? 'record' : 'records'} opened as Awaiting Job Number${res.skipped ? `, ${res.skipped} already existed` : ''}.`)
+    if (res.ok && 'created' in res) setNote(`Q${n} ${year}: ${res.created} PM ${res.created === 1 ? 'record' : 'records'} opened as Awaiting Job Number${res.skipped ? `, ${res.skipped} already existed` : ''}. ${res.noChecklist ? `No Q${n} checklist is published yet, so they have none attached.` : `${res.checklists} blank ${res.checklists === 1 ? 'checklist' : 'checklists'} attached.`}`)
   }
   const addOne = async (storeId: string, n: number) => {
     const res = await run(() => createCycle({ storeId, year, quarter: n }))

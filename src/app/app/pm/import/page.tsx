@@ -5,6 +5,8 @@ import { quarterOf } from '@/lib/pm/quarters'
 import { loadStores, loadTechs, requirePm } from '@/lib/pm/server'
 import { ImportClient } from './ImportClient'
 
+export const maxDuration = 60
+
 const KINDS: ImportKind[] = ['stores', 'job_numbers', 'pm_records']
 
 export default async function PmImportPage({ searchParams }: { searchParams: Promise<{ kind?: string; batch?: string }> }) {

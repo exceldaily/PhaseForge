@@ -13,6 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { canAdminOrg, canEditCompanyData } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { computeProgress, pct, type Progress } from './progress'
+import { buildLayout } from './template'
 import {
   mergeNotify, mergeRules,
   type CompletionRules, type NotifyRules, type PmActivity, type PmAttachment, type PmCycle, type PmDeficiency, type PmEquipment,
@@ -229,6 +230,46 @@ export async function recalcPm(companyId: string, pmId: string, actorId: string)
     }
     return p
   } catch (e) { logger.error('pm recalcPm', e); return null }
+}
+
+/**
+ * Give PMs their checklist. Every PM carries the live checklist for its
+ * quarter from the moment it is created, completely blank: nothing answered,
+ * no readings, 0 of N. Called after PMs are created, and again when a
+ * checklist is published, so PMs that were waiting for one pick it up.
+ * Closed and cancelled PMs are left alone, and a PM that already has a
+ * checklist never changes version.
+ */
+export async function attachChecklists(companyId: string, actorId: string, only?: { pmIds?: string[]; quarter?: number }): Promise<{ attached: number; noTemplate: number[] }> {
+  const out = { attached: 0, noTemplate: [] as number[] }
+  try {
+    const admin = createAdminClient()
+    let q = admin.from('pm_cycles').select('id, store_id, quarter').eq('company_id', companyId).is('template_version_id', null).not('status', 'in', '(completed,cancelled)')
+    if (only?.pmIds) { if (!only.pmIds.length) return out; q = q.in('id', only.pmIds) }
+    if (only?.quarter) q = q.eq('quarter', only.quarter)
+    const { data: waiting } = await q.limit(5000)
+    if (!waiting?.length) return out
+
+    const templates = new Map<number, TemplateVersion | null>()
+    for (const n of new Set(waiting.map((c) => c.quarter as number))) templates.set(n, await activeTemplate(admin, companyId, n))
+    out.noTemplate = [...templates].filter(([, t]) => !t).map(([n]) => n).sort()
+    const storeIds = [...new Set(waiting.map((c) => c.store_id as string))]
+    const { data: eq } = await admin.from('pm_equipment').select('id, store_id, kind, label, sort_order, is_active').in('store_id', storeIds)
+    const equipment = mapRows<Pick<PmEquipment, 'id' | 'kind' | 'label' | 'sortOrder' | 'isActive'> & { storeId: string }>(eq)
+
+    const one = async (c: { id: unknown; store_id: unknown; quarter: unknown }) => {
+      const t = templates.get(c.quarter as number)
+      if (!t) return
+      const layout = buildLayout(t.dataTables, equipment.filter((e) => e.storeId === c.store_id))
+      const { data, error } = await admin.from('pm_cycles').update({ template_version_id: t.id, layout }).eq('id', c.id as string).is('template_version_id', null).select('id')
+      if (error || !data?.length) return
+      await logPm(admin, { companyId, storeId: c.store_id as string, pmId: c.id as string, actorId, action: 'checklist_attached', detail: { template: `${t.name} Q${t.quarter}${t.revisionLabel ? `, ${t.revisionLabel}` : ''}` } })
+      await recalcPm(companyId, c.id as string, actorId)
+      out.attached++
+    }
+    for (let i = 0; i < waiting.length; i += 6) await Promise.all(waiting.slice(i, i + 6).map(one))
+  } catch (e) { logger.error('pm attachChecklists', e) }
+  return out
 }
 
 /* ── Trail and notifications ─────────────────────────────────────────────── */

@@ -4,6 +4,8 @@ import { TemplateEditor } from './TemplateEditor'
 
 export const metadata = { title: 'PM Checklist Template | PhaseForge' }
 
+export const maxDuration = 60
+
 export default async function PmTemplatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const ctx = await requirePm()

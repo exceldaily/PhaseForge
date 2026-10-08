@@ -150,7 +150,7 @@ export function DashboardClient({ stores, techs, cycles, materials, openDeficien
             {kpi('overdue', 'Overdue', count('overdue') ? 'rose' : 'slate', 'past the due date')}
             {kpi('waiting', 'Waiting on filters or parts', count('waiting') ? 'rose' : 'slate')}
             {kpi('deficiencies', 'Open deficiencies', openDeficiencies ? 'rose' : 'slate', 'across these stores, any quarter', openDeficiencies)}
-            <Stat label="Average checklist" value={`${average}%`} tone="indigo" hint="PMs with a checklist started" />
+            <Stat label="Average checklist" value={`${average}%`} tone="indigo" hint="Across PMs that have a checklist" />
             <Stat label="PM records" value={live.length} hint={`Q${quarter} ${year}`} />
           </div>
 
