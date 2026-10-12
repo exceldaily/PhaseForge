@@ -52,7 +52,9 @@ node scripts/payroll-audit-worker/worker.mjs run
 Leave it running. It checks PhaseForge every 15 seconds, and when you press
 **Run audit now** (or the daily schedule queues one) it opens each technician's
 timesheet for the requested weeks, sends the text, and reports progress.
-`worker.mjs once` does one queued run and exits.
+`worker.mjs once` does one queued run and exits. `worker.mjs jobs` reads missing job
+addresses from Kalos job pages (the same link the scheduler uses) and exits; an audit
+run also does this automatically at the end.
 
 If Kalos signs the worker out, the run stops with "Kalos sign-in expired" and
 administrators are notified. Run `login` again and retry.

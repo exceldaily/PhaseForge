@@ -4,6 +4,7 @@
 //   node scripts/payroll-audit-worker/worker.mjs login   sign in to Kalos once, in the worker's own Chrome window
 //   node scripts/payroll-audit-worker/worker.mjs run     stay online and audit whenever PhaseForge queues a run
 //   node scripts/payroll-audit-worker/worker.mjs once    do one queued run, then exit
+//   node scripts/payroll-audit-worker/worker.mjs jobs    read missing job addresses from Kalos job pages, then exit
 //
 // What it does: opens Kalos payroll in a Chrome profile that belongs to this
 // worker, opens each technician's timesheet for the requested pay weeks, and
@@ -155,6 +156,40 @@ async function readTimesheet(context, page, name) {
   }
 }
 
+/* ── Job addresses ─────────────────────────────────────────────────────── */
+
+/**
+ * Visit the Kalos job page ({KALOS}/project/<job>, the same link the scheduler
+ * uses) for every job number PhaseForge has no address for, and post the page
+ * text. PhaseForge keeps only the property address. Read only.
+ * report(done, total, job) returns true to stop.
+ */
+async function syncJobAddresses(page, report) {
+  const { jobs } = await api('job-queue', {})
+  const tally = { jobs: jobs.length, saved: 0, noAddress: 0, failed: 0, cards: 0, stopped: false }
+  for (let i = 0; i < jobs.length; i++) {
+    const job = jobs[i]
+    if (report && (await report(i, jobs.length, job))) { tally.stopped = true; break }
+    try {
+      await page.goto(`${KALOS}/project/${encodeURIComponent(job)}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      await page.waitForFunction(() => /Property Address|Job Number|not found|No project/i.test(document.body.innerText), null, { timeout: 20_000 }).catch(() => {})
+      await sleep(500)
+      const text = await page.evaluate(() => document.body.innerText)
+      if (looksSignedOut(page.url(), text)) { const e = new Error('Kalos session expired while reading job pages'); e.authExpired = true; throw e }
+      const r = await api('job-address', { job, pageText: text })
+      if (r.status === 'saved' || r.status === 'address_only') { tally.saved++; tally.cards += (r.projects ?? 0) + (r.directory ?? 0) }
+      else tally.noAddress++
+      log(`job ${job}: ${r.status}${r.approximate ? ' (town level)' : ''}${r.projects || r.directory ? `, filled ${r.projects} project and ${r.directory} schedule card(s)` : ''}`)
+    } catch (e) {
+      if (e && (e.authExpired || e.fatal)) throw e
+      tally.failed++
+      log(`job ${job}: could not read (${String(e.message).slice(0, 120)})`)
+    }
+    await sleep(jitter(PAUSE_MS))
+  }
+  return tally
+}
+
 /* ── One audit run ─────────────────────────────────────────────────────── */
 
 async function doRun(context, run) {
@@ -243,6 +278,15 @@ async function doRun(context, run) {
     if (stats.employeesScanned === 0) {
       return done('failed', { errorCode: 'interface_changed', error: 'No timesheets could be read. The Kalos page layout may have changed.' })
     }
+    // Fill in addresses for any job PhaseForge cannot place yet, so this very
+    // run can verify those trips. A failure here never fails the audit.
+    try {
+      const t = await syncJobAddresses(page, (i, n, job) => progress('Looking up job addresses', `Job ${job} (${i + 1} of ${n})`, i, n))
+      if (t.jobs) log(`job addresses: ${t.saved} saved, ${t.noAddress} without an address, ${t.failed} failed, ${t.cards} card(s) filled`)
+      if (t.stopped) return done('cancelled')
+    } catch (e) {
+      log('job address lookup skipped:', e.message)
+    }
     await progress('Saving audit findings', 'Sending to PhaseForge for analysis', 1, 1)
     return done('completed')
   } catch (e) {
@@ -261,6 +305,22 @@ async function login() {
   console.log('\nSign in to Kalos in the window that opened. When the payroll page shows, close the window.')
   await new Promise((r) => context.on('close', r))
   console.log('Profile saved. Now run: node scripts/payroll-audit-worker/worker.mjs run')
+}
+
+async function jobs() {
+  need(['PHASEFORGE_URL', BASE], ['PAYROLL_AUDIT_COMPANY_ID', COMPANY], ['PAYROLL_AUDIT_WORKER_KEY', KEY])
+  const context = await openBrowser()
+  try {
+    const page = context.pages()[0] ?? (await context.newPage())
+    const t = await syncJobAddresses(page, async (i, n, job) => { log(`(${i + 1}/${n}) job ${job}`); return false })
+    console.log(`
+Done: ${t.jobs} job number(s) checked, ${t.saved} address(es) saved, ${t.noAddress} with no address on the Kalos page, ${t.failed} failed, ${t.cards} card(s) filled.`)
+  } catch (e) {
+    console.error(e.authExpired ? 'Kalos is signed out. Run "run" or "login", sign in, and try again.' : e.message)
+    process.exitCode = 1
+  } finally {
+    await context.close().catch(() => {})
+  }
 }
 
 async function loop(once) {
@@ -305,4 +365,5 @@ const cmd = process.argv[2]
 if (cmd === 'login') await login()
 else if (cmd === 'run') await loop(false)
 else if (cmd === 'once') await loop(true)
-else { console.log('Usage: worker.mjs login | run | once'); process.exit(cmd ? 1 : 0) }
+else if (cmd === 'jobs') await jobs()
+else { console.log('Usage: worker.mjs login | run | once | jobs'); process.exit(cmd ? 1 : 0) }

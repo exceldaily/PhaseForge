@@ -7,6 +7,7 @@ import {
   expireStaleRuns, finishRun, weekStartsIn, workerMaster, type Admin,
 } from '@/lib/payroll-audit/server'
 import { logger } from '@/lib/logger'
+import { pendingJobNumbers, saveJobAddress } from '@/lib/payroll-audit/jobAddresses'
 
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
@@ -19,11 +20,13 @@ export const dynamic = 'force-dynamic'
 //   progress  real counters for the dashboard; replies whether to stop
 //   submit    one employee's timesheet page text for one pay week
 //   complete  the worker is done (or gave up); the server analyses and closes
+//   job-queue    job numbers PhaseForge has no address for
+//   job-address  the text of one Kalos job page; the server keeps the address
 //
 // Nothing here can write to Kalos. The worker has no Kalos credentials to send
 // and this server has nowhere to send them.
 
-const ACTIONS = new Set(['poll', 'progress', 'submit', 'complete'])
+const ACTIONS = new Set(['poll', 'progress', 'submit', 'complete', 'job-queue', 'job-address'])
 const MAX_BODY = 600_000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const deny = () => NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -63,6 +66,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ action: st
 
   try {
     if (action === 'poll') return await poll(admin, companyId, json)
+    if (action === 'job-queue') return NextResponse.json({ jobs: await pendingJobNumbers(admin, companyId) })
+    if (action === 'job-address') {
+      const job = String(json.job ?? '')
+      const pageText = typeof json.pageText === 'string' ? json.pageText : ''
+      if (!/^[A-Za-z0-9-]{3,20}$/.test(job) || !pageText) return bad('job and pageText required')
+      return NextResponse.json(await saveJobAddress(admin, companyId, job, pageText))
+    }
     const runId = String(json.runId ?? '')
     if (!UUID.test(runId)) return bad('runId required')
     const { data: run } = await admin.from('payroll_audit_runs').select('id, status, range_start, range_end, cancel_requested').eq('id', runId).eq('company_id', companyId).maybeSingle()

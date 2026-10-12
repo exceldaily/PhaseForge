@@ -226,8 +226,8 @@ export function cachedRoute(admin: Admin): RouteFn {
 }
 
 /**
- * Where each job number is. Order: a place an admin typed in, then PhaseForge
- * projects, the schedule directory, and PM stores. An address with no
+ * Where each job number is. Order: a place an admin typed in or one read from
+ * the Kalos job page, then PhaseForge projects, the schedule directory, and PM stores. An address with no
  * coordinates is geocoded once and remembered.
  */
 export async function resolveJobPlaces(admin: Admin, companyId: string, jobs: string[]): Promise<Map<string, Place>> {
@@ -240,7 +240,7 @@ export async function resolveJobPlaces(admin: Admin, companyId: string, jobs: st
   for (const s of saved ?? []) {
     const v = { address: s.address as string, lat: s.latitude as number, lng: s.longitude as number, source: s.source as string }
     cache.set(s.job_number as string, v)
-    if (v.source === 'manual') out.set(s.job_number as string, { lat: v.lat, lng: v.lng })
+    if (v.source === 'manual' || v.source.startsWith('kalos')) out.set(s.job_number as string, { lat: v.lat, lng: v.lng })
   }
 
   const cand = new Map<string, { lat: number | null; lng: number | null; address: string | null; source: string }>()
