@@ -190,7 +190,7 @@ describe('unable to verify', () => {
   it('no home address is not invented', async () => {
     const r = await run(homeTrip(60), fixed(30), emp({ home: null }))
     expect(r.findings[0]).toMatchObject({ category: 'unable_to_verify', estimatedMinutes: null })
-    expect(r.findings[0].summary).toMatch(/home address/)
+    expect(r.findings[0].summary).toMatch(/no address on file for technician home/)
   })
   it('unknown origin and destination', async () => {
     const s = t('2026-10-06', 6)

@@ -40,6 +40,11 @@ export function isForbiddenControl(...texts) {
  */
 const WRITE_URL = /(approv|reject|submit|delete|remove|save|update|edit|create|insert|post|send|pay)/i
 const AUTH_URL = /(login|log-in|signin|sign-in|logon|auth|oauth|token|session|logout|mfa|otp|saml|sso)/i
+/**
+ * @param {string} method
+ * @param {string} url
+ * @param {string | null} [kalosHost]
+ */
 export function isBlockedRequest(method, url, kalosHost = null) {
   if (/^(GET|HEAD|OPTIONS)$/i.test(method)) return false
   const u = new URL(url, 'https://x.invalid')

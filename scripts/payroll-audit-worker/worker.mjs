@@ -38,6 +38,7 @@ const POLL_MS = 15_000
 const PAUSE_MS = 1500
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a)
+process.on('unhandledRejection', (e) => log('unhandled error (continuing):', e && e.message ? String(e.message).slice(0, 160) : e))
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function need(...vars) {
@@ -97,7 +98,7 @@ async function gotoPayroll(page) {
 async function safeClick(locator, what) {
   const label = await locator.evaluate((el) => [el.innerText, el.getAttribute('aria-label'), el.getAttribute('title')].filter(Boolean).join(' | ')).catch(() => '')
   if (isForbiddenControl(label)) throw Object.assign(new Error(`Refused to click "${label}" (${what})`), { fatal: true })
-  await locator.click()
+  await locator.click({ timeout: 20_000 })
 }
 
 async function pickOption(page, comboIndex, optionText) {
@@ -117,29 +118,32 @@ async function readRows(page) {
   return page.evaluate(() => [...document.querySelectorAll('tbody tr')].map((tr, i) => {
     const cells = [...tr.querySelectorAll('td')].map((td) => td.innerText.trim())
     return { index: i, name: cells[0] || '', status: cells[2] || '' }
-  }).filter((r) => r.name))
+  }).filter((r) => r.name && !/^no results\.?$/i.test(r.name)))
 }
 
-/** Rows for the chosen week, including approved ones ("Show Approved" is only a view filter). */
-async function listEmployees(page) {
-  const seen = new Map()
-  for (const r of await readRows(page)) seen.set(r.name, r)
-  const btn = page.getByRole('button', { name: /^show approved$/i })
-  if (await btn.count()) {
-    await safeClick(btn.first(), 'show approved')
-    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
-    await sleep(800)
-    for (const r of await readRows(page)) seen.set(r.name, r)
-  }
-  return [...seen.values()]
+/**
+ * Kalos shows either the unapproved or the approved timesheets for the week,
+ * never both: "Show Approved" swaps the list and the button turns into "Show
+ * Unapproved". Both are only view filters. Each list is read in its own view.
+ */
+async function setView(page, want) {
+  const btn = page.getByRole('button', { name: want === 'approved' ? /^show approved$/i : /^show unapproved$/i })
+  if (!(await btn.count())) return
+  await safeClick(btn.first(), `switch to the ${want} list`)
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
+  await sleep(1200)
 }
 
 async function readTimesheet(context, page, name) {
   const row = page.locator('tbody tr', { has: page.getByText(name, { exact: true }) }).first()
+  await row.scrollIntoViewIfNeeded({ timeout: 10_000 })
   const eye = row.locator('button').last()
-  const popupPromise = context.waitForEvent('page', { timeout: 15_000 })
-  await safeClick(eye, `open timesheet for ${name}`)
-  const popup = await popupPromise
+  // Click and wait for the new tab together, so a slow or failed click is a
+  // normal error here and never leaves an orphaned timer behind.
+  const [popup] = await Promise.all([
+    context.waitForEvent('page', { timeout: 30_000 }),
+    safeClick(eye, `open timesheet for ${name}`),
+  ])
   try {
     await popup.waitForLoadState('domcontentloaded', { timeout: 20_000 })
     await popup.waitForFunction(() => /Total:\s*[\d.]+/.test(document.body.innerText), null, { timeout: 25_000 }).catch(() => {})
@@ -197,12 +201,16 @@ async function doRun(context, run) {
         log(`week not offered by Kalos: ${label}`)
         continue
       }
-      const people = (await listEmployees(page)).filter((p) => !/no timesheet submitted/i.test(p.status))
-      log(`${label}: ${people.length} timesheets`)
+      const done_ = new Set()
+      for (const view of ['unapproved', 'approved']) {
+      await setView(page, view)
+      const people = (await readRows(page)).filter((p) => !/no timesheet submitted/i.test(p.status) && !done_.has(p.name))
+      log(`${label} (${view}): ${people.length} timesheets`)
 
       for (let i = 0; i < people.length; i++) {
         const p = people[i]
-        if (await progress(`${label} (week ${w + 1} of ${run.weekStarts.length})`, `Reading timesheet ${i + 1} of ${people.length}`, i, people.length)) {
+        done_.add(p.name)
+        if (await progress(`${label} (week ${w + 1} of ${run.weekStarts.length}, ${view})`, `Reading timesheet ${i + 1} of ${people.length}`, i, people.length)) {
           return done('cancelled')
         }
         try {
@@ -228,6 +236,8 @@ async function doRun(context, run) {
         }
         await sleep(jitter(PAUSE_MS))
       }
+      }
+      await setView(page, 'unapproved')
     }
 
     if (stats.employeesScanned === 0) {
@@ -258,7 +268,11 @@ async function loop(once) {
   log(`worker "${NAME}" online, polling ${BASE}`)
   let context = await openBrowser()
   context.on('close', () => { log('worker browser was closed; exiting. Start the worker again to sign in.'); process.exit(0) })
-  { const first = context.pages()[0] ?? await context.newPage(); await first.goto(`${KALOS}/payroll`, { waitUntil: 'domcontentloaded' }).catch(() => {}) }
+  { // Edge restores last session's tabs; keep a single one so runs use a known page.
+    const [first, ...extra] = context.pages().length ? context.pages() : [await context.newPage()]
+    for (const p of extra) await p.close().catch(() => {})
+    await first.goto(`${KALOS}/payroll`, { waitUntil: 'domcontentloaded' }).catch(() => {})
+  }
   for (;;) {
     let res
     try {

@@ -242,8 +242,8 @@ export async function auditEmployee(input: {
     const a = originHome ? employee.home : needPlace(originJob)
     const b = destHome ? employee.home : needPlace(destJob)
     if (!a || !b) {
-      const missing = [!a && (originHome ? 'the technician\'s home address' : `an address for Job ${originJob}`), !b && (destHome ? 'the technician\'s home address' : `an address for Job ${destJob}`)].filter(Boolean).join(' and ')
-      unable(`no ${missing} on file.`)
+      const who = [!a && (originHome ? 'technician home' : `Job ${originJob}`), !b && (destHome ? 'technician home' : `Job ${destJob}`)].filter(Boolean).join(' and ')
+      unable(`no address on file for ${who}.`)
       continue
     }
 
