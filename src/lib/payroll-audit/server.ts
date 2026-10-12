@@ -407,9 +407,14 @@ export async function analyzeRun(admin: Admin, companyId: string, runId: string,
     if (ex) await admin.from('payroll_audit_findings').update(row).eq('id', ex.id)
     else { await admin.from('payroll_audit_findings').insert({ company_id: companyId, finding_key: key, first_run_id: runId, review_status: 'pending', ...row }); newUnmatched++ }
   }
-  const resolved = [...allJobs].filter((j) => places.has(j) && !unmatched.has(j))
-  if (resolved.length) await admin.from('payroll_audit_findings').update({ superseded_at: new Date().toISOString() })
-    .eq('company_id', companyId).eq('category', 'unmatched_job').in('finding_key', resolved.map((j) => `unmatched|${j}`)).is('superseded_at', null)
+  // An "unmatched job" finding stays only while some audited timesheet still uses a job that has no address.
+  // Resolved jobs, and jobs nobody audited references any more (for example an excluded person), are set aside.
+  const { data: openUnmatched } = await admin.from('payroll_audit_findings').select('id, job_numbers').eq('company_id', companyId)
+    .eq('category', 'unmatched_job').is('superseded_at', null).limit(5000)
+  const stale = (openUnmatched ?? []).filter((f) => !unmatched.has(((f.job_numbers as string[]) ?? [])[0])).map((f) => f.id as string)
+  for (let i = 0; i < stale.length; i += 200) {
+    await admin.from('payroll_audit_findings').update({ superseded_at: new Date().toISOString() }).in('id', stale.slice(i, i + 200))
+  }
 
   const newOnes = inserts.filter((i) => i.category !== 'unable_to_verify')
   return {
