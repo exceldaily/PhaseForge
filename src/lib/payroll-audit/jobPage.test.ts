@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addressLine, addressQueries, parseJobPage } from './jobPage'
+import { addressLine, addressQueries, normalizeStreet, parseJobPage } from './jobPage'
 
 const PAGE = `Menu
 Example Foods Inc.:C-100001-REF Springfield
@@ -46,17 +46,36 @@ describe('parseJobPage', () => {
   })
 })
 
+describe('normalizeStreet', () => {
+  it('drops store numbers and store suffixes', () => {
+    expect(normalizeStreet('100 Main Street #0674')).toBe('100 Main Street')
+    expect(normalizeStreet('15200 Municipal Dr, ALDI Store #324')).toBe('15200 Municipal Dr')
+    expect(normalizeStreet('1193 E. State Road 434, #165')).toBe('1193 SR 434')
+  })
+  it('writes Florida highways the way OpenStreetMap does', () => {
+    expect(normalizeStreet('3420 S US Highway 27 #0674')).toBe('3420 US 27')
+    expect(normalizeStreet('2503 S. Highway 27 #017')).toBe('2503 US 27')
+    expect(normalizeStreet('924 State Road 436 #005')).toBe('924 SR 436')
+    expect(normalizeStreet('4160 W State Rd 46, #001')).toBe('4160 SR 46')
+  })
+  it('spells out Pkwy and leaves ordinary streets alone', () => {
+    expect(normalizeStreet('1768 N John Young Pkwy #164')).toBe('1768 N John Young Parkway')
+    expect(normalizeStreet('4221 Mariner Blvd')).toBe('4221 Mariner Blvd')
+  })
+})
+
 describe('addressQueries', () => {
-  it('tries the full address, then without the store number, then the town', () => {
-    expect(addressQueries({ street: '100 Main Street #0674', cityStateZip: 'Springfield, FL 32000' })).toEqual([
-      { query: '100 Main Street #0674, Springfield, FL 32000', approximate: false },
-      { query: '100 Main Street, Springfield, FL 32000', approximate: false },
-      { query: 'Springfield, FL 32000', approximate: true },
+  it('tries the address as written, then cleaned up, then the town', () => {
+    expect(addressQueries({ street: '3420 S US Highway 27 #0674', cityStateZip: 'Clermont, FL 34711' })).toEqual([
+      { query: '3420 S US Highway 27 #0674, Clermont, FL 34711', approximate: false },
+      { query: '3420 US 27, Clermont, FL 34711', approximate: false },
+      { query: 'Clermont, FL 34711', approximate: true },
     ])
   })
-  it('drops suite markers', () => {
-    const q = addressQueries({ street: '5 Oak Ave Ste 200', cityStateZip: 'Tampa, FL 33602' })
-    expect(q[1].query).toBe('5 Oak Ave, Tampa, FL 33602')
+  it('does not repeat a query that is already clean', () => {
+    expect(addressQueries({ street: '4221 Mariner Blvd', cityStateZip: 'Spring Hill, FL 34608' }).map((q) => q.query)).toEqual([
+      '4221 Mariner Blvd, Spring Hill, FL 34608', 'Spring Hill, FL 34608',
+    ])
   })
   it('falls back to the town when there is no street', () => {
     expect(addressQueries({ street: null, cityStateZip: 'Tampa, FL 33602' })).toEqual([{ query: 'Tampa, FL 33602', approximate: true }])

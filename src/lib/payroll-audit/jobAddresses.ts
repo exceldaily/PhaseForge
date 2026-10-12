@@ -38,8 +38,8 @@ async function allJobNumbers(admin: Admin, companyId: string): Promise<Set<strin
   return out
 }
 
-/** Job numbers PhaseForge has no address text for anywhere. Newest numbers first, capped. */
-export async function pendingJobNumbers(admin: Admin, companyId: string, limit = 150): Promise<string[]> {
+/** Job numbers PhaseForge has no address text for anywhere (and, on request, ones only placed at town level). Newest first, capped. */
+export async function pendingJobNumbers(admin: Admin, companyId: string, limit = 150, retryApprox = false): Promise<string[]> {
   const wanted = await allJobNumbers(admin, companyId)
   if (!wanted.size) return []
   const have = new Set<string>()
@@ -47,11 +47,12 @@ export async function pendingJobNumbers(admin: Admin, companyId: string, limit =
   for (let i = 0; i < list.length; i += 200) {
     const chunk = list.slice(i, i + 200)
     const [{ data: saved }, { data: pr }, { data: dir }] = await Promise.all([
-      admin.from('payroll_audit_job_places').select('job_number').eq('company_id', companyId).in('job_number', chunk),
+      admin.from('payroll_audit_job_places').select('job_number, source').eq('company_id', companyId).in('job_number', chunk),
       admin.from('projects').select('job_number, job_location, formatted_address').eq('company_id', companyId).in('job_number', chunk),
       admin.from('schedule_directory').select('job_number, address').eq('company_id', companyId).in('job_number', chunk),
     ])
-    for (const s of saved ?? []) have.add(s.job_number as string)
+    // Town-level places are only looked up again when asked to (the `jobs` command), so a normal audit does not revisit them.
+    for (const s of saved ?? []) if (!(retryApprox && s.source === 'kalos:approx')) have.add(s.job_number as string)
     for (const p of pr ?? []) if (!blank(p.job_location as string | null) || !blank(p.formatted_address as string | null)) have.add(p.job_number as string)
     for (const d of dir ?? []) if (!blank(d.address as string | null)) have.add(d.job_number as string)
   }

@@ -47,19 +47,40 @@ export function parseJobPage(text: string): JobPage {
 }
 
 /**
- * Geocoding queries, most specific first. Store numbers and suite markers
- * ("#0674") trip up geocoders, so the second try drops them; the last resort
- * is the town alone, which is marked approximate so nobody mistakes it for a
- * door.
+ * Street text a geocoder can read. Store numbers and suffixes ("#0674",
+ * ", ALDI Store #324") are dropped, and Florida highway names are put in the
+ * form OpenStreetMap uses ("US Highway 27" is "US 27", "State Road 436" is
+ * "SR 436").
+ */
+export function normalizeStreet(street: string): string {
+  return street
+    .replace(/,\s*[^,]*\b(store|aldi|loc|location|unit|suite|ste|bldg|building)\b[^,]*$/i, '')
+    .replace(/\s*#\s*[\w-]+/g, '')
+    .replace(/\b(?:[NSEW]\.?\s+)?(?:US|U\.S\.)\s*(?:Highway|Hwy)\.?\s*(\d+)/gi, 'US $1')
+    .replace(/\b(?:[NSEW]\.?\s+)?(?:Highway|Hwy)\.?\s*(\d+)/gi, 'US $1')
+    .replace(/\b(?:[NSEW]\.?\s+)?(?:State\s+(?:Road|Rd)|S\.?R\.?)\.?\s*(\d+)/gi, 'SR $1')
+    .replace(/\bPkwy\b\.?/gi, 'Parkway')
+    .replace(/\s*,\s*$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/**
+ * Geocoding queries, most specific first, then cleaned up, then the town
+ * alone. The town is marked approximate so nobody mistakes it for a door.
  */
 export function addressQueries(p: Pick<JobPage, 'street' | 'cityStateZip'>): { query: string; approximate: boolean }[] {
   const out: { query: string; approximate: boolean }[] = []
+  const seen = new Set<string>()
+  const push = (query: string, approximate: boolean) => { if (query && !seen.has(query)) { seen.add(query); out.push({ query, approximate }) } }
   const csz = p.cityStateZip?.trim() || ''
   const street = p.street?.trim() || ''
-  if (street && csz) out.push({ query: `${street}, ${csz}`, approximate: false })
-  const bare = street.replace(/\s*(#|no\.?|unit|ste\.?|suite|bldg\.?|building)\s*[\w-]+\s*$/i, '').replace(/\s*#\S+/g, '').trim()
-  if (bare && bare !== street && csz) out.push({ query: `${bare}, ${csz}`, approximate: false })
-  if (csz) out.push({ query: csz, approximate: true })
+  if (street && csz) {
+    push(`${street}, ${csz}`, false)
+    const clean = normalizeStreet(street)
+    if (clean) push(`${clean}, ${csz}`, false)
+  }
+  if (csz) push(csz, true)
   return out
 }
 

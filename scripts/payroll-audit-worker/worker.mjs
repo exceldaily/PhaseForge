@@ -164,8 +164,8 @@ async function readTimesheet(context, page, name) {
  * text. PhaseForge keeps only the property address. Read only.
  * report(done, total, job) returns true to stop.
  */
-async function syncJobAddresses(page, report) {
-  const { jobs } = await api('job-queue', {})
+async function syncJobAddresses(page, report, { retryApprox = false } = {}) {
+  const { jobs } = await api('job-queue', { retryApprox })
   const tally = { jobs: jobs.length, saved: 0, noAddress: 0, failed: 0, cards: 0, stopped: false }
   for (let i = 0; i < jobs.length; i++) {
     const job = jobs[i]
@@ -312,7 +312,7 @@ async function jobs() {
   const context = await openBrowser()
   try {
     const page = context.pages()[0] ?? (await context.newPage())
-    const t = await syncJobAddresses(page, async (i, n, job) => { log(`(${i + 1}/${n}) job ${job}`); return false })
+    const t = await syncJobAddresses(page, async (i, n, job) => { log(`(${i + 1}/${n}) job ${job}`); return false }, { retryApprox: true })
     console.log(`
 Done: ${t.jobs} job number(s) checked, ${t.saved} address(es) saved, ${t.noAddress} with no address on the Kalos page, ${t.failed} failed, ${t.cards} card(s) filled.`)
   } catch (e) {

@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ action: st
 
   try {
     if (action === 'poll') return await poll(admin, companyId, json)
-    if (action === 'job-queue') return NextResponse.json({ jobs: await pendingJobNumbers(admin, companyId) })
+    if (action === 'job-queue') return NextResponse.json({ jobs: await pendingJobNumbers(admin, companyId, 150, json.retryApprox === true) })
     if (action === 'job-address') {
       const job = String(json.job ?? '')
       const pageText = typeof json.pageText === 'string' ? json.pageText : ''
