@@ -69,8 +69,8 @@ export const OPERATIONS_MODULES: ModuleDef[] = [
     label: 'Payroll Audit',
     href: '/app/payroll-audit',
     description: 'Read-only check of Kalos timesheet travel against road drive times, with a review workflow',
-    // Payroll detail is sensitive: owners and administrators only.
-    roles: ['owner', 'admin'],
+    // Payroll detail is sensitive: the organization owner only. Admins never see it.
+    roles: ['owner'],
   },
 ]
 

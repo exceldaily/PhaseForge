@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canAdminOrg } from '@/lib/permissions'
+import { isOwner } from '@/lib/permissions'
 import { PA_MODULE_KEY, findExclusion, loadExclusions } from '@/lib/payroll-audit/server'
 
 export const dynamic = 'force-dynamic'
 
-// CSV of findings for the signed-in administrator's company. Same gate as the
+// CSV of findings for the signed-in owner's company. Same gate as the
 // dashboard; home addresses are never in a finding, so none are in the file.
 
 const esc = (v: unknown) => {
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { data: profile } = await supabase.from('profiles').select('company_id, role, ops_role').eq('id', user.id).single()
-  if (!profile?.company_id || !canAdminOrg(profile)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+  if (!profile?.company_id || !isOwner(profile)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   const { data: mod } = await supabase.from('organization_modules').select('enabled').eq('company_id', profile.company_id).eq('module_key', PA_MODULE_KEY).maybeSingle()
   if (!mod?.enabled) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 

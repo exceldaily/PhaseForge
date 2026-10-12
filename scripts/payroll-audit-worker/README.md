@@ -11,8 +11,7 @@ approves, edits, or submits anything in Kalos.
    `PAYROLL_AUDIT_MASTER_KEY` = a long random string (32+ characters).
    Never share it. Redeploy after adding it.
 
-2. **Switch the module on.** Settings > Modules > Payroll Audit. Only owners and
-   admins can see or open it.
+2. **Switch the module on.** Settings > Modules > Payroll Audit. Only the organization owner can see or open it.
 
 3. **Get the worker settings.** Payroll Audit > Settings > Local audit worker >
    Show worker key. Copy the three lines into a file named `.env` in this folder
@@ -57,7 +56,7 @@ addresses from Kalos job pages (the same link the scheduler uses) and exits; an 
 run also does this automatically at the end.
 
 If Kalos signs the worker out, the run stops with "Kalos sign-in expired" and
-administrators are notified. Run `login` again and retry.
+the owner is notified. Run `login` again and retry.
 
 ## What it can and cannot do
 

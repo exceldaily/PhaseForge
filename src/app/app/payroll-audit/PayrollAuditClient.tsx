@@ -500,7 +500,7 @@ function SettingsTab(p: Props & { pending: boolean; act: (fn: () => Promise<{ ok
           <input type="number" min={1} max={31} className={cx(input, 'mt-1 block w-28')} value={days} onChange={(e) => setDays(e.target.value)} />
         </label>
         <label className="mt-3 flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Notify administrators when an audit finishes
+          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Notify the owner when an audit finishes
         </label>
         <button className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={p.pending}
           onClick={() => p.act(() => saveSettings({ toleranceMinutes: Number(tol), includePolicyDeduction: ded, scheduleEnabled: sch, scheduleDaysBack: Number(days), notifyNewFlags: notify }), 'Settings saved.')}>

@@ -10,7 +10,7 @@ import 'server-only'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canAdminOrg } from '@/lib/permissions'
+import { isOwner } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { geocodeAddress, pace } from '@/lib/travel/geocode'
 import { driveRoute } from '@/lib/travel/osrm'
@@ -32,7 +32,7 @@ type Row = Record<string, unknown>
 
 export interface PaContext { userId: string; userName: string; companyId: string; admin: Admin }
 
-async function resolve(): Promise<PaContext | 'signed-out' | 'no-company' | 'module-off' | 'not-admin'> {
+async function resolve(): Promise<PaContext | 'signed-out' | 'no-company' | 'module-off' | 'not-owner'> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return 'signed-out'
@@ -41,11 +41,11 @@ async function resolve(): Promise<PaContext | 'signed-out' | 'no-company' | 'mod
   const { data: mod } = await supabase.from('organization_modules').select('enabled')
     .eq('company_id', profile.company_id).eq('module_key', PA_MODULE_KEY).maybeSingle()
   if (!mod?.enabled) return 'module-off'
-  if (!canAdminOrg(profile)) return 'not-admin'
-  return { userId: user.id, userName: (profile.full_name as string | null)?.trim() || 'An administrator', companyId: profile.company_id as string, admin: createAdminClient() }
+  if (!isOwner(profile)) return 'not-owner'
+  return { userId: user.id, userName: (profile.full_name as string | null)?.trim() || 'The owner', companyId: profile.company_id as string, admin: createAdminClient() }
 }
 
-/** Page guard: owners and admins of a company that has the module on. */
+/** Page guard: the organization owner, in a company that has the module on. Admins do not get in. */
 export async function requirePayrollAudit(): Promise<PaContext> {
   const ctx = await resolve()
   if (ctx === 'signed-out') redirect('/login')
@@ -59,7 +59,7 @@ export async function paCtx(): Promise<PaContext> {
   if (ctx === 'signed-out') throw new Error('You are signed out.')
   if (ctx === 'no-company') throw new Error('No organization.')
   if (ctx === 'module-off') throw new Error('Payroll Audit is not switched on for your organization.')
-  if (ctx === 'not-admin') throw new Error('Only an owner or administrator can use Payroll Audit.')
+  if (ctx === 'not-owner') throw new Error('Only the organization owner can use Payroll Audit.')
   return ctx
 }
 
@@ -175,7 +175,7 @@ export async function expireStaleRuns(admin: Admin, companyId: string): Promise<
 export async function notifyAdmins(admin: Admin, companyId: string, type: string, title: string, body: string): Promise<void> {
   try {
     const { data: people } = await admin.from('profiles').select('id, role, ops_role').eq('company_id', companyId)
-    const ids = (people ?? []).filter((p) => canAdminOrg(p)).map((p) => p.id as string)
+    const ids = (people ?? []).filter((p) => isOwner(p)).map((p) => p.id as string)
     if (!ids.length) return
     await admin.from('notifications').insert(ids.map((user_id) => ({
       user_id, company_id: companyId, type, title, body: body.length > 180 ? `${body.slice(0, 177)}...` : body, link: '/app/payroll-audit',

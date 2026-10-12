@@ -7,8 +7,8 @@ import {
   ensureSettings, fail, paCtx, payPeriod, queueRun, workerMaster,
 } from '@/lib/payroll-audit/server'
 
-// Dashboard actions. Every one re-checks that the caller is an owner or
-// administrator of a company with the module on. None of them can reach Kalos:
+// Dashboard actions. Every one re-checks that the caller is the owner of a
+// company with the module on. None of them can reach Kalos:
 // they only queue work for the local worker and manage PhaseForge's own data.
 
 const STATUSES = ['pending', 'justified', 'correction_needed', 'resolved', 'unable_to_verify'] as const
@@ -133,7 +133,7 @@ export async function setJobPlace(input: { jobNumber: string; address: string })
   } catch (e) { return fail(e) }
 }
 
-/** The key the worker signs with. Shown only to administrators, never logged, and replaced by rotating. */
+/** The key the worker signs with. Shown only to the owner, never logged, and replaced by rotating. */
 export async function revealWorkerKey(rotate = false) {
   try {
     const c = await paCtx()
