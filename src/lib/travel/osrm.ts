@@ -35,3 +35,33 @@ export async function driveTimesTo(sources: LatLng[], dest: LatLng): Promise<({ 
     clearTimeout(t)
   }
 }
+
+/**
+ * Road minutes and miles for one origin and one destination. OSRM_BASE_URL
+ * points this at a self-hosted router (the public demo is fine for a cached,
+ * low-volume audit but is not a service to lean on). Retries twice on a
+ * network or server error; null means the router could not answer.
+ */
+export async function driveRoute(a: LatLng, b: LatLng): Promise<{ minutes: number; miles: number | null } | null> {
+  const base = (process.env.OSRM_BASE_URL || 'https://router.project-osrm.org').replace(/\/$/, '')
+  const url = `${base}/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=false`
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 800 * attempt))
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 10000)
+    try {
+      const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store', headers: { 'User-Agent': 'PhaseForge/1.0' } })
+      if (res.status === 400 || res.status === 404) return null // not routable; retrying will not help
+      if (!res.ok) continue
+      const body = (await res.json()) as { code?: string; routes?: { duration: number; distance: number }[] }
+      const r = body.routes?.[0]
+      if (body.code !== 'Ok' || !r) return null
+      return { minutes: Math.round(r.duration / 60), miles: Math.round((r.distance / 1609.344) * 10) / 10 }
+    } catch {
+      continue
+    } finally {
+      clearTimeout(t)
+    }
+  }
+  return null
+}

@@ -19,7 +19,7 @@ interface NavItem {
   label: string
   icon: typeof Contact
   // 'reports' | 'dispatch' | 'schedules' gate on plan flags; ops module keys gate on entitlements
-  gate?: 'reports' | 'dispatch' | 'schedules' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices' | 'pm'
+  gate?: 'reports' | 'dispatch' | 'schedules' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices' | 'pm' | 'payroll_audit'
 }
 
 interface NavGroup {
@@ -74,6 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/app/analytics', label: 'Analytics', icon: BarChart2 },
       { href: '/app/reports',   label: 'Reports',   icon: FileText, gate: 'reports' },
+      { href: '/app/payroll-audit', label: 'Payroll Audit', icon: ShieldAlert, gate: 'payroll_audit' },
     ],
   },
   {

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/pm-alerts",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/payroll-audit",
+      "schedule": "0 12 * * *"
     }
   ]
 }

@@ -64,6 +64,14 @@ export const OPERATIONS_MODULES: ModuleDef[] = [
     // per record (administrator, coordinator, assigned technician, read only).
     roles: 'all',
   },
+  {
+    key: 'payroll_audit',
+    label: 'Payroll Audit',
+    href: '/app/payroll-audit',
+    description: 'Read-only check of Kalos timesheet travel against road drive times, with a review workflow',
+    // Payroll detail is sensitive: owners and administrators only.
+    roles: ['owner', 'admin'],
+  },
 ]
 
 export function moduleAllowsRole(def: ModuleDef, role: OpsRole): boolean {
