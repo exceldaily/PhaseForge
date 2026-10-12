@@ -1,4 +1,4 @@
-import { requirePayrollAudit, ensureSettings, loadExclusions, expireStaleRuns, isWorkerOnline, payPeriod } from '@/lib/payroll-audit/server'
+import { requirePayrollAudit, ensureSettings, loadExclusions, expireStaleRuns, findExclusion, isWorkerOnline, payPeriod } from '@/lib/payroll-audit/server'
 import { PayrollAuditClient, type FindingView, type RunView, type ReviewLogView } from './PayrollAuditClient'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +18,9 @@ export default async function PayrollAuditPage() {
     admin.from('companies').select('schedule_job_url_template').eq('id', companyId).single(),
   ])
 
-  const findings: FindingView[] = (findingsRes.data ?? []).map((r) => ({
+  // People on the exclusion list never appear, even for findings stored before they were added.
+  const visible = (findingsRes.data ?? []).filter((r) => !findExclusion(exclusions, (r.kalos_employee_id as string | null) ?? null, (r.employee_name as string | null) ?? ''))
+  const findings: FindingView[] = visible.map((r) => ({
     id: r.id as string, category: r.category as string, employeeName: (r.employee_name as string | null) ?? null,
     kalosEmployeeId: (r.kalos_employee_id as string | null) ?? null, workDate: (r.work_date as string | null) ?? null,
     travelType: (r.travel_type as string | null) ?? null, originLabel: (r.origin_label as string | null) ?? null, destLabel: (r.dest_label as string | null) ?? null,

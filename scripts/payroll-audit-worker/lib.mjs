@@ -79,3 +79,20 @@ export function parseEnvFile(text) {
 
 /** A polite pause: base plus up to 50% jitter. */
 export function jitter(baseMs, rand = Math.random) { return Math.round(baseMs * (1 + rand() * 0.5)) }
+
+const SUFFIX = new Set(['jr', 'sr', 'ii', 'iii', 'iv'])
+const tokens = (name) => String(name).toLowerCase().split(/[^a-z'-]+/).filter((t) => t && !SUFFIX.has(t))
+
+/**
+ * True when every word of an excluded name appears in the person's name
+ * ("Yeriel" excludes "Yeriel Dominguez", "Alex Orr" does not exclude "Gavin
+ * Orr"). Same rule the server uses, so an excluded person's timesheet is not
+ * even opened.
+ */
+export function isExcludedName(name, excludedNames = []) {
+  const have = new Set(tokens(name))
+  return excludedNames.some((e) => {
+    const t = tokens(e)
+    return t.length > 0 && t.every((x) => have.has(x))
+  })
+}

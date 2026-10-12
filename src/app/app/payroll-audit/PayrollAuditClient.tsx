@@ -192,6 +192,12 @@ export function PayrollAuditClient(props: Props) {
             </button>
           </div>
           <div className="ml-auto flex gap-2">
+            {!openRun && latest && latest.status !== 'queued' && latest.status !== 'running' && (
+              <button className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                disabled={pending} onClick={() => act(() => retryAudit(latest.id), `Audit queued again for ${latest.rangeStart} to ${latest.rangeEnd}.`)}>
+                Run {latest.rangeStart} to {latest.rangeEnd} again
+              </button>
+            )}
             {openRun && (
               <button className="rounded-md border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                 disabled={pending || openRun.cancelRequested} onClick={() => act(() => stopAudit(openRun.id), 'Stopping the audit.')}>Stop audit</button>
@@ -436,8 +442,10 @@ function RunsTab({ runs, pending, onRetry }: { runs: RunView[]; pending: boolean
               <td className="px-3 py-2 tabular-nums">{r.stats.newFlags ?? '-'}</td>
               <td className="max-w-xs px-3 py-2 text-xs text-slate-500">{r.error ?? r.message ?? ''}</td>
               <td className="px-3 py-2">
-                {(r.status === 'failed' || r.status === 'cancelled') && (
-                  <button className="text-xs font-semibold text-indigo-700 disabled:opacity-50" disabled={pending} onClick={() => onRetry(r.id)}>Retry</button>
+                {r.status !== 'queued' && r.status !== 'running' && (
+                  <button className="text-xs font-semibold text-indigo-700 disabled:opacity-50" disabled={pending} onClick={() => onRetry(r.id)}>
+                    {r.status === 'completed' ? 'Run again' : 'Retry'}
+                  </button>
                 )}
               </td>
             </tr>
@@ -501,8 +509,8 @@ function SettingsTab(p: Props & { pending: boolean; act: (fn: () => Promise<{ ok
       </section>
 
       <section className={box}>
-        <h2 className="text-sm font-bold text-slate-900">Excluded from excessive-travel flags</h2>
-        <p className="mt-1 text-xs text-slate-500">Matched by Kalos employee id once known, otherwise by name. Their overlaps and missing entries are still reviewed.</p>
+        <h2 className="text-sm font-bold text-slate-900">Excluded from the audit</h2>
+        <p className="mt-1 text-xs text-slate-500">Matched by name; a first name alone works (like Yeriel). Their timesheets are not read, and they never appear in findings, counts, or exports.</p>
         <ul className="mt-3 divide-y divide-slate-100">
           {p.exclusions.map((e) => (
             <li key={e.id} className="flex items-center justify-between py-2 text-sm">

@@ -21,7 +21,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { signRequest } from './sign.mjs'
-import { employeeIdFromUrl, isBlockedRequest, isForbiddenControl, jitter, looksSignedOut, parseEnvFile, weekLabel, withRetry } from './lib.mjs'
+import { employeeIdFromUrl, isBlockedRequest, isExcludedName, isForbiddenControl, jitter, looksSignedOut, parseEnvFile, weekLabel, withRetry } from './lib.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const envFile = path.join(here, '.env')
@@ -239,7 +239,7 @@ async function doRun(context, run) {
       const done_ = new Set()
       for (const view of ['unapproved', 'approved']) {
       await setView(page, view)
-      const people = (await readRows(page)).filter((p) => !/no timesheet submitted/i.test(p.status) && !done_.has(p.name))
+      const people = (await readRows(page)).filter((p) => !/no timesheet submitted/i.test(p.status) && !done_.has(p.name) && !isExcludedName(p.name, run.excludedNames))
       log(`${label} (${view}): ${people.length} timesheets`)
 
       for (let i = 0; i < people.length; i++) {
@@ -346,7 +346,7 @@ async function loop(once) {
     if (res.run) {
       log(`run ${res.run.id}: ${res.run.rangeStart} to ${res.run.rangeEnd}`)
       try {
-        await doRun(context, res.run)
+        await doRun(context, { ...res.run, excludedNames: res.excludedNames ?? [] })
       } catch (e) {
         log('run ended with error:', e.message)
         if (e.fatal) process.exit(1)

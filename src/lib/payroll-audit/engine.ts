@@ -7,7 +7,7 @@
 //     flag when recorded travel > allowed          (exactly +45 passes)
 //
 // A long drive is never a flag by itself; only recorded time beyond the
-// estimate plus tolerance is. Anything the engine cannot ground in a real
+// estimate plus tolerance is. People on the exclusion list are skipped entirely. Anything the engine cannot ground in a real
 // origin, a real destination, and a real route is UNABLE TO VERIFY. It never
 // computes a route it had to make up.
 
@@ -127,6 +127,9 @@ export async function auditEmployee(input: {
   const findings: EngineFinding[] = []
   const stats: EngineStats = { entries: 0, travelEntries: 0, trips: 0, withinAllowance: 0, flagged: 0, unverifiable: 0, suppressedForExclusion: 0 }
   const unmatched = new Set<string>()
+
+  // Excluded people are not audited at all: no findings of any kind, nothing counted.
+  if (employee.excluded) return { findings, stats, unmatchedJobs: [] }
 
   // Exact repeats of the same record count once.
   const byKey = new Map<string, AuditEntry>()

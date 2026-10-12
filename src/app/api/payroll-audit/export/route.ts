@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { canAdminOrg } from '@/lib/permissions'
-import { PA_MODULE_KEY } from '@/lib/payroll-audit/server'
+import { PA_MODULE_KEY, findExclusion, loadExclusions } from '@/lib/payroll-audit/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,11 +29,12 @@ export async function GET(req: NextRequest) {
     .order('work_date', { ascending: false, nullsFirst: false }).limit(5000)
   if (sp.get('from')) q = q.gte('work_date', sp.get('from')!)
   if (sp.get('to')) q = q.lte('work_date', sp.get('to')!)
-  const { data } = await q
+  const [{ data: all }, exclusions] = await Promise.all([q, loadExclusions(admin, profile.company_id as string)])
+  const data = (all ?? []).filter((r) => !findExclusion(exclusions, (r.kalos_employee_id as string | null) ?? null, (r.employee_name as string | null) ?? ''))
 
   const cols = ['work_date', 'employee_name', 'category', 'travel_type', 'origin_label', 'dest_label', 'job_numbers', 'recorded_minutes',
     'estimated_minutes', 'allowed_minutes', 'excess_minutes', 'review_status', 'review_note', 'route_provider', 'summary']
-  const csv = [cols.join(','), ...(data ?? []).map((r) => cols.map((c) => esc((r as Record<string, unknown>)[c])).join(','))].join('\r\n')
+  const csv = [cols.join(','), ...data.map((r) => cols.map((c) => esc((r as Record<string, unknown>)[c])).join(','))].join('\r\n')
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

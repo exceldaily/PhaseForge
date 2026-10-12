@@ -4,7 +4,7 @@ import { deriveWorkerKey, verify } from '@/lib/payroll-audit/auth'
 import { parseTimesheetText } from '@/lib/payroll-audit/parse'
 import { weekday } from '@/lib/payroll-audit/time'
 import {
-  expireStaleRuns, finishRun, weekStartsIn, workerMaster, type Admin,
+  expireStaleRuns, finishRun, findExclusion, loadExclusions, weekStartsIn, workerMaster, type Admin,
 } from '@/lib/payroll-audit/server'
 import { logger } from '@/lib/logger'
 import { pendingJobNumbers, saveJobAddress } from '@/lib/payroll-audit/jobAddresses'
@@ -125,7 +125,9 @@ async function poll(admin: Admin, companyId: string, json: Record<string, unknow
     worker_last_seen: now, worker_name: str(json.workerName, 60), worker_state: claimed ? 'running' : str(json.state, 30) ?? 'idle',
   }).eq('company_id', companyId)
   const { data: st } = await admin.from('payroll_audit_settings').select('timezone').eq('company_id', companyId).single()
+  const excludedNames = (await loadExclusions(admin, companyId)).map((e) => e.employeeName)
   return NextResponse.json({
+    excludedNames,
     run: claimed ? { id: claimed.id, rangeStart: claimed.range_start, rangeEnd: claimed.range_end, weekStarts: weekStartsIn(claimed.range_start, claimed.range_end) } : null,
     timezone: st?.timezone ?? 'America/New_York',
   })
@@ -140,6 +142,11 @@ async function submit(admin: Admin, companyId: string, run: { id: string; range_
   if (!weekStartsIn(run.range_start, run.range_end).includes(weekStart)) return bad('weekStart is outside this run')
   if (!pageText) return bad('pageText required')
 
+  // An excluded person's timesheet is never stored, whatever the worker sent.
+  const sentName = str(json.employeeName, 120) ?? ''
+  if (findExclusion(await loadExclusions(admin, companyId), kalosId, sentName)) {
+    return NextResponse.json({ ok: true, excluded: true, employeeName: sentName, entries: 0, travelEntries: 0, looksLikeTimesheet: true, warnings: [] })
+  }
   const { data: st } = await admin.from('payroll_audit_settings').select('timezone').eq('company_id', companyId).single()
   const parsed = parseTimesheetText(pageText, { weekStart, timezone: (st?.timezone as string) ?? 'America/New_York', kalosEmployeeId: kalosId })
   const name = parsed.employeeName ?? str(json.employeeName, 120) ?? `Employee ${kalosId}`

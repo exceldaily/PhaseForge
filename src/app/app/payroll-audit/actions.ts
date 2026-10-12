@@ -46,7 +46,7 @@ export async function retryAudit(runId: string) {
     const c = await paCtx()
     const { data: run } = await c.admin.from('payroll_audit_runs').select('range_start, range_end, status').eq('id', runId).eq('company_id', c.companyId).single()
     if (!run) return { ok: false as const, error: 'Run not found.' }
-    if (run.status !== 'failed' && run.status !== 'cancelled') return { ok: false as const, error: 'Only a failed or stopped run can be retried.' }
+    if (run.status === 'queued' || run.status === 'running') return { ok: false as const, error: 'That audit is still in progress.' }
     const r = await queueRun(c.admin, {
       companyId: c.companyId, start: run.range_start as string, end: run.range_end as string, trigger: 'manual', requestedBy: c.userId, retryOf: runId,
     })

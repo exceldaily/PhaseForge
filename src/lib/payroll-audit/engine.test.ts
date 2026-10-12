@@ -215,17 +215,18 @@ describe('unable to verify', () => {
 })
 
 describe('exclusions', () => {
-  it('excluded technician is not flagged for excessive travel', async () => {
+  it('an excluded technician produces no findings and counts nothing', async () => {
     const r = await run(homeTrip(600), fixed(60), emp({ excluded: true }))
-    expect(r.findings.filter((f) => f.category === 'excessive_travel')).toHaveLength(0)
-    expect(r.stats.suppressedForExclusion).toBe(1)
+    expect(r.findings).toEqual([])
+    expect(r.stats).toMatchObject({ entries: 0, trips: 0, flagged: 0, unverifiable: 0 })
   })
-  it('still reviews their data integrity (overlaps)', async () => {
+  it('skips every category for them, including overlaps', async () => {
     const r = await run([
       entry({ jobNumber: '100', startMs: t('2026-10-06', 8), endMs: t('2026-10-06', 12) }),
       entry({ jobNumber: '200', startMs: t('2026-10-06', 10), endMs: t('2026-10-06', 14) }),
     ], fixed(30), emp({ excluded: true }))
-    expect(r.findings.some((f) => f.category === 'overlap')).toBe(true)
+    expect(r.findings).toEqual([])
+    expect(r.unmatchedJobs).toEqual([])
   })
   it('works with no Kalos employee id', async () => {
     const r = await run(homeTrip(290), fixed(240), emp({ kalosId: null }))

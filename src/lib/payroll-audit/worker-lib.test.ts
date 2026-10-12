@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  employeeIdFromUrl, isBlockedRequest, isForbiddenControl, looksSignedOut, parseEnvFile, weekLabel, withRetry,
+  employeeIdFromUrl, isBlockedRequest, isExcludedName, isForbiddenControl, looksSignedOut, parseEnvFile, weekLabel, withRetry,
 } from '../../../scripts/payroll-audit-worker/lib.mjs'
 
 describe('worker helpers', () => {
@@ -46,6 +46,15 @@ describe('worker helpers', () => {
     let n = 0
     await expect(withRetry(async () => { n++; throw Object.assign(new Error('rejected'), { fatal: true }) }, { sleep: async () => {} })).rejects.toThrow('rejected')
     expect(n).toBe(1)
+  })
+  it('skips excluded people by name, including a first name only', () => {
+    const ex = ['Alex Orr', 'Chad Minear', 'Yeriel', 'Evan Nicholson', 'Brandon Harrell']
+    expect(isExcludedName('Alex Orr', ex)).toBe(true)
+    expect(isExcludedName('Yeriel Dominguez', ex)).toBe(true)
+    expect(isExcludedName('Thomas Matz Jr.', ['Thomas Matz'])).toBe(true)
+    expect(isExcludedName('Gavin Orr', ex)).toBe(false)
+    expect(isExcludedName('Alex Velasquez', ex)).toBe(false)
+    expect(isExcludedName('William Aaron', [])).toBe(false)
   })
   it('parses an env file', () => {
     expect(parseEnvFile('# c\nA=1\nB="two words"\n\nC = x')).toEqual({ A: '1', B: 'two words', C: 'x' })

@@ -332,13 +332,11 @@ export async function analyzeRun(admin: Admin, companyId: string, runId: string,
   let excludedPeople = 0
 
   for (const p of perEmployee) {
+    if (findExclusion(exclusions, p.kalosId, p.name)) { excludedPeople++; continue }
     const emp = findEmployee(emps, p.kalosId, p.name)
     if (emp && emp.kalos_employee_id !== p.kalosId) await admin.from('employees').update({ kalos_employee_id: p.kalosId }).eq('id', emp.id)
-    const ex = findExclusion(exclusions, p.kalosId, p.name)
-    if (ex && !ex.kalosEmployeeId) await admin.from('payroll_audit_exclusions').update({ kalos_employee_id: p.kalosId }).eq('id', ex.id)
-    if (ex) excludedPeople++
     const employee: AuditEmployee = {
-      kalosId: p.kalosId, name: p.name, excluded: !!ex,
+      kalosId: p.kalosId, name: p.name, excluded: false,
       home: emp && emp.latitude !== null && emp.longitude !== null ? { lat: emp.latitude, lng: emp.longitude } : null,
     }
     const entries: AuditEntry[] = p.entries.map((r) => ({
@@ -394,6 +392,8 @@ export async function analyzeRun(admin: Admin, companyId: string, runId: string,
     if (gone.length) await admin.from('payroll_audit_findings').update({ superseded_at: new Date().toISOString() }).in('id', gone)
   }
 
+  await hideExcludedFindings(admin, companyId, exclusions)
+
   // Unmatched jobs: one finding per job number, cleared when the job gets an address.
   let newUnmatched = 0
   for (const [job, who] of unmatched) {
@@ -414,7 +414,7 @@ export async function analyzeRun(admin: Admin, companyId: string, runId: string,
   const newOnes = inserts.filter((i) => i.category !== 'unable_to_verify')
   return {
     stats: {
-      employeesReviewed: people.size, entriesChecked: totals.entries, travelEntries: totals.travelEntries, trips: totals.trips,
+      employeesReviewed: people.size - excludedPeople, entriesChecked: totals.entries, travelEntries: totals.travelEntries, trips: totals.trips,
       withinAllowance: totals.withinAllowance, flagged: totals.flagged, unverifiable: totals.unverifiable,
       suppressedForExclusion: totals.suppressedForExclusion, excludedPeople, unmatchedJobs: unmatched.size, findings: produced.length,
     },
@@ -422,6 +422,22 @@ export async function analyzeRun(admin: Admin, companyId: string, runId: string,
     newUnverifiable: inserts.length - newOnes.length,
     newUnmatched,
   }
+}
+
+/** Findings already stored for someone who is now excluded are set aside, not shown. */
+export async function hideExcludedFindings(admin: Admin, companyId: string, exclusions: Exclusion[]): Promise<number> {
+  if (!exclusions.length) return 0
+  const ids: string[] = []
+  for (let from = 0; from < 20_000; from += 1000) {
+    const { data } = await admin.from('payroll_audit_findings').select('id, kalos_employee_id, employee_name').eq('company_id', companyId)
+      .is('superseded_at', null).not('employee_name', 'is', null).range(from, from + 999)
+    for (const r of data ?? []) if (findExclusion(exclusions, (r.kalos_employee_id as string | null) ?? null, r.employee_name as string)) ids.push(r.id as string)
+    if (!data || data.length < 1000) break
+  }
+  for (let i = 0; i < ids.length; i += 200) {
+    await admin.from('payroll_audit_findings').update({ superseded_at: new Date().toISOString() }).in('id', ids.slice(i, i + 200))
+  }
+  return ids.length
 }
 
 export async function finishRun(admin: Admin, companyId: string, runId: string, outcome: 'completed' | 'failed' | 'cancelled', info: { errorCode?: string | null; error?: string | null; workerStats?: Record<string, number> }): Promise<void> {
