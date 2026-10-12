@@ -27,6 +27,13 @@ describe('worker helpers', () => {
     expect(isBlockedRequest('GET', 'https://x.test/api/timesheet/approve')).toBe(false)
     expect(isBlockedRequest('POST', 'https://x.test/api/timesheet/list')).toBe(false)
   })
+  it('judges only the Kalos host and never blocks sign-in', () => {
+    const host = 'live.kalosflorida.com'
+    expect(isBlockedRequest('POST', 'https://live.kalosflorida.com/ApiKeyService/Update', host)).toBe(true)
+    expect(isBlockedRequest('POST', 'https://accounts.google.com/submit/update', host)).toBe(false)
+    expect(isBlockedRequest('POST', 'https://live.kalosflorida.com/Account/SubmitLogin', host)).toBe(false)
+    expect(isBlockedRequest('POST', 'https://live.kalosflorida.com/api/auth/token/update', host)).toBe(false)
+  })
   it('retries a flaky connection with backoff, then gives up', async () => {
     let n = 0
     const waits: number[] = []

@@ -24,10 +24,15 @@ approves, edits, or submits anything in Kalos.
    npm install
    ```
 
-   The worker uses the `playwright` package already in the repo and your installed
-   Google Chrome (no browser download).
+   The worker uses the `playwright` package already in the repo. By default it drives
+   an installed Google Chrome. No Chrome? Set `WORKER_BROWSER=chromium` in `.env` to
+   use Playwright's bundled build, or `msedge`, or a full path to Brave.
 
-5. **Sign in to Kalos, once.**
+5. **Sign in to Kalos.** Kalos may drop its sign-in when the browser closes, so the
+   worker keeps its browser window open while it runs. Easiest: start the worker
+   (next section) and sign in in the window it opens. If a run starts while you are
+   signed out, the worker waits up to 10 minutes in that window for you to sign in.
+   The separate `login` command below is optional.
 
    ```
    node scripts/payroll-audit-worker/worker.mjs login

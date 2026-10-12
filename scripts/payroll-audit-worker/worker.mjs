@@ -32,6 +32,8 @@ const KEY = env.PAYROLL_AUDIT_WORKER_KEY || ''
 const KALOS = (env.KALOS_BASE_URL || 'https://live.kalosflorida.com').replace(/\/$/, '')
 const NAME = env.WORKER_NAME || os.hostname()
 const PROFILE = env.WORKER_PROFILE_DIR || path.join(env.LOCALAPPDATA || os.homedir(), 'PhaseForgeAuditWorker', 'chrome-profile')
+const BROWSER = env.WORKER_BROWSER || 'chrome'
+const SIGNIN_WAIT_MS = 10 * 60_000
 const POLL_MS = 15_000
 const PAUSE_MS = 1500
 
@@ -68,13 +70,17 @@ async function openBrowser() {
   fs.mkdirSync(PROFILE, { recursive: true })
   // A persistent profile owned by the worker. Playwright drives it over a pipe,
   // so there is no remote debugging port for anything else to connect to.
-  const context = await chromium.launchPersistentContext(PROFILE, {
-    channel: 'chrome', headless: false, viewport: { width: 1400, height: 900 },
-  })
+  // WORKER_BROWSER: "chrome" (default), "msedge", "chromium" (Playwright's own
+  // build, no install needed), or a full path to a Chromium based browser.
+  const opts = { headless: false, viewport: { width: 1400, height: 900 } }
+  if (BROWSER === 'chromium') { /* bundled build */ }
+  else if (/[\/]/.test(BROWSER)) opts.executablePath = BROWSER
+  else opts.channel = BROWSER
+  const context = await chromium.launchPersistentContext(PROFILE, opts)
   // Belt and braces: a request that looks like a payroll write never leaves.
   await context.route('**/*', (route) => {
     const r = route.request()
-    if (isBlockedRequest(r.method(), r.url())) { log('BLOCKED write-looking request', r.method(), new URL(r.url()).pathname); return route.abort() }
+    if (isBlockedRequest(r.method(), r.url(), new URL(KALOS).hostname)) { log('BLOCKED write-looking request', r.method(), new URL(r.url()).pathname); return route.abort() }
     return route.continue()
   })
   return context
@@ -149,14 +155,34 @@ async function readTimesheet(context, page, name) {
 
 async function doRun(context, run) {
   const stats = { employeesScanned: 0, entriesSeen: 0, failures: 0, weeks: run.weekStarts.length }
-  const page = await context.newPage()
-  const done = async (outcome, extra = {}) => { await page.close().catch(() => {}); return api('complete', { runId: run.id, outcome, stats, ...extra }) }
+  // Reuse the window's first tab so a sign-in done there is the one the run sees.
+  const page = context.pages().find((p) => !p.isClosed()) ?? (await context.newPage())
+  const done = async (outcome, extra = {}) => api('complete', { runId: run.id, outcome, stats, ...extra })
   const progress = async (phase, message, current, total) => (await api('progress', { runId: run.id, phase, message, current, total })).cancel
 
   try {
     await progress('Opening Kalos payroll', 'Checking sign-in', 0, 0)
     if (!(await gotoPayroll(page))) {
-      return done('failed', { errorCode: 'auth_expired', error: 'Kalos asked for a sign-in. Run the worker "login" command, sign in, then run the audit again.' })
+      // Not signed in (a session cookie may not survive a browser restart, or it
+      // expired). Ask for a sign-in in this window and wait for a person to do
+      // it. Nothing is typed or bypassed here; the page is left alone meanwhile.
+      log('Kalos needs a sign-in. Waiting in the worker browser window.')
+      let ok = false
+      for (const deadline = Date.now() + SIGNIN_WAIT_MS; Date.now() < deadline;) {
+        if (await progress('Waiting for Kalos sign-in', 'Sign in to Kalos in the worker browser window on your computer', 0, 0)) return done('cancelled')
+        await sleep(8000)
+        const text = await page.evaluate(() => document.body.innerText).catch(() => '')
+        const at = new URL(page.url()).pathname
+        const leftLogin = (!looksSignedOut(page.url(), text) && at !== '/') || /Select Week/i.test(text)
+        if (leftLogin) {
+          ok = await gotoPayroll(page)
+          if (ok) break
+        }
+      }
+      if (!ok) {
+        return done('failed', { errorCode: 'auth_expired', error: 'Kalos sign-in was not completed in the worker window within 10 minutes. Sign in there and run the audit again.' })
+      }
+      log('signed in, continuing')
     }
 
     const departments = (await page.getByRole('combobox').nth(0).innerText().catch(() => '')).trim()
@@ -230,7 +256,9 @@ async function login() {
 async function loop(once) {
   need(['PHASEFORGE_URL', BASE], ['PAYROLL_AUDIT_COMPANY_ID', COMPANY], ['PAYROLL_AUDIT_WORKER_KEY', KEY])
   log(`worker "${NAME}" online, polling ${BASE}`)
-  let context = null
+  let context = await openBrowser()
+  context.on('close', () => { log('worker browser was closed; exiting. Start the worker again to sign in.'); process.exit(0) })
+  { const first = context.pages()[0] ?? await context.newPage(); await first.goto(`${KALOS}/payroll`, { waitUntil: 'domcontentloaded' }).catch(() => {}) }
   for (;;) {
     let res
     try {
@@ -244,13 +272,10 @@ async function loop(once) {
     if (res.run) {
       log(`run ${res.run.id}: ${res.run.rangeStart} to ${res.run.rangeEnd}`)
       try {
-        context ??= await openBrowser()
         await doRun(context, res.run)
       } catch (e) {
         log('run ended with error:', e.message)
         if (e.fatal) process.exit(1)
-        await context?.close().catch(() => {})
-        context = null
       }
       if (once) break
     } else if (once) {

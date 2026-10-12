@@ -32,14 +32,20 @@ export function isForbiddenControl(...texts) {
 }
 
 /**
- * Requests that write. Reads of any method are left alone (some apps POST to
- * fetch data); a write-looking request is dropped, so even a mis-click cannot
+ * Requests that write. Only requests to the Kalos host are judged: reads of
+ * any method are left alone (some apps POST to fetch data), sign-in and
+ * session paths are left alone so a person can still sign in, and anything
+ * else that looks like a payroll write is dropped, so even a mis-click cannot
  * leave the browser.
  */
 const WRITE_URL = /(approv|reject|submit|delete|remove|save|update|edit|create|insert|post|send|pay)/i
-export function isBlockedRequest(method, url) {
+const AUTH_URL = /(login|log-in|signin|sign-in|logon|auth|oauth|token|session|logout|mfa|otp|saml|sso)/i
+export function isBlockedRequest(method, url, kalosHost = null) {
   if (/^(GET|HEAD|OPTIONS)$/i.test(method)) return false
-  return WRITE_URL.test(new URL(url, 'https://x.invalid').pathname)
+  const u = new URL(url, 'https://x.invalid')
+  if (kalosHost && u.hostname !== kalosHost) return false
+  if (AUTH_URL.test(u.pathname)) return false
+  return WRITE_URL.test(u.pathname)
 }
 
 /** Run fn, retrying on thrown errors with backoff. A thrown error with `.fatal` stops immediately. */
