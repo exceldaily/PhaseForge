@@ -11,7 +11,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { isOwner } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildPlan, type ExistingWo, type LocationMatch, type Plan } from './sync'
-import { MEASURES, SC_MODULE_KEY, type ConflictEntry, type Coverage, type InternalStatus, type MeasureKey, type NormalizedRow } from './types'
+import { DEFAULT_THRESHOLDS, MEASURES, SC_MODULE_KEY, type ConflictEntry, type Coverage, type InternalStatus, type MeasureKey, type NormalizedRow, type Thresholds } from './types'
 import { DEFAULT_TEMPLATES } from './templates'
 
 export type Admin = ReturnType<typeof createAdminClient>
@@ -81,6 +81,9 @@ export interface CaseView {
   externalAckBy: string | null
   externalAckRecordedName: string | null
   externalAckAt: string | null
+  escalatedAt?: string | null
+  escalatedTo?: string | null
+  escalationNote?: string | null
   appointmentOn: string | null
   partsExpectedOn: string | null
   partsReceivedOn: string | null
@@ -156,15 +159,20 @@ const emptyCase = (): CaseView => ({
   appointmentOn: null, partsExpectedOn: null, partsReceivedOn: null, approvalStatus: null, equipmentCondition: null, conditionVerifiedAt: null, customerContactName: null, nextContactOn: null,
 })
 
+/** Owner key: a profile uuid, or "emp:" + an employee uuid for someone without a login. Both are stored in their own columns. */
+const ownerKeyOf = (profileId: unknown, employeeId: unknown): string | null => (profileId ? String(profileId) : employeeId ? `emp:${employeeId}` : null)
+
 function toView(r: Row, caseRow: Row | null, openTasks: number): WorkOrderView {
   const base = mapRow<Omit<WorkOrderView, 'case' | 'openTasks'>>(r)
+  const c = caseRow ? mapRow<CaseView>(caseRow) : emptyCase()
+  if (caseRow) { c.ownerProfileId = ownerKeyOf(caseRow.owner_profile_id, caseRow.owner_employee_id); c.actionOwnerProfileId = ownerKeyOf(caseRow.action_owner_profile_id, caseRow.action_owner_employee_id) }
   return {
     ...base,
     nte: r.nte === null || r.nte === undefined ? null : Number(r.nte),
     technicians: (r.technicians as string[]) ?? [],
     conflicts: (r.conflicts as ConflictEntry[]) ?? [],
     reopenCount: Number(r.reopen_count ?? 0), unsatCount: Number(r.unsat_count ?? 0),
-    case: caseRow ? mapRow<CaseView>(caseRow) : emptyCase(),
+    case: c,
     openTasks,
   }
 }
@@ -184,7 +192,7 @@ export async function loadWorkOrders(admin: Admin, companyId: string): Promise<W
   const [wos, cases, tasks] = await Promise.all([
     pageAll<Row>((a, b) => admin.from('sc_work_orders').select(LIST_COLS).eq('company_id', companyId).order('call_date', { ascending: false, nullsFirst: false }).range(a, b)),
     pageAll<Row>((a, b) => admin.from('sc_cases').select('*').eq('company_id', companyId).range(a, b)),
-    pageAll<Row>((a, b) => admin.from('sc_tasks').select('work_order_id').eq('company_id', companyId).neq('status', 'verified_resolved').range(a, b)),
+    pageAll<Row>((a, b) => admin.from('sc_tasks').select('work_order_id').eq('company_id', companyId).neq('status', 'verified_resolved').not('work_order_id', 'is', null).range(a, b)),
   ])
   const caseBy = new Map(cases.map((c) => [c.work_order_id as string, c]))
   const openBy = new Map<string, number>()
@@ -193,10 +201,12 @@ export async function loadWorkOrders(admin: Admin, companyId: string): Promise<W
 }
 
 export interface TaskView {
-  id: string; workOrderId: string; title: string; queue: string; status: InternalStatus; ownerProfileId: string | null; ownerName: string | null
-  nextAction: string | null; dueDate: string | null; blockerReason: string | null; source: string; ruleKey: string | null
+  id: string; workOrderId: string | null; title: string; kind: string; queue: string; status: InternalStatus; ownerProfileId: string | null; ownerName: string | null
+  department: string | null; waitingOn: string | null; nextAction: string | null; dueDate: string | null; blockerReason: string | null; source: string; ruleKey: string | null
+  externalAckBy: string | null; externalAckAt: string | null; escalatedAt: string | null; escalatedTo: string | null; escalationNote: string | null
   acceptedAt: string | null; completedAt: string | null; verifiedAt: string | null; createdAt: string; updatedAt: string
 }
+const toTaskView = (t: Row): TaskView => ({ ...mapRow<TaskView>(t), ownerProfileId: ownerKeyOf(t.owner_profile_id, t.owner_employee_id) })
 export interface EventView { id: string; kind: string; actorName: string | null; body: string | null; detail: Record<string, unknown>; createdAt: string; importId: string | null }
 export interface ObservationView { id: string; importId: string | null; observedAt: string; kind: string; status: string | null; statusExt: string | null; scheduledDate: string | null; originalEta: string | null; technicians: string[]; changes: { field: string; label: string; from: string | null; to: string | null }[]; flags: string[]; sourceName: string | null }
 
@@ -214,7 +224,7 @@ export async function loadCase(admin: Admin, companyId: string, id: string): Pro
   const open = (tasks ?? []).filter((t) => t.status !== 'verified_resolved').length
   return {
     wo: toView(w as Row, (c as Row | null) ?? null, open),
-    tasks: mapRows<TaskView>(tasks as Row[]),
+    tasks: ((tasks ?? []) as Row[]).map(toTaskView),
     events: mapRows<EventView>(events as Row[]),
     observations: (obs ?? []).map((o) => ({
       ...mapRow<Omit<ObservationView, 'sourceName'>>(o as Row),
@@ -249,20 +259,30 @@ export async function loadMetrics(admin: Admin, companyId: string): Promise<Metr
   return (data ?? []).map((r) => ({ ...mapRow<MetricEntryView>(r as Row), value: r.value === null ? null : Number(r.value), previousValue: r.previous_value === null ? null : Number(r.previous_value) }))
 }
 
-export interface ScSettings { targetOverall: number; targetDate: string; lastImportId: string | null; lastImportAt: string | null; lastImportSource: string | null; lastCoverage: Coverage | null }
+export interface ScSettings { targetOverall: number; targetDate: string; lastImportId: string | null; lastImportAt: string | null; lastImportSource: string | null; lastCoverage: Coverage | null; thresholds: Thresholds; lastScoreReviewAt: string | null }
 export async function loadSettings(admin: Admin, companyId: string): Promise<ScSettings> {
-  const { data } = await admin.from('sc_settings').select('target_overall, target_date, last_import_id, sc_imports(committed_at, source_name, coverage)').eq('company_id', companyId).maybeSingle()
+  const { data } = await admin.from('sc_settings').select('target_overall, target_date, last_import_id, unack_days, stale_days, review_days, last_score_review_at, sc_imports(committed_at, source_name, coverage)').eq('company_id', companyId).maybeSingle()
   const imp = (data?.sc_imports as unknown as { committed_at?: string; source_name?: string; coverage?: unknown } | null) ?? null
+  const n = (v: unknown, d: number) => (typeof v === 'number' && v > 0 ? v : d)
   return {
     targetOverall: data ? Number(data.target_overall) : 80, targetDate: (data?.target_date as string) ?? '2027-10-13', lastImportId: (data?.last_import_id as string | null) ?? null,
     lastImportAt: imp?.committed_at ?? null, lastImportSource: imp?.source_name ?? null, lastCoverage: imp?.coverage ? coverageOf(imp.coverage) : null,
+    thresholds: { unackDays: n(data?.unack_days, DEFAULT_THRESHOLDS.unackDays), staleDays: n(data?.stale_days, DEFAULT_THRESHOLDS.staleDays), reviewDays: n(data?.review_days, DEFAULT_THRESHOLDS.reviewDays) },
+    lastScoreReviewAt: (data?.last_score_review_at as string | null) ?? null,
   }
 }
 
-export interface Person { id: string; name: string }
+/** Someone work can be assigned to. id is a profile uuid, or "emp:" + an employee uuid for a directory person without a PhaseForge login. */
+export interface Person { id: string; name: string; department: string | null; hasLogin: boolean }
 export async function loadPeople(admin: Admin, companyId: string): Promise<Person[]> {
-  const { data } = await admin.from('profiles').select('id, full_name, email').eq('company_id', companyId).order('full_name')
-  return (data ?? []).map((p) => ({ id: p.id as string, name: ((p.full_name as string | null)?.trim() || (p.email as string | null) || 'Member') }))
+  const [{ data: profiles }, { data: emps }] = await Promise.all([
+    admin.from('profiles').select('id, full_name, email').eq('company_id', companyId).order('full_name'),
+    admin.from('employees').select('id, name, department, profile_id').eq('company_id', companyId).eq('is_active', true).order('name'),
+  ])
+  const deptByProfile = new Map((emps ?? []).filter((e) => e.profile_id).map((e) => [e.profile_id as string, (e.department as string | null) ?? null]))
+  const people: Person[] = (profiles ?? []).map((p) => ({ id: p.id as string, name: ((p.full_name as string | null)?.trim() || (p.email as string | null) || 'Member'), department: deptByProfile.get(p.id as string) ?? null, hasLogin: true }))
+  for (const e of emps ?? []) if (!e.profile_id) people.push({ id: `emp:${e.id}`, name: `${e.name} (no login)`, department: (e.department as string | null) ?? null, hasLogin: false })
+  return people
 }
 export async function loadDepartments(admin: Admin, companyId: string): Promise<string[]> {
   const { data } = await admin.from('divisions').select('name').eq('company_id', companyId).eq('is_active', true).order('sort_order')
@@ -358,7 +378,7 @@ export async function commitImport(ctx: ScContext, importId: string): Promise<Re
 /* ── Events ──────────────────────────────────────────────────────────────── */
 
 export async function logEvent(ctx: ScContext, workOrderId: string, kind: string, body: string | null, detail: Record<string, unknown> = {}): Promise<void> {
-  await ctx.admin.from('sc_events').insert({ company_id: ctx.companyId, work_order_id: workOrderId, kind, actor_id: ctx.userId, actor_name: ctx.userName, body, detail })
+  await ctx.admin.from('sc_events').insert({ company_id: ctx.companyId, work_order_id: workOrderId, record_type: 'work_order', record_id: workOrderId, kind, actor_id: ctx.userId, actor_name: ctx.userName, body, detail })
 }
 
 /* ── Official measures ───────────────────────────────────────────────────── */
@@ -464,8 +484,9 @@ export async function contactedSinceUnsat(admin: Admin, companyId: string, wos: 
 }
 
 export interface TaskLiteRow { id: string; workOrderId: string; status: string; dueDate: string | null; title: string }
+/** Open tasks that belong to a work order, keyed by work order. Standalone responsibilities are loaded through records.ts. */
 export async function loadOpenTasksLite(admin: Admin, companyId: string): Promise<Map<string, TaskLiteRow[]>> {
-  const rows = await pageAll<Row>((a, b) => admin.from('sc_tasks').select('id, work_order_id, status, due_date, title').eq('company_id', companyId).neq('status', 'verified_resolved').range(a, b))
+  const rows = await pageAll<Row>((a, b) => admin.from('sc_tasks').select('id, work_order_id, status, due_date, title').eq('company_id', companyId).neq('status', 'verified_resolved').not('work_order_id', 'is', null).range(a, b))
   const by = new Map<string, TaskLiteRow[]>()
   for (const r of rows) {
     const k = r.work_order_id as string

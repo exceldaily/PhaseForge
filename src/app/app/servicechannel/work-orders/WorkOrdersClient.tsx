@@ -143,7 +143,7 @@ export function WorkOrdersClient({ wos, people, templates, departments, savedVie
     <div className="mx-auto max-w-none space-y-3 p-3 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Work Orders</h1>
+          <h1 className="text-xl font-bold text-slate-900">Work Order Reference</h1>
           <p className="mt-0.5 text-sm text-slate-500">{rows.length} of {wos.length}. Click a row to update its follow-up; the tracking number opens the case.</p>
         </div>
         <input ref={searchRef} className={cx(input, 'w-80 py-2 text-sm')} placeholder="Search tracking #, WO #, store, customer, job # ( / )" value={q} onChange={(e) => setQ(e.target.value)} />

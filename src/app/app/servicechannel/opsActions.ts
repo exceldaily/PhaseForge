@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { SC_BUCKET, SUGGESTED_DEPARTMENTS, fail, logEvent, scCtx } from '@/lib/servicechannel/server'
+import { EMP, ownerCols } from '@/lib/servicechannel/records'
 import { INTERNAL_STATUSES, type InternalStatus } from '@/lib/servicechannel/types'
 import { WAITING_ON } from '@/lib/servicechannel/actionCenter'
 
@@ -46,18 +47,18 @@ export async function quickUpdateCaseAction(input: { workOrderId: string; patch:
       set('internal_status', p.internalStatus, `status ${cur.internal_status} → ${p.internalStatus}`)
       if (p.internalStatus === 'accepted' && !cur.handoff_accepted_at) row.handoff_accepted_at = now()
     }
-    if (p.ownerProfileId !== undefined) {
-      const name = str(p.ownerName, 120)
-      if ((cur.owner_profile_id ?? null) !== (p.ownerProfileId ?? null)) {
-        row.owner_profile_id = p.ownerProfileId ?? null; row.owner_name = name; row.handoff_accepted_at = null; row.external_ack_at = null; row.external_ack_by = null
-        row.owner_assigned_at = p.ownerProfileId ? now() : null
-        changes.push(`owner → ${name ?? 'nobody'}`)
-        if (p.ownerProfileId && cur.internal_status === 'new' && row.internal_status === undefined) row.internal_status = 'assigned'
-      }
+    const curOwner = cur.owner_profile_id ?? (cur.owner_employee_id ? `${EMP}${cur.owner_employee_id}` : null)
+    if (p.ownerProfileId !== undefined && curOwner !== (p.ownerProfileId || null)) {
+      const cols = ownerCols(p.ownerProfileId, p.ownerName)
+      Object.assign(row, cols); row.handoff_accepted_at = null; row.external_ack_at = null; row.external_ack_by = null
+      row.owner_assigned_at = p.ownerProfileId ? now() : null
+      changes.push(`owner → ${cols.owner_name ?? 'nobody'}`)
+      if (p.ownerProfileId && cur.internal_status === 'new' && row.internal_status === undefined) row.internal_status = 'assigned'
     }
-    if (p.actionOwnerProfileId !== undefined) {
-      const name = str(p.actionOwnerName, 120)
-      if ((cur.action_owner_profile_id ?? null) !== (p.actionOwnerProfileId ?? null)) { row.action_owner_profile_id = p.actionOwnerProfileId ?? null; row.action_owner_name = name; changes.push(`next-action owner → ${name ?? 'nobody'}`) }
+    const curAction = cur.action_owner_profile_id ?? (cur.action_owner_employee_id ? `${EMP}${cur.action_owner_employee_id}` : null)
+    if (p.actionOwnerProfileId !== undefined && curAction !== (p.actionOwnerProfileId || null)) {
+      const cols = ownerCols(p.actionOwnerProfileId, p.actionOwnerName, 'action_owner')
+      Object.assign(row, cols); changes.push(`next-action owner → ${cols.action_owner_name ?? 'nobody'}`)
     }
     if (p.department !== undefined) set('department', str(p.department, 80), `department → ${str(p.department, 80) ?? 'none'}`)
     if (p.waitingOn !== undefined) {

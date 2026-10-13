@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { BASELINE_ENTRIES, BASELINE_SOURCE, MEASURE_KEYS, commitImport, fail, logEvent, scCtx } from '@/lib/servicechannel/server'
 import { INTERNAL_STATUSES, QUEUES, type InternalStatus } from '@/lib/servicechannel/types'
+import { EMP, ownerCols } from '@/lib/servicechannel/records'
 
 // Every action re-checks the caller (owner, module on). Imports are applied by
 // the database in one transaction; everything else is PhaseForge's own
@@ -78,8 +79,9 @@ export async function updateCaseAction(input: { workOrderId: string; patch: Case
       if (p.internalStatus === 'accepted' && !cur.handoff_accepted_at) row.handoff_accepted_at = new Date().toISOString()
     }
     if (p.ownerProfileId !== undefined || p.ownerName !== undefined) {
-      row.owner_profile_id = p.ownerProfileId ?? null; row.owner_name = str(p.ownerName, 120)
-      if ((cur.owner_profile_id ?? null) !== (p.ownerProfileId ?? null)) { changes.push(`owner → ${row.owner_name ?? 'nobody'}`); row.handoff_accepted_at = null; if (!row.internal_status && cur.internal_status === 'new' && row.owner_profile_id) row.internal_status = 'assigned' }
+      Object.assign(row, ownerCols(p.ownerProfileId, p.ownerName))
+      const curOwner = cur.owner_profile_id ?? (cur.owner_employee_id ? `${EMP}${cur.owner_employee_id}` : null)
+      if (curOwner !== (p.ownerProfileId || null)) { changes.push(`owner → ${row.owner_name ?? 'nobody'}`); row.handoff_accepted_at = null; row.external_ack_at = null; row.owner_assigned_at = p.ownerProfileId ? new Date().toISOString() : null; if (!row.internal_status && cur.internal_status === 'new' && p.ownerProfileId) row.internal_status = 'assigned' }
     }
     if (p.department !== undefined) { row.department = str(p.department, 80); if (row.department !== cur.department) changes.push(`department → ${row.department ?? 'none'}`) }
     if (p.nextAction !== undefined) { row.next_action = str(p.nextAction, 500); if (row.next_action !== cur.next_action) changes.push('next action updated') }
@@ -169,7 +171,7 @@ export async function bulkAssignAction(input: { workOrderIds: string[]; ownerPro
     const { data: cases } = await ctx.admin.from('sc_cases').select('id, work_order_id, internal_status').eq('company_id', ctx.companyId).in('work_order_id', ids)
     for (const c of cases ?? []) {
       const row: Record<string, unknown> = { updated_at: now, last_update_at: now }
-      if (input.ownerProfileId !== null || input.ownerName !== null) { row.owner_profile_id = input.ownerProfileId; row.owner_name = str(input.ownerName, 120); row.handoff_accepted_at = null; row.external_ack_at = null; row.owner_assigned_at = input.ownerProfileId ? now : null }
+      if (input.ownerProfileId !== null || input.ownerName !== null) { Object.assign(row, ownerCols(input.ownerProfileId, input.ownerName)); row.handoff_accepted_at = null; row.external_ack_at = null; row.owner_assigned_at = input.ownerProfileId ? now : null }
       if (input.department !== undefined && input.department !== null) row.department = str(input.department, 80)
       if (input.ownerProfileId && c.internal_status === 'new') row.internal_status = 'assigned'
       if (str(input.nextAction, 500)) row.next_action = str(input.nextAction, 500)
@@ -192,7 +194,7 @@ export async function addTaskAction(input: { workOrderId: string; title: string;
     const queue = (QUEUES as readonly string[]).includes(input.queue) ? input.queue : 'general'
     const { data, error } = await ctx.admin.from('sc_tasks').insert({
       company_id: ctx.companyId, work_order_id: input.workOrderId, title, queue, status: input.ownerProfileId ? 'assigned' : 'new',
-      owner_profile_id: input.ownerProfileId ?? null, owner_name: str(input.ownerName, 120), next_action: str(input.nextAction, 500), due_date: date(input.dueDate), created_by: ctx.userId,
+      ...ownerCols(input.ownerProfileId, input.ownerName), next_action: str(input.nextAction, 500), due_date: date(input.dueDate), created_by: ctx.userId,
     }).select('id').single()
     if (error) return { ok: false as const, error: error.message }
     await logEvent(ctx, input.workOrderId, 'task_created', `Task: ${title}${input.ownerName ? ` (${input.ownerName})` : ''}`, { taskId: data.id })
@@ -208,7 +210,7 @@ export async function updateTaskAction(input: { taskId: string; patch: { status?
     const { data: t } = await ctx.admin.from('sc_tasks').select('*').eq('id', input.taskId).eq('company_id', ctx.companyId).maybeSingle()
     if (!t) return { ok: false as const, error: 'Task not found.' }
     const now = new Date().toISOString()
-    const row: Record<string, unknown> = { updated_at: now }
+    const row: Record<string, unknown> = { updated_at: now, last_update_at: now }
     const p = input.patch
     let what = ''
     if (p.status !== undefined) {
@@ -221,15 +223,18 @@ export async function updateTaskAction(input: { taskId: string; patch: { status?
       if (p.status === 'accepted' && !t.accepted_at) row.accepted_at = now
       row.status = p.status; what = `${t.status} → ${p.status}`
     }
-    if (p.ownerProfileId !== undefined || p.ownerName !== undefined) { row.owner_profile_id = p.ownerProfileId ?? null; row.owner_name = str(p.ownerName, 120); row.accepted_at = null; what += `${what ? ', ' : ''}owner → ${row.owner_name ?? 'nobody'}` }
+    if (p.ownerProfileId !== undefined || p.ownerName !== undefined) { Object.assign(row, ownerCols(p.ownerProfileId, p.ownerName)); row.accepted_at = null; row.external_ack_at = null; what += `${what ? ', ' : ''}owner → ${row.owner_name ?? 'nobody'}` }
     if (p.nextAction !== undefined) row.next_action = str(p.nextAction, 500)
     if (p.dueDate !== undefined) row.due_date = date(p.dueDate)
     if (p.blockerReason !== undefined) row.blocker_reason = str(p.blockerReason, 500)
     const { error } = await ctx.admin.from('sc_tasks').update(row).eq('id', t.id)
     if (error) return { ok: false as const, error: error.message }
-    await logEvent(ctx, t.work_order_id as string, 'task_update', `Task "${t.title}": ${what || 'updated'}${str(input.note) ? `. ${str(input.note)}` : ''}`, { taskId: t.id })
-    await ctx.admin.from('sc_cases').update({ last_update_at: now }).eq('work_order_id', t.work_order_id)
-    refresh(`/app/servicechannel/work-orders/${t.work_order_id}`)
+    if (t.work_order_id) {
+      await logEvent(ctx, t.work_order_id as string, 'task_update', `Task "${t.title}": ${what || 'updated'}${str(input.note) ? `. ${str(input.note)}` : ''}`, { taskId: t.id })
+      await ctx.admin.from('sc_cases').update({ last_update_at: now }).eq('work_order_id', t.work_order_id)
+      refresh(`/app/servicechannel/work-orders/${t.work_order_id}`)
+    }
+    refresh('/app/servicechannel/action-center')
     return { ok: true as const }
   } catch (e) { return fail(e) }
 }
@@ -250,7 +255,7 @@ export async function addMetricAction(input: { measure: string; value: number | 
       source: str(input.source, 200) ?? 'Typed in from ServiceChannel', is_sample: !!input.isSample, note: str(input.note, 1000), created_by: ctx.userId,
     })
     if (error) return { ok: false as const, error: error.message }
-    refresh('/app/servicechannel/settings')
+    refresh('/app/servicechannel/settings'); refresh('/app/servicechannel/scores')
     return { ok: true as const }
   } catch (e) { return fail(e) }
 }
@@ -259,7 +264,7 @@ export async function deleteMetricAction(id: string) {
   try {
     const ctx = await scCtx()
     await ctx.admin.from('sc_metric_entries').delete().eq('id', id).eq('company_id', ctx.companyId)
-    refresh('/app/servicechannel/settings')
+    refresh('/app/servicechannel/settings'); refresh('/app/servicechannel/scores')
     return { ok: true as const }
   } catch (e) { return fail(e) }
 }

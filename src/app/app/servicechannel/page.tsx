@@ -1,203 +1,160 @@
 import Link from 'next/link'
-import { requireSc, loadWorkOrders, loadMetrics, loadSettings, loadOpenTasksLite, contactedSinceUnsat, type MetricEntryView } from '@/lib/servicechannel/server'
+import { requireSc, loadWorkOrders, loadMetrics, loadSettings, contactedSinceUnsat, type MetricEntryView } from '@/lib/servicechannel/server'
+import { loadInvestigations, loadProjects, loadRecoveries, loadTasks } from '@/lib/servicechannel/records'
 import { buildActionCenter } from '@/lib/servicechannel/actionCenter'
+import { buildAlerts } from '@/lib/servicechannel/alerts'
 import { daysBetween } from '@/lib/servicechannel/rules'
-import { MEASURES } from '@/lib/servicechannel/types'
-import { AGE_BUCKETS, VIEWS, ageBucket, countViews } from '@/lib/servicechannel/views'
+import { MEASURES, PROJECT_STATUS_LABELS } from '@/lib/servicechannel/types'
 import { fmtDate, fmtWhen } from '@/lib/servicechannel/format'
+import { AlertsPanel } from '@/components/servicechannel/AlertsPanel'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ScOverviewPage() {
+// The Command Center: the official scores exactly as recorded, the goal, and
+// the operational counts that PhaseForge is accountable for. Every number
+// links to the page where it is worked.
+export default async function ScCommandCenterPage() {
   const { admin, companyId } = await requireSc()
   const today = new Date().toISOString().slice(0, 10)
-  const [wos, metrics, settings, overdueTasks] = await Promise.all([
-    loadWorkOrders(admin, companyId), loadMetrics(admin, companyId), loadSettings(admin, companyId),
-    admin.from('sc_tasks').select('work_order_id').eq('company_id', companyId).neq('status', 'verified_resolved').lt('due_date', today).limit(5000),
-  ])
-  const overdueIds = new Set((overdueTasks.data ?? []).map((t) => t.work_order_id as string))
-  const counts = countViews(wos, today, overdueIds)
   const weekAgoIso = new Date(Date.parse(`${today}T00:00:00Z`) - 7 * 86_400_000).toISOString()
-  const [tasksByWo, verifiedWeek, tasksWeek, verifiedCases] = await Promise.all([
-    loadOpenTasksLite(admin, companyId),
-    admin.from('sc_events').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('kind', 'verified').gte('created_at', weekAgoIso),
+  const [wos, metrics, settings, tasks, recoveries, projects, investigations, doneWeek, verifiedCasesWeek] = await Promise.all([
+    loadWorkOrders(admin, companyId), loadMetrics(admin, companyId), loadSettings(admin, companyId), loadTasks(admin, companyId), loadRecoveries(admin, companyId),
+    loadProjects(admin, companyId, today), loadInvestigations(admin, companyId),
     admin.from('sc_tasks').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'verified_resolved').gte('verified_at', weekAgoIso),
-    admin.from('sc_cases').select('created_at, verified_resolved_at').eq('company_id', companyId).not('verified_resolved_at', 'is', null),
+    admin.from('sc_cases').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('verified_resolved_at', weekAgoIso),
   ])
-  const ac = buildActionCenter({ wos, tasksByWo, contactedSinceUnsat: await contactedSinceUnsat(admin, companyId, wos), today })
-  const resolvedDays = (verifiedCases.data ?? []).map((c) => daysBetween(String(c.created_at), String(c.verified_resolved_at)))
-  const avgResolution = resolvedDays.length ? Math.round((resolvedDays.reduce((a, b) => a + b, 0) / resolvedDays.length) * 10) / 10 : null
-  const needsReview = wos.filter((w) => w.observationState === 'needs_verification' || w.observationState === 'not_in_latest' || w.conflicts.some((c) => !c.resolved)).length
-  const ops: [string, string | number, string, string][] = [
-    ['Total imported', wos.length, 'work orders held', '/app/servicechannel/work-orders?view=all'],
-    ['Active now', counts.active, 'open in the latest export', '/app/servicechannel/work-orders?view=active'],
-    ['Needs internal review', needsReview, 'missing from export, flagged, or conflicting', '/app/servicechannel/work-orders?view=verify'],
-    ['Unassigned actionable', ac.counts.unassigned, 'no owner yet', '/app/servicechannel/work-orders?view=unassigned'],
-    ['Overdue follow-ups', ac.counts.overdue, 'internal due dates passed', '/app/servicechannel/work-orders?view=overdue_actions'],
-    ['Complaints awaiting response', ac.counts.complaints, 'unsatisfactory, no contact recorded', '/app/servicechannel/action-center'],
-    ['Blocked', ac.counts.blocked, 'no progress for 3+ days', '/app/servicechannel/action-center'],
-    ['Awaiting verification', ac.counts.verify, 'marked complete, not verified', '/app/servicechannel/action-center'],
-    ['Resolved this week', `${verifiedWeek.count ?? 0} / ${tasksWeek.count ?? 0}`, 'cases verified / tasks verified', '/app/servicechannel/reports'],
-    ['Avg resolution', avgResolution !== null ? `${avgResolution}d` : 'n/a', avgResolution !== null ? `over ${resolvedDays.length} verified case(s)` : 'no verified cases yet', '/app/servicechannel/reports'],
+  const ac = buildActionCenter({ wos, tasks, recoveries, projects, contactedSinceUnsat: await contactedSinceUnsat(admin, companyId, wos), today, thresholds: settings.thresholds })
+  const alerts = buildAlerts({ ac, wos, tasks, projects, investigations, metrics, settings, today })
+
+  const openCases = wos.filter((w) => w.case.internalStatus !== 'new' && w.case.internalStatus !== 'verified_resolved').length
+  const openTasks = tasks.length
+  const openRecoveries = recoveries.filter((r) => r.status !== 'closed').length
+  const openProjects = projects.filter((p) => p.status === 'active' || p.status === 'planned' || p.status === 'on_hold')
+  const openRca = investigations.filter((i) => i.status === 'open' || i.status === 'investigating').length
+  const q = (s: string) => `/app/servicechannel/action-center?open=${s}`
+  const ops: [string, string | number, string, string, boolean][] = [
+    ['Open responsibilities', openTasks + openCases, `${openTasks} tasks, ${openCases} cases being followed up`, '/app/servicechannel/action-center', false],
+    ['Overdue', ac.counts.overdue, 'internal dates passed', q('overdue'), true],
+    ['No owner', ac.counts.unassigned, 'responsibilities nobody owns', q('unassigned'), true],
+    ['Unacknowledged', ac.counts.unack, `assigned ${settings.thresholds.unackDays}+ days, not accepted`, q('unack'), true],
+    ['Complaints awaiting contact', ac.counts.complaints, 'unsatisfactory or recovery, no contact logged', q('complaints'), true],
+    ['Escalated', ac.counts.escalated, 'handed to management, not cleared', q('escalated'), true],
+    ['Pending verification', ac.counts.verify, 'marked done, not verified', q('verify'), false],
+    ['Customer recoveries open', openRecoveries, 'complaint records in progress', '/app/servicechannel/customer-recovery', false],
+    ['Root cause investigations', openRca, 'open or investigating', '/app/servicechannel/rca', false],
+    ['Improvement projects', openProjects.length, `${openProjects.filter((p) => p.status === 'active').length} active`, '/app/servicechannel/projects', false],
+    ['Corrective actions verified this week', `${doneWeek.count ?? 0}`, `plus ${verifiedCasesWeek.count ?? 0} case(s) verified resolved`, '/app/servicechannel/reports', false],
+    ['Waiting on others', ac.counts.waiting, 'blocked on a person or a customer', '/app/servicechannel/action-center?open=customer', false],
   ]
-  const trendGroups = (key: string) => {
-    const g = new Map<string, MetricEntryView[]>()
-    for (const m of byMeasure.get(key) ?? []) if (m.value !== null) { const k = `${m.scorecardView ?? 'view not recorded'} · ${m.filters ?? 'no filters'}`; g.set(k, [...(g.get(k) ?? []), m]) }
-    return [...g].filter(([, v]) => v.length >= 2)
-  }
 
-  // Latest official entry per measure, with history for a trend.
   const byMeasure = new Map<string, MetricEntryView[]>()
-  for (const m of metrics) byMeasure.set(m.measure, [...(byMeasure.get(m.measure) ?? []), m])
-  const latest = (k: string) => byMeasure.get(k)?.[0] ?? null
-  const scores = MEASURES.filter((m) => ['overall', 'speed', 'quality', 'price', 'engagement'].includes(m.key))
-  const others = MEASURES.filter((m) => !['overall', 'speed', 'quality', 'price', 'engagement'].includes(m.key))
-
-  const active = wos.filter((w) => w.observationState === 'observed' && /^(OPEN|IN PROGRESS)/.test(w.status ?? ''))
-  const byExt = tally(active.map((w) => w.statusExt ?? 'No extended status'))
-  const byAge = AGE_BUCKETS.map((b) => [b.label, active.filter((w) => ageBucket(w.callDate, today) === b.label).length] as [string, number])
-  const byDept = tally(wos.filter((w) => w.case.internalStatus !== 'verified_resolved' && w.case.ownerProfileId).map((w) => w.case.department ?? 'No department'))
-  const byTrade = tally(active.map((w) => w.trade ?? 'No trade'))
+  for (const m of metrics.filter((x) => !x.isSample)) byMeasure.set(m.measure, [...(byMeasure.get(m.measure) ?? []), m])
+  const companyWide = (k: string) => (byMeasure.get(k) ?? []).find((m) => !m.filters || /company|all/i.test(m.filters)) ?? byMeasure.get(k)?.[0] ?? null
+  const scores = MEASURES.filter((m) => ['overall', 'speed', 'quality', 'engagement', 'price'].includes(m.key))
+  const overall = companyWide('overall')
+  const daysLeft = daysBetween(today, settings.targetDate)
+  const customerScores = metrics.filter((m) => !m.isSample && m.filters && !/company|all/i.test(m.filters) && ['quality', 'maintenance', 'overall', 'speed', 'price', 'engagement'].includes(m.measure))
+  const latestPerCustomer = new Map<string, MetricEntryView>()
+  for (const m of customerScores) { const k = `${m.filters}|${m.measure}`; if (!latestPerCustomer.has(k)) latestPerCustomer.set(k, m) }
 
   return (
     <div className="mx-auto max-w-none space-y-5 p-3 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">ServiceChannel Command Center</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Goal: overall score above {settings.targetOverall} by {fmtDate(settings.targetDate)}. ServiceChannel remains the system of record; this is where follow-up is owned.</p>
+          <h1 className="text-xl font-bold text-slate-900">ServiceChannel Performance Recovery Center</h1>
+          <p className="mt-0.5 text-sm text-slate-500">ServiceChannel runs the work orders. This is where Kalos owns the follow-through: who is accountable, what is being fixed, and whether the official score is moving.</p>
         </div>
         <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-          {settings.lastImportAt ? (
-            <>Data as of <strong>{fmtWhen(settings.lastImportAt)}</strong> ({settings.lastImportSource ?? 'import'}){settings.lastCoverage?.statuses.length ? `, statuses ${settings.lastCoverage.statuses.join('/')}` : ''}{settings.lastCoverage?.callDateFrom ? `, calls from ${fmtDate(settings.lastCoverage.callDateFrom)}` : ''}. {wos.length} work orders held.</>
-          ) : <>No report imported yet. <Link className="font-semibold text-indigo-700" href="/app/servicechannel/import">Import one</Link>.</>}
+          {settings.lastImportAt ? <>Work orders as of <strong>{fmtWhen(settings.lastImportAt)}</strong> ({settings.lastImportSource ?? 'import'}). {wos.length} held.</> : <>No report imported yet. <Link className="font-semibold text-indigo-700" href="/app/servicechannel/import">Import one</Link>.</>}
         </div>
       </div>
 
-      {/* Official scores */}
-      <section>
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="text-sm font-bold text-slate-900">Official ServiceChannel scores</h2>
-          <Link href="/app/servicechannel/settings" className="text-xs font-semibold text-indigo-700">Record a reading</Link>
+      {/* Goal and official scores */}
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,3fr)]">
+        <Link href="/app/servicechannel/scores" className="rounded-xl border-2 border-indigo-200 bg-indigo-50/40 p-4 hover:border-indigo-400">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700">The goal</p>
+          <p className="mt-1 text-sm text-slate-700">Official Overall score above <strong>{settings.targetOverall}</strong> by <strong>{fmtDate(settings.targetDate)}</strong>{daysLeft > 0 ? ` (${daysLeft} days left)` : ' (date passed)'}.</p>
+          <div className="mt-3 flex items-end gap-3">
+            <div><p className="text-[11px] text-slate-500">Now</p><p className={`text-4xl font-bold tabular-nums ${overall ? (overall.value! > settings.targetOverall ? 'text-emerald-700' : 'text-rose-700') : 'text-slate-300'}`}>{overall?.value ?? '-'}</p></div>
+            <div className="pb-1 text-xs text-slate-500">{overall ? <>recorded {fmtDate(overall.snapshotDate)}<br />{overall.scorecardView ?? ''}</> : 'Not recorded yet'}</div>
+            <div className="ml-auto pb-1 text-right"><p className="text-[11px] text-slate-500">Gap</p><p className="text-2xl font-bold tabular-nums text-slate-900">{overall ? `${Math.max(0, settings.targetOverall + 1 - overall.value!).toFixed(0)}` : '-'}</p></div>
+          </div>
+          {overall && overall.value! <= settings.targetOverall && <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-indigo-600" style={{ width: `${Math.min(100, (overall.value! / settings.targetOverall) * 100)}%` }} /></div>}
+          <p className="mt-2 text-[11px] text-slate-500">Scores are read from the ServiceChannel Marketplace Score dashboard and typed in with their date. Nothing here estimates a score.</p>
+        </Link>
+        <div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {scores.map((m) => {
+              const e = companyWide(m.key)
+              const hist = (byMeasure.get(m.key) ?? []).filter((x) => x.value !== null && x.filters === e?.filters)
+              const prev = hist[1] ?? null
+              const delta = e && prev && e.value !== null && prev.value !== null ? e.value - prev.value : e?.previousValue != null && e.value !== null ? e.value - e.previousValue : null
+              return (
+                <Link key={m.key} href={`/app/servicechannel/scores#${m.key}`} className="rounded-xl border border-slate-200 bg-white p-3 hover:border-indigo-300">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{m.label}</p>
+                  <p className={`mt-1 text-3xl font-bold tabular-nums ${!e ? 'text-slate-300' : m.key === 'overall' ? (e.value! > settings.targetOverall ? 'text-emerald-700' : 'text-rose-700') : e.value! >= 80 ? 'text-emerald-700' : e.value! < 65 ? 'text-rose-700' : 'text-slate-900'}`}>{e?.value ?? '-'}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{e ? <>{delta !== null && <span className={delta >= 0 ? 'text-emerald-700' : 'text-rose-700'}>{delta >= 0 ? '+' : ''}{Math.round(delta * 100) / 100} · </span>}{fmtDate(e.snapshotDate)}</> : 'Not recorded'}</p>
+                </Link>
+              )
+            })}
+          </div>
+          {latestPerCustomer.size > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[...latestPerCustomer.values()].map((m) => (
+                <Link key={m.id} href="/app/servicechannel/scores" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs hover:border-indigo-300">
+                  <span className="font-semibold text-slate-800">{m.filters}</span> <span className="text-slate-500">{MEASURES.find((x) => x.key === m.measure)?.label}</span> <span className={`font-bold tabular-nums ${m.value! < 65 ? 'text-rose-700' : 'text-slate-900'}`}>{m.value}</span><span className="text-slate-400"> · {m.periodLabel ?? fmtDate(m.snapshotDate)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-          {scores.map((m) => {
-            const e = latest(m.key)
-            const hist = (byMeasure.get(m.key) ?? []).filter((x) => x.value !== null)
-            const delta = e?.value !== null && e?.previousValue !== null && e ? e.value! - e.previousValue! : null
-            const target = m.key === 'overall' ? settings.targetOverall : null
-            return (
-              <div key={m.key} className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="flex items-center justify-between"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{m.label}</p>{e?.isSample && <span className="rounded bg-amber-100 px-1.5 text-[10px] font-bold text-amber-800">SAMPLE</span>}</div>
-                <p className={`mt-1 text-3xl font-bold tabular-nums ${e?.value === null || !e ? 'text-slate-300' : target !== null ? (e.value! > target ? 'text-emerald-700' : 'text-rose-700') : 'text-slate-900'}`}>{e?.value ?? '-'}</p>
-                {target !== null && <p className="text-[11px] text-slate-500">Target above {target}{e ? '' : '. Not captured yet: read it from the provider homepage and record it with its filters.'}</p>}
-                {e && <p className="mt-1 text-[11px] text-slate-500">{delta !== null && <span className={delta >= 0 ? 'text-emerald-700' : 'text-rose-700'}>{delta >= 0 ? '+' : ''}{round(delta)} vs previous · </span>}{e.periodLabel ?? fmtDate(e.snapshotDate)}{e.scorecardView ? ` · ${e.scorecardView}` : ''}</p>}
-                {hist.length >= 2 && <Sparkline values={[...hist].reverse().map((x) => x.value!)} />}
-              </div>
-            )
-          })}
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {others.map((m) => {
-            const e = latest(m.key)
-            return (
-              <div key={m.key} className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{m.label}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{e?.value ?? '-'}<span className="ml-1 text-sm font-medium text-slate-400">{e ? m.unit === 'score' ? '' : m.unit : ''}</span>
-                  {e?.previousValue !== null && e?.previousValue !== undefined && <span className="ml-2 text-xs font-medium text-slate-500">was {e.previousValue}</span>}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">{e ? `${e.periodLabel ?? fmtDate(e.snapshotDate)}${e.filters ? ` · ${e.filters}` : ''}` : 'Not recorded'}</p>
-              </div>
-            )
-          })}
-        </div>
-        <p className="mt-2 text-[11px] text-slate-400">Scores are typed in from ServiceChannel with their date, view, filters, and period. Nothing on this page estimates a score from work orders.</p>
       </section>
 
-      {/* Daily operations */}
+      {/* Alerts */}
       <section>
-        <div className="mb-2 flex items-baseline justify-between"><h2 className="text-sm font-bold text-slate-900">Daily operations</h2><Link href="/app/servicechannel/action-center" className="text-xs font-semibold text-indigo-700">Open the Action Center</Link></div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {ops.map(([label, value, hint, href]) => (
+        <div className="mb-2 flex items-baseline justify-between"><h2 className="text-sm font-bold text-slate-900">Management alerts</h2><Link href="/app/servicechannel/settings" className="text-xs font-semibold text-indigo-700">Thresholds</Link></div>
+        <AlertsPanel alerts={alerts} compact />
+      </section>
+
+      {/* Operational metrics */}
+      <section>
+        <div className="mb-2 flex items-baseline justify-between"><h2 className="text-sm font-bold text-slate-900">Accountability today</h2><Link href="/app/servicechannel/action-center" className="text-xs font-semibold text-indigo-700">Open the action queue</Link></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
+          {ops.map(([label, value, hint, href, bad]) => (
             <Link key={label} href={href} className="rounded-xl border border-slate-200 bg-white p-3 hover:border-indigo-300">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-              <p className={`mt-1 text-2xl font-bold tabular-nums ${typeof value === 'number' && value > 0 && ['Unassigned actionable', 'Overdue follow-ups', 'Complaints awaiting response', 'Blocked'].includes(label) ? 'text-rose-700' : 'text-slate-900'}`}>{value}</p>
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${bad && Number(value) > 0 ? 'text-rose-700' : 'text-slate-900'}`}>{value}</p>
               <p className="mt-0.5 text-[11px] text-slate-400">{hint}</p>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* Score trends by comparable view */}
-      {scores.some((m) => trendGroups(m.key).length) && (
-        <section>
-          <h2 className="mb-2 text-sm font-bold text-slate-900">Score trends <span className="font-normal text-slate-500">(only readings with the same view and filters are compared)</span></h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            {scores.flatMap((m) => trendGroups(m.key).map(([g, hist]) => (
-              <div key={`${m.key}-${g}`} className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{m.label}</p><p className="truncate text-[11px] text-slate-400" title={g}>{g}</p>
-                <Sparkline values={[...hist].reverse().map((x) => x.value!)} />
-                <p className="text-[11px] text-slate-500">{fmtDate(hist[hist.length - 1].snapshotDate)} {hist[hist.length - 1].value} → {fmtDate(hist[0].snapshotDate)} {hist[0].value}</p>
-              </div>
-            )))}
-          </div>
-        </section>
-      )}
-
-      {/* Operational overview */}
+      {/* Projects */}
       <section>
-        <h2 className="mb-2 text-sm font-bold text-slate-900">Operational queues</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          {VIEWS.map((v) => (
-            <Link key={v.key} href={`/app/servicechannel/work-orders?view=${v.key}`} className="rounded-xl border border-slate-200 bg-white p-3 hover:border-indigo-300" title={v.hint}>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{v.label}</p>
-              <p className={`mt-1 text-2xl font-bold tabular-nums ${counts[v.key] && ['critical', 'unsat', 'overdue_actions'].includes(v.key) ? 'text-rose-700' : 'text-slate-900'}`}>{counts[v.key]}</p>
-              <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">{v.hint}</p>
-            </Link>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-slate-500">{counts.unassigned} active work orders have no PhaseForge owner yet. <Link className="font-semibold text-indigo-700" href="/app/servicechannel/work-orders?view=unassigned">Assign them</Link>.</p>
-      </section>
-
-      {/* Charts from real data */}
-      <section className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-        <Bars title="Active by extended status" rows={byExt} />
-        <Bars title="Age of active work orders (since call date)" rows={byAge} />
-        <Bars title="Active by trade" rows={byTrade} />
-        <Bars title="Owned cases by department" rows={byDept} empty="Assign owners and departments to see this." />
-      </section>
-      <p className="text-[11px] text-slate-400">Open versus resolved over time and billing exposure need a completed-work report; import one from ServiceChannel (Completed or Invoiced statuses) and they fill in.</p>
-    </div>
-  )
-}
-
-const round = (n: number) => Math.round(n * 100) / 100
-function tally(values: string[]): [string, number][] {
-  const m = new Map<string, number>()
-  for (const v of values) m.set(v, (m.get(v) ?? 0) + 1)
-  return [...m].sort((a, b) => b[1] - a[1]).slice(0, 12)
-}
-
-function Bars({ title, rows, empty }: { title: string; rows: [string, number][]; empty?: string }) {
-  const max = Math.max(1, ...rows.map((r) => r[1]))
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-      <div className="mt-2 space-y-1.5">
-        {rows.map(([label, n]) => (
-          <div key={label} className="flex items-center gap-2 text-xs">
-            <span className="w-36 truncate text-slate-600" title={label}>{label}</span>
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${(n / max) * 100}%` }} /></div>
-            <span className="w-8 text-right font-semibold tabular-nums text-slate-800">{n}</span>
+        <div className="mb-2 flex items-baseline justify-between"><h2 className="text-sm font-bold text-slate-900">Improvement projects</h2><Link href="/app/servicechannel/projects" className="text-xs font-semibold text-indigo-700">All projects</Link></div>
+        {openProjects.length ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {openProjects.slice(0, 8).map((p) => {
+              const pct = p.tasksTotal ? Math.round((p.tasksDone / p.tasksTotal) * 100) : null
+              return (
+                <Link key={p.id} href={`/app/servicechannel/projects/${p.id}`} className="rounded-xl border border-slate-200 bg-white p-3 hover:border-indigo-300">
+                  <p className="truncate text-sm font-semibold text-slate-900" title={p.name}>{p.name}</p>
+                  <p className="text-[11px] text-slate-500">{p.scopeCustomer ?? 'Company-wide'} · {PROJECT_STATUS_LABELS[p.status]} · {p.ownerName ?? 'no owner'}</p>
+                  <div className="mt-2 flex items-end justify-between text-xs">
+                    <span className="text-slate-600">{p.kpi ?? 'KPI'}: <strong className="tabular-nums">{p.baselineValue ?? '-'}</strong>{p.latestKpi ? <> → <strong className="tabular-nums">{p.latestKpi.value}</strong></> : null}{p.targetValue !== null ? <span className="text-slate-400"> / target {p.targetValue}</span> : null}</span>
+                    <span className="text-slate-500">{pct !== null ? `${pct}% of tasks` : 'no tasks'}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${pct ?? 0}%` }} /></div>
+                  {p.tasksOverdue > 0 && <p className="mt-1 text-[11px] font-semibold text-rose-700">{p.tasksOverdue} task(s) overdue</p>}
+                </Link>
+              )
+            })}
           </div>
-        ))}
-        {!rows.length && <p className="text-xs text-slate-400">{empty ?? 'No data yet.'}</p>}
-      </div>
+        ) : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">No improvement projects yet. <Link className="font-semibold text-indigo-700" href="/app/servicechannel/projects">Create the four starter projects</Link> from the October 13 review, or add your own.</div>}
+      </section>
+
+      <p className="text-[11px] text-slate-400">Open work orders, aging, and the imported detail live under Work Order Reference. Official scores and trends live under Score Performance.</p>
     </div>
   )
-}
-
-function Sparkline({ values }: { values: number[] }) {
-  const w = 120, h = 28
-  const min = Math.min(...values), max = Math.max(...values)
-  const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - ((v - min) / (max - min || 1)) * (h - 4) - 2}`).join(' ')
-  return <svg viewBox={`0 0 ${w} ${h}`} className="mt-1 h-7 w-full text-indigo-500" aria-label="Trend"><polyline fill="none" stroke="currentColor" strokeWidth="2" points={pts} /></svg>
 }

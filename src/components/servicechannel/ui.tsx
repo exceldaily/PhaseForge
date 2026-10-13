@@ -5,13 +5,19 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { INTERNAL_STATUS_LABELS, OBSERVATION_LABELS, type InternalStatus, type ObservationState } from '@/lib/servicechannel/types'
 
+// ServiceChannel runs the operations; PhaseForge drives the accountability.
+// The order follows a working day: what to do, who owns it, what we are
+// fixing, then the reference data and the plumbing.
 const NAV = [
-  { href: '/app/servicechannel', label: 'Overview', exact: true },
-  { href: '/app/servicechannel/action-center', label: 'Action Center' },
-  { href: '/app/servicechannel/work-orders', label: 'Work Orders' },
-  { href: '/app/servicechannel/customers', label: 'Customers' },
-  { href: '/app/servicechannel/departments', label: 'Departments' },
-  { href: '/app/servicechannel/reports', label: 'Weekly Report' },
+  { href: '/app/servicechannel', label: 'Command Center', exact: true },
+  { href: '/app/servicechannel/action-center', label: 'My Action Queue' },
+  { href: '/app/servicechannel/customer-recovery', label: 'Customer Recovery' },
+  { href: '/app/servicechannel/departments', label: 'Department Accountability' },
+  { href: '/app/servicechannel/projects', label: 'Improvement Projects' },
+  { href: '/app/servicechannel/rca', label: 'Root Cause Analysis' },
+  { href: '/app/servicechannel/scores', label: 'Score Performance' },
+  { href: '/app/servicechannel/work-orders', label: 'Work Order Reference' },
+  { href: '/app/servicechannel/reports', label: 'Reports' },
   { href: '/app/servicechannel/import', label: 'Import Center' },
   { href: '/app/servicechannel/settings', label: 'Settings' },
 ]
@@ -22,7 +28,7 @@ export function ScNav() {
     <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white print:hidden" aria-label="ServiceChannel">
       <div className="flex gap-1 overflow-x-auto px-3 sm:px-5">
         {NAV.map((n) => {
-          const active = n.exact ? pathname === n.href : pathname.startsWith(n.href)
+          const active = n.exact ? pathname === n.href : pathname.startsWith(n.href) || (n.href.endsWith('/settings') && pathname.startsWith('/app/servicechannel/customers'))
           return (
             <Link key={n.href} href={n.href}
               className={cn('whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',

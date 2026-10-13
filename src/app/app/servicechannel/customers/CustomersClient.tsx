@@ -40,6 +40,7 @@ export function CustomersClient({ stores, directory, knownCustomers, conflicts }
   return (
     <div className="mx-auto max-w-none space-y-4 p-3 sm:p-5">
       <div>
+        <Link href="/app/servicechannel/settings" className="text-xs font-semibold text-indigo-700">← Settings</Link>
         <h1 className="text-xl font-bold text-slate-900">Customers and stores</h1>
         <p className="mt-0.5 text-sm text-slate-500">The ServiceChannel export carries no customer name, only a store number. Map stores to customers here; the mapping is kept and applied to future imports. Nothing is guessed from a number pattern.</p>
       </div>

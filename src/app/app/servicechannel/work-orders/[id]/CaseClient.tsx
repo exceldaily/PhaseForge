@@ -11,6 +11,7 @@ import { InternalChip, ObservationChip, OfficialChip, cx, fmtDate, fmtWhen, scLi
 import { QuickEditor } from '@/components/servicechannel/QuickEditor'
 import { addNoteAction, addTaskAction, setKalosJobAction, setObservationStateAction, updateTaskAction, verifyCaseAction } from '../../actions'
 import { deleteAttachmentAction, linkWorkOrdersAction, resolveConflictAction, setCustomerAction, unlinkWorkOrdersAction, uploadAttachmentAction } from '../../opsActions'
+import { escalateAction } from '../../recordActions'
 
 interface Props {
   wo: Omit<WorkOrderView, 'notesRaw'>; tasks: TaskView[]; events: EventView[]; observations: ObservationView[]; notes: NoteEvent[]; suggestions: Suggestion[]
@@ -21,6 +22,7 @@ type Result = { ok: boolean; error?: string }
 const EVENT_LABEL: Record<string, string> = {
   imported: 'Imported', import_change: 'Changed in ServiceChannel', not_observed: 'Missing from export', case_update: 'Case updated', handoff_accepted: 'Handoff accepted', verified: 'Verified resolved',
   note: 'Note', customer_contact: 'Customer contact', department_followup: 'Department follow-up', observation_state: 'Observation', kalos_job: 'Kalos job', task_created: 'Task created', task_update: 'Task updated', linked: 'Related work order', attachment: 'Attachment',
+  escalation: 'Escalation', recovery: 'Customer recovery',
 }
 const SOURCE_LABEL: Record<string, string> = { import: 'Imported from ServiceChannel', coverage: 'From the import filters', directory: 'From the store directory', location: 'Matched to a PhaseForge location', manual: 'Manually entered' }
 
@@ -38,6 +40,7 @@ export function CaseClient({ wo, tasks, events, observations, notes, suggestions
   const [customer, setCustomer] = useState(wo.customerName ?? '')
   const [tab, setTab] = useState<'all' | 'pf' | 'sc' | 'imports'>('all')
   const [linkNote, setLinkNote] = useState<Record<string, string>>({})
+  const [esc, setEsc] = useState({ to: c.escalatedTo ?? '', note: c.escalationNote ?? '' })
   const fileRef = useRef<HTMLInputElement>(null)
 
   const run = (fn: () => Promise<Result>, ok: string) => start(async () => { const r = await fn(); setMsg({ ok: r.ok, text: r.ok ? ok : (r.error ?? 'Something went wrong.') }); if (r.ok) router.refresh() })
@@ -58,17 +61,23 @@ export function CaseClient({ wo, tasks, events, observations, notes, suggestions
     <div className="mx-auto max-w-none space-y-4 p-3 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link href="/app/servicechannel/work-orders" className="text-xs font-semibold text-indigo-700">← Work orders</Link>
+          <Link href="/app/servicechannel/work-orders" className="text-xs font-semibold text-indigo-700">← Work Order Reference</Link>
           <h1 className="mt-1 flex flex-wrap items-center gap-2 text-xl font-bold text-slate-900"><span className="font-mono">{wo.trackingNumber}</span><OfficialChip status={wo.status} statusExt={wo.statusExt} /><InternalChip status={c.internalStatus} /></h1>
           <p className="mt-0.5 text-sm text-slate-600">{wo.customerName ?? 'Customer not known'} · {wo.storeLabel ?? 'Store not in export'} · {wo.trade ?? '-'} · {wo.priority ?? '-'}</p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
           <button className="rounded-md bg-indigo-600 px-3 py-1.5 font-semibold text-white" onClick={() => setEditor({})}>Update follow-up</button>
+          <Link className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50" href={`/app/servicechannel/customer-recovery?wo=${wo.id}`}>Start customer recovery</Link>
+          <Link className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50" href={`/app/servicechannel/rca?tn=${encodeURIComponent(wo.trackingNumber)}&customer=${encodeURIComponent(wo.customerName ?? '')}&equipment=${encodeURIComponent(wo.equipment ?? '')}`}>Open investigation</Link>
           <a className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-indigo-700 hover:bg-slate-50" target="_blank" rel="noreferrer" href={scLink(wo.trackingNumber)} title="Work-order URL pattern from the cleanup workbook">Open in ServiceChannel</a>
           {wo.kalosJobNumber && jobUrlTemplate && <a className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-indigo-700 hover:bg-slate-50" target="_blank" rel="noreferrer" href={jobUrlTemplate.replace('{job}', encodeURIComponent(wo.kalosJobNumber))}>Kalos job {wo.kalosJobNumber}</a>}
         </div>
       </div>
       {msg && <div className={cx('rounded-lg border p-3 text-sm', msg.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900')}>{msg.text}</div>}
+      {c.escalatedAt && <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900">Escalated to <strong>{c.escalatedTo}</strong> on {fmtDate(c.escalatedAt.slice(0, 10))}{c.escalationNote ? `: ${c.escalationNote}` : ''}. <button className="ml-2 text-xs font-semibold underline" disabled={pending} onClick={() => run(() => escalateAction({ target: 'case', id: wo.id, to: '' }), 'Escalation cleared.')}>Clear escalation</button></div>}
+      {!c.escalatedAt && c.internalStatus !== 'verified_resolved' && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600"><span>Escalate to management:</span><input className={cx(input, 'w-44')} placeholder="Name" value={esc.to} onChange={(e) => setEsc({ ...esc, to: e.target.value })} /><input className={cx(input, 'w-72')} placeholder="Why" value={esc.note} onChange={(e) => setEsc({ ...esc, note: e.target.value })} /><button className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 disabled:opacity-50" disabled={pending || !esc.to.trim()} onClick={() => run(() => escalateAction({ target: 'case', id: wo.id, ...esc }), 'Escalated.')}>Escalate</button></div>
+      )}
       {(wo.observationState === 'not_in_latest' || wo.observationState === 'needs_verification') && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Not in the latest comparable export. The official status shown is the last one observed ({fmtWhen(wo.lastSeenAt)}); the reason it is missing is not known. Check ServiceChannel before acting.</div>}
 
       {/* Suggestions */}

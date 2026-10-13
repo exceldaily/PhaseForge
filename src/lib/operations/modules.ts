@@ -76,7 +76,7 @@ export const OPERATIONS_MODULES: ModuleDef[] = [
     key: 'servicechannel',
     label: 'ServiceChannel',
     href: '/app/servicechannel',
-    description: 'Imported ServiceChannel work orders, follow-up cases, official scores, and the recovery queues',
+    description: 'ServiceChannel Performance Recovery Center: action queue, customer recovery, department accountability, improvement projects, root cause analysis, and the official scores',
     // Owner only for now; department access comes with the queues.
     roles: ['owner'],
   },

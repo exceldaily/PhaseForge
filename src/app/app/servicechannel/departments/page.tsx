@@ -1,74 +1,69 @@
 import Link from 'next/link'
-import { requireSc, loadWorkOrders, loadOpenTasksLite, loadDepartments } from '@/lib/servicechannel/server'
-import { isActionable } from '@/lib/servicechannel/rules'
-import { WAITING_LABELS, type WaitingOn } from '@/lib/servicechannel/actionCenter'
-import { AddDepartmentsButton } from './AddDepartmentsButton'
+import { requireSc, loadWorkOrders, loadDepartments, loadPeople, loadSettings, contactedSinceUnsat } from '@/lib/servicechannel/server'
+import { loadEmployees, loadProjects, loadRecoveries, loadTasks } from '@/lib/servicechannel/records'
+import { buildActionCenter, type ActionItem } from '@/lib/servicechannel/actionCenter'
+import { DirectoryClient } from './DirectoryClient'
 
 export const dynamic = 'force-dynamic'
 
-type DeptStat = { open: number; unassigned: number; overdue: number; blocked: number; waiting: Partial<Record<WaitingOn, number>>; pending: number; tasks: number; accountable: Map<string, number>; actionOwners: Map<string, number> }
-const link = (dept: string, view: string) => `/app/servicechannel/work-orders?view=${view}&dept=${encodeURIComponent(dept)}`
-
-function Card({ name, s, isNone }: { name: string; s: DeptStat; isNone?: boolean }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <h2 className="text-sm font-bold text-slate-900">{isNone ? 'No department set' : name}</h2>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-        {([['Open', s.open, 'all'], ['Tasks', s.tasks, 'all'], ['Unassigned', s.unassigned, 'unassigned'], ['Overdue', s.overdue, 'overdue_actions'], ['Blocked', s.blocked, 'all'], ['To verify', s.pending, 'all']] as [string, number, string][]).map(([l, n, v]) => (
-          <Link key={l} href={link(isNone ? '__none' : name, v)} className="rounded-lg bg-slate-50 p-2 hover:bg-indigo-50"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{l}</p><p className={`text-lg font-bold tabular-nums ${n && (l === 'Overdue' || l === 'Unassigned') ? 'text-rose-700' : 'text-slate-900'}`}>{n}</p></Link>
-        ))}
-      </div>
-      {Object.keys(s.waiting).length > 0 && <p className="mt-2 text-xs text-slate-600">Waiting: {Object.entries(s.waiting).map(([k, n]) => `${WAITING_LABELS[k as WaitingOn].replace('Waiting on ', '')} ${n}`).join(' · ')}</p>}
-      {(s.accountable.size > 0 || s.actionOwners.size > 0) && (
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-          <div><p className="font-semibold text-slate-500">Accountable</p>{[...s.accountable].sort((a, b) => b[1] - a[1]).map(([p, n]) => <p key={p} className="text-slate-700">{p} <span className="text-slate-400">{n}</span></p>)}</div>
-          <div><p className="font-semibold text-slate-500">Next action</p>{[...s.actionOwners].sort((a, b) => b[1] - a[1]).map(([p, n]) => <p key={p} className="text-slate-700">{p} <span className="text-slate-400">{n}</span></p>)}{!s.actionOwners.size && <p className="text-slate-400">same as accountable</p>}</div>
-        </div>
-      )}
-    </div>
-  )
-}
+interface DeptStat { open: number; overdue: number; unack: number; unassigned: number; blocked: number; escalated: number; complaints: number; verify: number; waiting: number; people: Map<string, { open: number; overdue: number }> }
 
 export default async function ScDepartmentsPage() {
   const { admin, companyId } = await requireSc()
   const today = new Date().toISOString().slice(0, 10)
-  const [wos, tasksByWo, departments] = await Promise.all([loadWorkOrders(admin, companyId), loadOpenTasksLite(admin, companyId), loadDepartments(admin, companyId)])
+  const [wos, tasks, recoveries, projects, departments, people, employees, settings] = await Promise.all([
+    loadWorkOrders(admin, companyId), loadTasks(admin, companyId), loadRecoveries(admin, companyId), loadProjects(admin, companyId, today),
+    loadDepartments(admin, companyId), loadPeople(admin, companyId), loadEmployees(admin, companyId, true), loadSettings(admin, companyId),
+  ])
+  const ac = buildActionCenter({ wos, tasks, recoveries, projects, contactedSinceUnsat: await contactedSinceUnsat(admin, companyId, wos), today, thresholds: settings.thresholds })
 
-  type Stat = DeptStat
-  const blank = (): Stat => ({ open: 0, unassigned: 0, overdue: 0, blocked: 0, waiting: {}, pending: 0, tasks: 0, accountable: new Map(), actionOwners: new Map() })
-  const by = new Map<string, Stat>(departments.map((d) => [d, blank()]))
+  const blank = (): DeptStat => ({ open: 0, overdue: 0, unack: 0, unassigned: 0, blocked: 0, escalated: 0, complaints: 0, verify: 0, waiting: 0, people: new Map() })
+  const by = new Map<string, DeptStat>(departments.map((d) => [d, blank()]))
   const none = blank()
-  for (const w of wos) {
-    if (!isActionable(w)) continue
-    const c = w.case
-    const s = c.department && by.has(c.department) ? by.get(c.department)! : c.department ? (by.set(c.department, by.get(c.department) ?? blank()), by.get(c.department)!) : none
-    s.open++
-    if (!c.ownerProfileId) s.unassigned++
-    const ot = tasksByWo.get(w.id) ?? []
-    s.tasks += ot.length
-    if ((c.dueDate && c.dueDate < today) || ot.some((t) => t.dueDate && t.dueDate < today)) s.overdue++
-    if (c.internalStatus === 'blocked') s.blocked++
-    if (c.waitingOn) s.waiting[c.waitingOn as WaitingOn] = (s.waiting[c.waitingOn as WaitingOn] ?? 0) + 1
-    if (c.internalStatus === 'pending_verification' || ot.some((t) => t.status === 'pending_verification')) s.pending++
-    if (c.ownerName) s.accountable.set(c.ownerName, (s.accountable.get(c.ownerName) ?? 0) + 1)
-    if (c.actionOwnerName) s.actionOwners.set(c.actionOwnerName, (s.actionOwners.get(c.actionOwnerName) ?? 0) + 1)
-  }
-  const cards = [...by.entries()].map(([name, s]) => ({ name, s }))
+  const deptOf = (d: string | null) => (d ? (by.has(d) ? by.get(d)! : (by.set(d, blank()), by.get(d)!)) : none)
+  // Open responsibilities per department: tasks, plus cases a person is following up.
+  const seen = new Set<string>()
+  const count = (dept: string | null, owner: string | null, overdue: boolean) => { const s = deptOf(dept); s.open++; if (owner) { const p = s.people.get(owner) ?? { open: 0, overdue: 0 }; p.open++; if (overdue) p.overdue++; s.people.set(owner, p) } }
+  for (const t of tasks) { seen.add(`task:${t.id}`); count(t.department, t.ownerName, !!t.dueDate && t.dueDate < today) }
+  for (const w of wos) if (w.case.internalStatus !== 'new' && w.case.internalStatus !== 'verified_resolved') count(w.case.department, w.case.ownerName, !!w.case.dueDate && w.case.dueDate < today)
+  for (const r of recoveries) if (r.status !== 'closed') count(r.department, r.ownerName, !!r.followUpDeadline && r.followUpDeadline < today)
+  const bump = (items: ActionItem[], k: keyof Omit<DeptStat, 'people' | 'open'>) => { for (const i of items) deptOf(i.department)[k]++ }
+  for (const s of ac.needsToday) if (s.key in none) bump(s.items, s.key as keyof Omit<DeptStat, 'people' | 'open'>)
+  for (const s of ac.waiting) for (const i of s.items) deptOf(i.department).waiting++
+
+  const cards = [...by.entries()].map(([name, s]) => ({ name, s, members: employees.filter((e) => e.isActive && e.department === name) }))
+  const link = (dept: string, open: string) => `/app/servicechannel/action-center?open=${open}&dept=${encodeURIComponent(dept)}`
 
   return (
-    <div className="mx-auto max-w-none space-y-4 p-3 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Departments</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Active work by department. Departments are your company divisions (Organization settings). The accountable owner and the next-action owner are shown separately.</p>
-        </div>
-        {!departments.length && <AddDepartmentsButton />}
+    <div className="mx-auto max-w-none space-y-5 p-3 sm:p-5">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">Department Accountability</h1>
+        <p className="mt-0.5 text-sm text-slate-500">Open responsibilities by department, with the people who own them. Departments are configured below; people are the company directory, with or without a PhaseForge login.</p>
       </div>
-      {!departments.length && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">No departments are configured yet. Add the suggested ones (Refrigeration, HVAC, Estimating, Scheduling, Billing, Management) or create your own under Organization settings, then set a department on each case.</p>}
+      {!departments.length && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">No departments configured yet. Add the suggested ones below (Refrigeration, HVAC, Estimating, Scheduling / Dispatch, Billing, Management) or type your own.</p>}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {cards.map(({ name, s }) => <Card key={name} name={name} s={s} />)}
-        <Card name="none" s={none} isNone />
+        {[...cards, { name: '__none', s: none, members: employees.filter((e) => e.isActive && !e.department) }].map(({ name, s, members }) => {
+          const isNone = name === '__none'
+          const cells: [string, number, string, boolean][] = [['Open', s.open, 'overdue', false], ['Overdue', s.overdue, 'overdue', true], ['No owner', s.unassigned, 'unassigned', true], ['Unacknowledged', s.unack, 'unack', true], ['Complaints', s.complaints, 'complaints', true], ['Escalated', s.escalated, 'escalated', true], ['Blocked', s.blocked, 'blocked', false], ['To verify', s.verify, 'verify', false], ['Waiting', s.waiting, 'customer', false]]
+          return (
+            <div key={name} className="rounded-xl border border-slate-200 bg-white p-4">
+              <h2 className="text-sm font-bold text-slate-900">{isNone ? 'No department set' : name}</h2>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                {cells.map(([l, n, open, bad]) => <Link key={l} href={link(isNone ? '__none' : name, open)} className="rounded-lg bg-slate-50 p-1.5 hover:bg-indigo-50"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{l}</p><p className={`text-base font-bold tabular-nums ${n && bad ? 'text-rose-700' : 'text-slate-900'}`}>{n}</p></Link>)}
+              </div>
+              <div className="mt-3 text-xs">
+                <p className="font-semibold text-slate-500">People</p>
+                {members.length === 0 && s.people.size === 0 && <p className="text-slate-400">Nobody assigned to this department yet.</p>}
+                <ul className="mt-1 space-y-0.5">
+                  {members.map((e) => { const p = s.people.get(e.name) ?? s.people.get(e.profileName ?? '') ?? { open: 0, overdue: 0 }; return <li key={e.id} className="flex items-center justify-between"><span className="text-slate-800">{e.name}<span className="text-slate-400">{e.jobRole ? ` · ${e.jobRole}` : ''}{e.profileId ? '' : ' · no login'}</span></span><Link href={`/app/servicechannel/action-center?owner=${encodeURIComponent(e.profileName ?? e.name)}`} className="tabular-nums text-slate-600 hover:text-indigo-700">{p.open} open{p.overdue ? <span className="text-rose-700">, {p.overdue} overdue</span> : ''}</Link></li> })}
+                  {[...s.people].filter(([n]) => !members.some((e) => e.name === n || e.profileName === n)).map(([n, p]) => <li key={n} className="flex items-center justify-between"><span className="text-slate-800">{n}<span className="text-slate-400"> · not in the directory</span></span><Link href={`/app/servicechannel/action-center?owner=${encodeURIComponent(n)}`} className="tabular-nums text-slate-600 hover:text-indigo-700">{p.open} open{p.overdue ? <span className="text-rose-700">, {p.overdue} overdue</span> : ''}</Link></li>)}
+                </ul>
+              </div>
+            </div>
+          )
+        })}
       </div>
+      <DirectoryClient employees={employees} departments={departments} people={people.filter((p) => p.hasLogin)} />
     </div>
   )
 }
