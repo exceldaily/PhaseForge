@@ -331,6 +331,10 @@ export async function previewImport(ctx: ScContext, importId: string): Promise<P
     const { data: prior } = await admin.from('sc_imports').select('id, committed_at, source_name').eq('company_id', companyId).eq('file_hash', imp.file_hash).eq('status', 'committed').order('committed_at', { ascending: false }).limit(1).maybeSingle()
     if (prior) { sameFileAs = { id: prior.id as string, committedAt: (prior.committed_at as string | null) ?? null, sourceName: (prior.source_name as string | null) ?? null }; plan.warnings.unshift(`This exact file was already imported${prior.committed_at ? ` on ${new Date(prior.committed_at as string).toLocaleDateString()}` : ''}. Importing it again changes nothing.`) }
   }
+  const missingNow = plan.missing.filter((m) => m.state === 'not_in_latest').length
+  if (existing.length >= 10 && missingNow >= Math.ceil(existing.length * 0.25)) {
+    plan.warnings.unshift(`CHECK THE COVERAGE: this file would mark ${missingNow} of ${existing.length} stored work orders as not in the latest export. If the report was filtered to some subscribers, statuses, trades, or dates, declare that above and preview again. They are never closed or deleted either way.`)
+  }
   const warnings = [...((imp.warnings as string[]) ?? []), ...plan.warnings]
   await admin.from('sc_imports').update({ plan, stats: plan.stats, warnings }).eq('id', importId)
   return {
