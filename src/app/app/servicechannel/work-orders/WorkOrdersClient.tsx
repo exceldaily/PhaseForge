@@ -72,7 +72,7 @@ export function WorkOrdersClient({ wos, people, today, overdueTaskIds, initialVi
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Work Orders</h1>
-          <p className="mt-0.5 text-sm text-slate-500">{rows.length} of {wos.length} shown. Official status is ServiceChannel\'s as last observed; the internal status is PhaseForge\'s.</p>
+          <p className="mt-0.5 text-sm text-slate-500">{rows.length} of {wos.length} shown. Official status is as last observed in ServiceChannel; the internal status belongs to PhaseForge.</p>
         </div>
         <input className={cx(input, 'w-72 py-2 text-sm')} placeholder="Search tracking #, WO #, store, job #, description" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
