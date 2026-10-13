@@ -17,16 +17,18 @@ export function CustomersClient({ stores, directory, knownCustomers, conflicts }
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState({ q: '', region: '', onlyUnknown: true })
+  // Typing in the search box shows every matching store, mapped or not, so a wrong mapping can be found and fixed.
+  const onlyUnknown = filter.onlyUnknown && !filter.q.trim()
   const [customer, setCustomer] = useState('')
   const [preview, setPreview] = useState(false)
   const mapped = useMemo(() => new Map(directory.map((d) => [d.storeNumber, d])), [directory])
   const regions = useMemo(() => [...new Set(stores.map((s) => s.region).filter((x): x is string => !!x))].sort(), [stores])
 
   const rows = stores.filter((s) => {
-    if (filter.onlyUnknown && s.unknown === 0) return false
+    if (onlyUnknown && s.unknown === 0) return false
     if (filter.region && s.region !== filter.region) return false
     const q = filter.q.trim().toLowerCase()
-    if (q && !(s.storeNumber.toLowerCase().startsWith(q) || (s.label ?? '').toLowerCase().includes(q) || (s.city ?? '').toLowerCase().includes(q))) return false
+    if (q && !(s.storeNumber.toLowerCase().includes(q) || (s.label ?? '').toLowerCase().includes(q) || (s.city ?? '').toLowerCase().includes(q) || s.customers.some((c) => c.toLowerCase().includes(q)))) return false
     return true
   })
   const selectedRows = stores.filter((s) => sel.has(s.storeNumber))
@@ -77,7 +79,7 @@ export function CustomersClient({ stores, directory, knownCustomers, conflicts }
         {preview && (
           <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm">
             <p className="font-semibold text-indigo-900">Map {sel.size} store(s) to {customer}?</p>
-            <p className="mt-1 text-xs text-indigo-900">{willFill} work order(s) with no customer will show {customer}. Work orders that already have a customer are not changed. The mapping is used for every future import of these stores.</p>
+            <p className="mt-1 text-xs text-indigo-900">{willFill} work order(s) with no customer will show {customer}, and any that got a different customer from an earlier mapping are corrected. Customers typed on a work order by hand are not changed. The mapping is used for every future import of these stores.</p>
             <ul className="mt-2 max-h-40 overflow-auto text-xs text-slate-700">{selectedRows.map((s) => <li key={s.storeNumber}>{s.label ?? s.storeNumber}{mapped.has(s.storeNumber) ? ` (currently ${mapped.get(s.storeNumber)!.customerName}, will be replaced)` : ''}{s.customers.length ? ` (${s.customers.join(', ')} on some work orders already)` : ''}</li>)}</ul>
             <div className="mt-2 flex gap-2"><button className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white" disabled={pending} onClick={apply}>Apply</button><button className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs" onClick={() => setPreview(false)}>Cancel</button></div>
           </div>
@@ -95,7 +97,7 @@ export function CustomersClient({ stores, directory, knownCustomers, conflicts }
                   <td className="px-2 py-1.5 text-xs text-slate-500">{s.region ?? '-'}</td>
                   <td className="px-2 py-1.5 tabular-nums"><Link className="text-indigo-700 hover:underline" href={`/app/servicechannel/work-orders?view=all&q=${encodeURIComponent(s.storeNumber)}`}>{s.total}</Link></td>
                   <td className={cx('px-2 py-1.5 tabular-nums', s.unknown ? 'font-semibold text-amber-700' : 'text-slate-400')}>{s.unknown}</td>
-                  <td className="px-2 py-1.5 text-xs">{mapped.has(s.storeNumber) ? <span>{mapped.get(s.storeNumber)!.customerName} <button className="ml-1 text-rose-600" disabled={pending} onClick={() => act(() => unmapStoreAction(s.storeNumber), () => 'Mapping removed (existing work orders keep their customer).')}>×</button></span> : s.customers.length ? <span className="text-slate-500">{s.customers.join(', ')} (on work orders)</span> : <span className="text-slate-400">-</span>}</td>
+                  <td className="px-2 py-1.5 text-xs">{mapped.has(s.storeNumber) ? <span>{mapped.get(s.storeNumber)!.customerName} <button className="ml-1 text-rose-600" disabled={pending} onClick={() => act(() => unmapStoreAction(s.storeNumber), (r) => `Mapping removed; ${r.cleared ?? 0} work order(s) show an unknown customer again.`)}>×</button></span> : s.customers.length ? <span className="text-slate-500">{s.customers.join(', ')} (on work orders)</span> : <span className="text-slate-400">-</span>}</td>
                   <td className="max-w-[280px] truncate px-2 py-1.5 text-xs text-slate-500" title={s.sample ?? ''}>{s.sample ?? '-'}</td>
                 </tr>
               ))}
@@ -107,9 +109,9 @@ export function CustomersClient({ stores, directory, knownCustomers, conflicts }
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-bold text-slate-900">Store directory ({directory.length})</h2>
-        <p className="mt-0.5 text-xs text-slate-500">Confirmed mappings. Removing one does not change work orders that already carry the customer.</p>
+        <p className="mt-0.5 text-xs text-slate-500">Confirmed mappings. Removing one clears the customer on work orders that got it from the mapping; customers typed on a work order by hand are kept. Mapping a store again corrects them.</p>
         <ul className="mt-2 grid gap-1 text-xs sm:grid-cols-2 xl:grid-cols-4">
-          {directory.map((d) => <li key={d.id} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1"><span><span className="font-mono font-semibold">{d.storeNumber}</span> → {d.customerName}<span className="ml-1 text-slate-400">by {d.createdName ?? '?'}</span></span><button className="text-rose-600" disabled={pending} onClick={() => act(() => unmapStoreAction(d.storeNumber), () => 'Mapping removed.')}>×</button></li>)}
+          {directory.map((d) => <li key={d.id} className="flex items-center justify-between rounded-md bg-slate-50 px-2 py-1"><span><span className="font-mono font-semibold">{d.storeNumber}</span> → {d.customerName}<span className="ml-1 text-slate-400">by {d.createdName ?? '?'}</span></span><button className="text-rose-600" disabled={pending} onClick={() => act(() => unmapStoreAction(d.storeNumber), (r) => `Mapping removed; ${r.cleared ?? 0} work order(s) show an unknown customer again.`)}>×</button></li>)}
           {!directory.length && <li className="text-slate-400">Nothing mapped yet.</li>}
         </ul>
       </section>

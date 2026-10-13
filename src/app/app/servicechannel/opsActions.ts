@@ -112,7 +112,7 @@ export async function recordExternalAckAction(input: { workOrderId: string; who:
 
 /* ── Customers and stores ───────────────────────────────────────────────── */
 
-/** Map store numbers to a customer and fill the customer on work orders that have none. Never overwrites a customer already set. */
+/** Map store numbers to a customer. Fills work orders with no customer and corrects ones that got theirs from the directory; a customer typed on a work order by hand is never changed. */
 export async function mapStoresAction(input: { storeNumbers: string[]; customerName: string; note?: string }) {
   try {
     const ctx = await scCtx()
@@ -124,18 +124,21 @@ export async function mapStoresAction(input: { storeNumbers: string[]; customerN
     })), { onConflict: 'company_id,store_number' })
     if (error) return { ok: false as const, error: error.message }
     const { data: filled } = await ctx.admin.from('sc_work_orders').update({ customer_name: customer, customer_source: 'directory', updated_at: now() })
-      .eq('company_id', ctx.companyId).in('store_number', stores).is('customer_name', null).select('id')
+      .eq('company_id', ctx.companyId).in('store_number', stores).or('customer_name.is.null,customer_source.eq.directory').select('id')
     refresh()
     return { ok: true as const, stores: stores.length, filled: (filled ?? []).length }
   } catch (e) { return fail(e) }
 }
 
+/** Removes a mapping and clears the customer on work orders that got it from that mapping, so the store shows as unknown again. Hand-typed customers stay. */
 export async function unmapStoreAction(storeNumber: string) {
   try {
     const ctx = await scCtx()
     await ctx.admin.from('sc_store_customers').delete().eq('company_id', ctx.companyId).eq('store_number', storeNumber)
+    const { data: cleared } = await ctx.admin.from('sc_work_orders').update({ customer_name: null, customer_source: null, updated_at: now() })
+      .eq('company_id', ctx.companyId).eq('store_number', storeNumber).eq('customer_source', 'directory').select('id')
     refresh()
-    return { ok: true as const }
+    return { ok: true as const, cleared: (cleared ?? []).length }
   } catch (e) { return fail(e) }
 }
 
