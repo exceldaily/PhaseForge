@@ -6,7 +6,7 @@ const TODAY = '2026-10-13'
 const cov = (over: Partial<Coverage> = {}): Coverage => ({ statuses: ['OPEN', 'IN PROGRESS'], subscribers: [], callDateFrom: '2025-10-13', callDateTo: '2026-10-13', note: null, ...over })
 
 const row = (over: Partial<NormalizedRow> = {}): NormalizedRow => ({
-  trackingNumber: '100', woNumber: null, poNumber: null, customerName: null, storeLabel: '49-00699 - Winter Garden,FL', storeNumber: '49-00699', storeCity: 'Winter Garden', storeState: 'FL',
+  trackingNumber: '100', woNumber: null, poNumber: null, customerName: null, customerSource: null, storeLabel: '49-00699 - Winter Garden,FL', storeNumber: '49-00699', storeCity: 'Winter Garden', storeState: 'FL',
   region: null, district: null, trade: 'REFRIGERATION', category: 'REPAIR', priority: 'P3 (2 BUSINESS DAYS)', area: null, equipment: null, problemType: null, problemCode: null, tagId: null,
   problemDescription: 'Case warm', submittedBy: null, callDate: '2026-10-01', scheduledDate: '2026-10-20', originalEta: '2026-10-03', reassignDate: null, reassignTime: null,
   status: 'IN PROGRESS', statusExt: 'DISPATCH CONFIRMED', resolution: null, nte: 1300, currency: 'USD', assignee: null, dateAssigned: null, technicians: ['Alex Orr'], timezone: 'EST',
@@ -103,5 +103,11 @@ describe('buildPlan', () => {
     expect(p.rows[0].cols).toMatchObject({ location_id: 'loc1', customer_id: 'cust1', customer_name: 'ALDI' })
     expect(p.rows[1].cols.customer_name).toBe('Aldi Inc')
     expect(p.stats.located).toBe(2)
+  })
+  it('fills the customer from the store directory, below a value in the file', () => {
+    const storeCustomers = new Map([['49-00699', 'ALDI']])
+    const p = buildPlan({ rows: [row(), row({ trackingNumber: '2', customerName: 'Aldi Inc', customerSource: 'import' })], existing: [], coverage: cov(), today: TODAY, storeCustomers })
+    expect(p.rows[0].cols).toMatchObject({ customer_name: 'ALDI', customer_source: 'directory' })
+    expect(p.rows[1].cols).toMatchObject({ customer_name: 'Aldi Inc', customer_source: 'import' })
   })
 })

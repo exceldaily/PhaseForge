@@ -78,6 +78,8 @@ export function buildPlan(input: {
   today: string
   /** store number -> existing PhaseForge location, when exactly one matches */
   locations?: Map<string, LocationMatch>
+  /** store number -> customer, from the store directory a person maintains */
+  storeCustomers?: Map<string, string>
 }): Plan {
   const { rows, coverage, today } = input
   const byTracking = new Map(input.existing.map((e) => [e.trackingNumber, e]))
@@ -94,9 +96,11 @@ export function buildPlan(input: {
     if (loc) {
       cols.location_id = loc.locationId
       cols.customer_id = loc.customerId
-      if (!cols.customer_name && loc.customerName) cols.customer_name = loc.customerName
+      if (!cols.customer_name && loc.customerName) { cols.customer_name = loc.customerName; cols.customer_source = 'location' }
       stats.located++
     }
+    const dir = r.storeNumber ? input.storeCustomers?.get(r.storeNumber) : undefined
+    if (!cols.customer_name && dir) { cols.customer_name = dir; cols.customer_source = 'directory'; stats.fromDirectory = (stats.fromDirectory ?? 0) + 1 }
     const flags: ImportFlag[] = []
     const changes: Change[] = []
     let reopened = false

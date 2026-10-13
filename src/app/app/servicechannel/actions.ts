@@ -160,7 +160,7 @@ export async function setKalosJobAction(input: { workOrderId: string; jobNumber:
   } catch (e) { return fail(e) }
 }
 
-export async function bulkAssignAction(input: { workOrderIds: string[]; ownerProfileId: string | null; ownerName: string | null; nextAction?: string; dueDate?: string }) {
+export async function bulkAssignAction(input: { workOrderIds: string[]; ownerProfileId: string | null; ownerName: string | null; nextAction?: string; dueDate?: string; department?: string | null }) {
   try {
     const ctx = await scCtx()
     const ids = [...new Set(input.workOrderIds)].slice(0, 500)
@@ -168,12 +168,14 @@ export async function bulkAssignAction(input: { workOrderIds: string[]; ownerPro
     const now = new Date().toISOString()
     const { data: cases } = await ctx.admin.from('sc_cases').select('id, work_order_id, internal_status').eq('company_id', ctx.companyId).in('work_order_id', ids)
     for (const c of cases ?? []) {
-      const row: Record<string, unknown> = { owner_profile_id: input.ownerProfileId, owner_name: str(input.ownerName, 120), handoff_accepted_at: null, updated_at: now, last_update_at: now }
+      const row: Record<string, unknown> = { updated_at: now, last_update_at: now }
+      if (input.ownerProfileId !== null || input.ownerName !== null) { row.owner_profile_id = input.ownerProfileId; row.owner_name = str(input.ownerName, 120); row.handoff_accepted_at = null; row.external_ack_at = null; row.owner_assigned_at = input.ownerProfileId ? now : null }
+      if (input.department !== undefined && input.department !== null) row.department = str(input.department, 80)
       if (input.ownerProfileId && c.internal_status === 'new') row.internal_status = 'assigned'
       if (str(input.nextAction, 500)) row.next_action = str(input.nextAction, 500)
       if (date(input.dueDate)) row.due_date = date(input.dueDate)
       await ctx.admin.from('sc_cases').update(row).eq('id', c.id)
-      await logEvent(ctx, c.work_order_id as string, 'case_update', `owner → ${row.owner_name ?? 'nobody'} (bulk)${row.next_action ? `. ${row.next_action}` : ''}`, { bulk: true })
+      await logEvent(ctx, c.work_order_id as string, 'case_update', `${row.owner_name !== undefined ? `owner → ${row.owner_name ?? 'nobody'}` : ''}${row.department ? ` department → ${row.department}` : ''} (bulk)${row.next_action ? `. ${row.next_action}` : ''}`.trim(), { bulk: true })
     }
     refresh('/app/servicechannel/work-orders')
     return { ok: true as const, count: (cases ?? []).length }

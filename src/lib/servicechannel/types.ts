@@ -69,6 +69,8 @@ export interface NormalizedRow {
   woNumber: string | null
   poNumber: string | null
   customerName: string | null
+  /** Where customerName came from: a column in the file, or the file-wide subscriber. */
+  customerSource: 'import' | 'coverage' | null
   storeLabel: string | null
   storeNumber: string | null
   storeCity: string | null
@@ -116,5 +118,7 @@ export interface Coverage {
 }
 
 export interface Change { field: string; label: string; from: string | null; to: string | null }
+
+export interface ConflictEntry { field: string; imported: string; kept: string; keptSource: string | null; importId: string; at: string; resolved?: string }
 
 export type ImportFlag = 'reopened' | 'new_unsat' | 'appointment_changed' | 'tech_changed' | 'sla_risk' | 'overdue'

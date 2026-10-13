@@ -93,6 +93,8 @@ describe('normalizeRows', () => {
   it('applies a file-wide customer when the export has no customer column', () => {
     const one = normalizeRows(cells.slice(0, 2), suggestMapping(HEADERS), { fileCustomer: 'ALDI' }).rows[0]
     expect(one.customerName).toBe('ALDI')
+    expect(one.customerSource).toBe('coverage')
+    expect(normalizeRows(cells.slice(0, 2), suggestMapping(HEADERS)).rows[0].customerSource).toBeNull()
   })
   it('refuses a mapping with no tracking column', () => {
     const m = suggestMapping(HEADERS); m['Tracking #'] = ''

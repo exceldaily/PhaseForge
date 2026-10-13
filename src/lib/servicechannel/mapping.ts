@@ -165,6 +165,7 @@ export function normalizeRows(cells: unknown[][], mapping: Record<string, string
       trackingNumber: tracking,
       woNumber: text(get(r, 'woNumber')), poNumber: text(get(r, 'poNumber')),
       customerName: text(get(r, 'customerName')) ?? text(opts.fileCustomer),
+      customerSource: text(get(r, 'customerName')) ? 'import' : text(opts.fileCustomer) ? 'coverage' : null,
       storeLabel: storeFull, storeNumber: store.number, storeCity: store.city, storeState: store.state,
       region: text(get(r, 'region')), district: text(get(r, 'district')), trade: text(get(r, 'trade')), category: text(get(r, 'category')),
       priority: text(get(r, 'priority')), area: text(get(r, 'area')), equipment: text(get(r, 'equipment')), problemType: text(get(r, 'problemType')),
@@ -193,7 +194,7 @@ export function normalizeRows(cells: unknown[][], mapping: Record<string, string
 /** Column names for sc_work_orders, from a normalized row. The links are added by the planner. */
 export function toColumns(r: NormalizedRow): Record<string, unknown> {
   return {
-    tracking_number: r.trackingNumber, wo_number: r.woNumber, po_number: r.poNumber, customer_name: r.customerName,
+    tracking_number: r.trackingNumber, wo_number: r.woNumber, po_number: r.poNumber, customer_name: r.customerName, customer_source: r.customerSource,
     store_label: r.storeLabel, store_number: r.storeNumber, store_city: r.storeCity, store_state: r.storeState,
     region: r.region, district: r.district, trade: r.trade, category: r.category, priority: r.priority,
     area: r.area, equipment: r.equipment, problem_type: r.problemType, problem_code: r.problemCode, tag_id: r.tagId,

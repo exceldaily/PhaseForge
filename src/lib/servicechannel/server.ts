@@ -11,7 +11,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { isOwner } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildPlan, type ExistingWo, type LocationMatch, type Plan } from './sync'
-import { MEASURES, SC_MODULE_KEY, type Coverage, type InternalStatus, type MeasureKey, type NormalizedRow } from './types'
+import { MEASURES, SC_MODULE_KEY, type ConflictEntry, type Coverage, type InternalStatus, type MeasureKey, type NormalizedRow } from './types'
+import { DEFAULT_TEMPLATES } from './templates'
 
 export type Admin = ReturnType<typeof createAdminClient>
 type Row = Record<string, unknown>
@@ -73,6 +74,21 @@ export interface CaseView {
   handoffAcceptedAt: string | null
   verifiedResolvedAt: string | null
   lastUpdateAt: string
+  actionOwnerProfileId: string | null
+  actionOwnerName: string | null
+  ownerAssignedAt: string | null
+  waitingOn: string | null
+  externalAckBy: string | null
+  externalAckRecordedName: string | null
+  externalAckAt: string | null
+  appointmentOn: string | null
+  partsExpectedOn: string | null
+  partsReceivedOn: string | null
+  approvalStatus: string | null
+  equipmentCondition: string | null
+  conditionVerifiedAt: string | null
+  customerContactName: string | null
+  nextContactOn: string | null
 }
 
 export interface WorkOrderView {
@@ -81,6 +97,8 @@ export interface WorkOrderView {
   woNumber: string | null
   poNumber: string | null
   customerName: string | null
+  customerSource: string | null
+  conflicts: ConflictEntry[]
   storeLabel: string | null
   storeNumber: string | null
   storeCity: string | null
@@ -129,11 +147,13 @@ export interface WorkOrderView {
   openTasks: number
 }
 
-const LIST_COLS = 'id, tracking_number, wo_number, po_number, customer_name, store_label, store_number, store_city, store_state, region, district, trade, category, priority, area, equipment, problem_type, problem_code, tag_id, problem_description, submitted_by, call_date, scheduled_date, original_eta, reassign_date, reassign_time, status, status_ext, resolution, nte, currency, assignee, date_assigned, technicians, timezone, kalos_job_number, customer_id, location_id, call_id, first_seen_at, last_seen_at, observation_state, verified_at, verified_note, reopen_count, unsat_count, last_reopened_at, last_unsat_at'
+const LIST_COLS = 'id, tracking_number, wo_number, po_number, customer_name, customer_source, conflicts, store_label, store_number, store_city, store_state, region, district, trade, category, priority, area, equipment, problem_type, problem_code, tag_id, problem_description, submitted_by, call_date, scheduled_date, original_eta, reassign_date, reassign_time, status, status_ext, resolution, nte, currency, assignee, date_assigned, technicians, timezone, kalos_job_number, customer_id, location_id, call_id, first_seen_at, last_seen_at, observation_state, verified_at, verified_note, reopen_count, unsat_count, last_reopened_at, last_unsat_at'
 
 const emptyCase = (): CaseView => ({
   internalStatus: 'new', ownerProfileId: null, ownerName: null, department: null, nextAction: null, dueDate: null, blockerReason: null,
   priorityOverride: null, priorityReason: null, handoffAcceptedAt: null, verifiedResolvedAt: null, lastUpdateAt: new Date(0).toISOString(),
+  actionOwnerProfileId: null, actionOwnerName: null, ownerAssignedAt: null, waitingOn: null, externalAckBy: null, externalAckRecordedName: null, externalAckAt: null,
+  appointmentOn: null, partsExpectedOn: null, partsReceivedOn: null, approvalStatus: null, equipmentCondition: null, conditionVerifiedAt: null, customerContactName: null, nextContactOn: null,
 })
 
 function toView(r: Row, caseRow: Row | null, openTasks: number): WorkOrderView {
@@ -142,6 +162,7 @@ function toView(r: Row, caseRow: Row | null, openTasks: number): WorkOrderView {
     ...base,
     nte: r.nte === null || r.nte === undefined ? null : Number(r.nte),
     technicians: (r.technicians as string[]) ?? [],
+    conflicts: (r.conflicts as ConflictEntry[]) ?? [],
     reopenCount: Number(r.reopen_count ?? 0), unsatCount: Number(r.unsat_count ?? 0),
     case: caseRow ? mapRow<CaseView>(caseRow) : emptyCase(),
     openTasks,
@@ -302,9 +323,9 @@ export async function previewImport(ctx: ScContext, importId: string): Promise<P
   if (!imp) throw new Error('Import not found.')
   if (imp.status !== 'draft') throw new Error(`This import was already ${imp.status}.`)
   const rows = (imp.rows as NormalizedRow[] | null) ?? []
-  const [existing, locations] = await Promise.all([existingForPlan(admin, companyId), locationMatches(admin, companyId)])
+  const [existing, locations, storeCustomers] = await Promise.all([existingForPlan(admin, companyId), locationMatches(admin, companyId), storeDirectoryMap(admin, companyId)])
   const today = new Date().toISOString().slice(0, 10)
-  const plan = buildPlan({ rows, existing, coverage: coverageOf(imp.coverage), today, locations })
+  const plan = buildPlan({ rows, existing, coverage: coverageOf(imp.coverage), today, locations, storeCustomers })
   let sameFileAs: PreviewSummary['sameFileAs'] = null
   if (imp.file_hash) {
     const { data: prior } = await admin.from('sc_imports').select('id, committed_at, source_name').eq('company_id', companyId).eq('file_hash', imp.file_hash).eq('status', 'committed').order('committed_at', { ascending: false }).limit(1).maybeSingle()
@@ -354,3 +375,97 @@ export const BASELINE_ENTRIES: Omit<MetricEntryView, 'id' | 'createdAt'>[] = [
   { measure: 'pm_checkin_pct', value: 36, previousValue: null, unit: '%', snapshotDate: '2026-10-10', periodLabel: '36 complete months through September 2026', scorecardView: 'Maintenance', filters: 'CubeSmart', eligibleCount: null, source: BASELINE_SOURCE, isSample: false, note: 'CubeSmart maintenance check-in compliance. Not a one-month result.' },
   { measure: 'pm_schedule_pct', value: 49, previousValue: null, unit: '%', snapshotDate: '2026-10-10', periodLabel: '36 complete months through September 2026', scorecardView: 'Maintenance', filters: 'CubeSmart', eligibleCount: null, source: BASELINE_SOURCE, isSample: false, note: 'CubeSmart maintenance schedule confirmation. Not a one-month result.' },
 ]
+
+/* ── Store directory, templates, links, attachments, departments ─────────── */
+
+export interface StoreCustomerView { id: string; storeNumber: string; customerName: string; customerId: string | null; note: string | null; createdName: string | null; updatedAt: string }
+export async function loadStoreDirectory(admin: Admin, companyId: string): Promise<StoreCustomerView[]> {
+  const { data } = await admin.from('sc_store_customers').select('id, store_number, customer_name, customer_id, note, created_name, updated_at').eq('company_id', companyId).order('store_number').limit(5000)
+  return mapRows<StoreCustomerView>(data as Row[])
+}
+export async function storeDirectoryMap(admin: Admin, companyId: string): Promise<Map<string, string>> {
+  return new Map((await loadStoreDirectory(admin, companyId)).map((s) => [s.storeNumber, s.customerName]))
+}
+
+export interface TemplateView { id: string; title: string; queue: string; nextAction: string; daysDue: number; waitingOn: string | null; internalStatus: string | null; sortOrder: number; isActive: boolean }
+/** Templates, seeding the defaults the first time a company has none. */
+export async function loadTemplates(admin: Admin, companyId: string, includeInactive = false): Promise<TemplateView[]> {
+  const q = () => admin.from('sc_follow_up_templates').select('*').eq('company_id', companyId).order('sort_order').order('title')
+  let { data } = await q()
+  if (!data?.length) {
+    await admin.from('sc_follow_up_templates').insert(DEFAULT_TEMPLATES.map((t, i) => ({ company_id: companyId, title: t.title, queue: t.queue, next_action: t.nextAction, days_due: t.daysDue, waiting_on: t.waitingOn, internal_status: t.internalStatus, sort_order: i })))
+    data = (await q()).data
+  }
+  return mapRows<TemplateView>(data as Row[]).filter((t) => includeInactive || t.isActive)
+}
+
+export interface RelatedWo { id: string; trackingNumber: string; storeLabel: string | null; status: string | null; statusExt: string | null; callDate: string | null; problemDescription: string | null }
+export interface LinkView { id: string; workOrderId: string; relatedId: string; relation: string; note: string | null; createdName: string | null; createdAt: string; other: RelatedWo }
+const toRelated = (o: Row): RelatedWo => ({ id: o.id as string, trackingNumber: o.tracking_number as string, storeLabel: (o.store_label as string | null) ?? null, status: (o.status as string | null) ?? null, statusExt: (o.status_ext as string | null) ?? null, callDate: (o.call_date as string | null) ?? null, problemDescription: (o.problem_description as string | null) ?? null })
+const RELATED_COLS = 'id, tracking_number, store_label, status, status_ext, call_date, problem_description'
+
+export async function loadLinks(admin: Admin, companyId: string, workOrderId: string): Promise<LinkView[]> {
+  const { data } = await admin.from('sc_links').select('*').eq('company_id', companyId).or(`work_order_id.eq.${workOrderId},related_id.eq.${workOrderId}`)
+  const rows = (data ?? []) as Row[]
+  const otherIds = rows.map((l) => (l.work_order_id === workOrderId ? l.related_id : l.work_order_id) as string)
+  if (!otherIds.length) return []
+  const { data: others } = await admin.from('sc_work_orders').select(RELATED_COLS).in('id', otherIds)
+  const by = new Map((others ?? []).map((o) => [o.id as string, o as Row]))
+  return rows.map((l) => {
+    const oid = (l.work_order_id === workOrderId ? l.related_id : l.work_order_id) as string
+    const o = by.get(oid)
+    return { ...mapRow<Omit<LinkView, 'other'>>(l), other: o ? toRelated(o) : { id: oid, trackingNumber: '?', storeLabel: null, status: null, statusExt: null, callDate: null, problemDescription: null } }
+  })
+}
+
+/** Other work orders at the same store, newest first. Candidates only; a person decides if they are related. */
+export async function loadSameStore(admin: Admin, companyId: string, wo: { id: string; storeNumber: string | null }): Promise<RelatedWo[]> {
+  if (!wo.storeNumber) return []
+  const { data } = await admin.from('sc_work_orders').select(RELATED_COLS).eq('company_id', companyId).eq('store_number', wo.storeNumber).neq('id', wo.id).order('call_date', { ascending: false, nullsFirst: false }).limit(25)
+  return ((data ?? []) as Row[]).map(toRelated)
+}
+
+export const SC_BUCKET = 'project-attachments'
+export interface AttachmentView { id: string; name: string; size: number | null; contentType: string | null; createdName: string | null; createdAt: string; url: string | null }
+export async function loadAttachments(admin: Admin, companyId: string, workOrderId: string): Promise<AttachmentView[]> {
+  const { data } = await admin.from('sc_attachments').select('*').eq('company_id', companyId).eq('work_order_id', workOrderId).order('created_at', { ascending: false })
+  const rows = (data ?? []) as Row[]
+  if (!rows.length) return []
+  let urls: Record<string, string> = {}
+  try {
+    const { data: signed } = await admin.storage.from(SC_BUCKET).createSignedUrls(rows.map((r) => r.path as string), 60 * 60)
+    urls = Object.fromEntries((signed ?? []).filter((d) => d.path && d.signedUrl).map((d) => [d.path as string, d.signedUrl as string]))
+  } catch (e) { logger.error('sc attachments sign', e) }
+  return rows.map((r) => ({ id: r.id as string, name: r.name as string, size: (r.size as number | null) ?? null, contentType: (r.content_type as string | null) ?? null, createdName: (r.created_name as string | null) ?? null, createdAt: r.created_at as string, url: urls[r.path as string] ?? null }))
+}
+
+/** Departments are the company divisions, configured under Organization settings; these are offered when none exist. */
+export const SUGGESTED_DEPARTMENTS = ['Refrigeration', 'HVAC', 'Estimating', 'Scheduling', 'Billing', 'Management']
+
+export interface SavedViewRow { id: string; name: string; filters: Record<string, unknown>; isDefault: boolean }
+export async function loadSavedViews(admin: Admin, companyId: string, userId: string, pageKey: string): Promise<SavedViewRow[]> {
+  const { data } = await admin.from('saved_views').select('id, name, filters, is_default').eq('company_id', companyId).eq('user_id', userId).eq('page_key', pageKey).order('name')
+  return (data ?? []).map((v) => ({ id: v.id as string, name: v.name as string, filters: (v.filters as Record<string, unknown>) ?? {}, isDefault: !!v.is_default }))
+}
+
+/** Work orders with a customer contact recorded after their last unsatisfactory report. */
+export async function contactedSinceUnsat(admin: Admin, companyId: string, wos: WorkOrderView[]): Promise<Set<string>> {
+  const unsat = wos.filter((w) => w.statusExt === 'UNSATISFACTORY')
+  if (!unsat.length) return new Set()
+  const { data } = await admin.from('sc_events').select('work_order_id, created_at').eq('company_id', companyId).eq('kind', 'customer_contact').in('work_order_id', unsat.map((w) => w.id))
+  const since = new Map(unsat.map((w) => [w.id, w.lastUnsatAt ?? w.firstSeenAt]))
+  const out = new Set<string>()
+  for (const e of data ?? []) if ((e.created_at as string) >= (since.get(e.work_order_id as string) ?? '')) out.add(e.work_order_id as string)
+  return out
+}
+
+export interface TaskLiteRow { id: string; workOrderId: string; status: string; dueDate: string | null; title: string }
+export async function loadOpenTasksLite(admin: Admin, companyId: string): Promise<Map<string, TaskLiteRow[]>> {
+  const rows = await pageAll<Row>((a, b) => admin.from('sc_tasks').select('id, work_order_id, status, due_date, title').eq('company_id', companyId).neq('status', 'verified_resolved').range(a, b))
+  const by = new Map<string, TaskLiteRow[]>()
+  for (const r of rows) {
+    const k = r.work_order_id as string
+    by.set(k, [...(by.get(k) ?? []), { id: r.id as string, workOrderId: k, status: r.status as string, dueDate: (r.due_date as string | null) ?? null, title: r.title as string }])
+  }
+  return by
+}

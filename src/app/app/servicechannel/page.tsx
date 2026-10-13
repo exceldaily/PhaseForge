@@ -1,5 +1,7 @@
 import Link from 'next/link'
-import { requireSc, loadWorkOrders, loadMetrics, loadSettings, type MetricEntryView } from '@/lib/servicechannel/server'
+import { requireSc, loadWorkOrders, loadMetrics, loadSettings, loadOpenTasksLite, contactedSinceUnsat, type MetricEntryView } from '@/lib/servicechannel/server'
+import { buildActionCenter } from '@/lib/servicechannel/actionCenter'
+import { daysBetween } from '@/lib/servicechannel/rules'
 import { MEASURES } from '@/lib/servicechannel/types'
 import { AGE_BUCKETS, VIEWS, ageBucket, countViews } from '@/lib/servicechannel/views'
 import { fmtDate, fmtWhen } from '@/lib/servicechannel/format'
@@ -15,6 +17,34 @@ export default async function ScOverviewPage() {
   ])
   const overdueIds = new Set((overdueTasks.data ?? []).map((t) => t.work_order_id as string))
   const counts = countViews(wos, today, overdueIds)
+  const weekAgoIso = new Date(Date.parse(`${today}T00:00:00Z`) - 7 * 86_400_000).toISOString()
+  const [tasksByWo, verifiedWeek, tasksWeek, verifiedCases] = await Promise.all([
+    loadOpenTasksLite(admin, companyId),
+    admin.from('sc_events').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('kind', 'verified').gte('created_at', weekAgoIso),
+    admin.from('sc_tasks').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'verified_resolved').gte('verified_at', weekAgoIso),
+    admin.from('sc_cases').select('created_at, verified_resolved_at').eq('company_id', companyId).not('verified_resolved_at', 'is', null),
+  ])
+  const ac = buildActionCenter({ wos, tasksByWo, contactedSinceUnsat: await contactedSinceUnsat(admin, companyId, wos), today })
+  const resolvedDays = (verifiedCases.data ?? []).map((c) => daysBetween(String(c.created_at), String(c.verified_resolved_at)))
+  const avgResolution = resolvedDays.length ? Math.round((resolvedDays.reduce((a, b) => a + b, 0) / resolvedDays.length) * 10) / 10 : null
+  const needsReview = wos.filter((w) => w.observationState === 'needs_verification' || w.observationState === 'not_in_latest' || w.conflicts.some((c) => !c.resolved)).length
+  const ops: [string, string | number, string, string][] = [
+    ['Total imported', wos.length, 'work orders held', '/app/servicechannel/work-orders?view=all'],
+    ['Active now', counts.active, 'open in the latest export', '/app/servicechannel/work-orders?view=active'],
+    ['Needs internal review', needsReview, 'missing from export, flagged, or conflicting', '/app/servicechannel/work-orders?view=verify'],
+    ['Unassigned actionable', ac.counts.unassigned, 'no owner yet', '/app/servicechannel/work-orders?view=unassigned'],
+    ['Overdue follow-ups', ac.counts.overdue, 'internal due dates passed', '/app/servicechannel/work-orders?view=overdue_actions'],
+    ['Complaints awaiting response', ac.counts.complaints, 'unsatisfactory, no contact recorded', '/app/servicechannel/action-center'],
+    ['Blocked', ac.counts.blocked, 'no progress for 3+ days', '/app/servicechannel/action-center'],
+    ['Awaiting verification', ac.counts.verify, 'marked complete, not verified', '/app/servicechannel/action-center'],
+    ['Resolved this week', `${verifiedWeek.count ?? 0} / ${tasksWeek.count ?? 0}`, 'cases verified / tasks verified', '/app/servicechannel/reports'],
+    ['Avg resolution', avgResolution !== null ? `${avgResolution}d` : 'n/a', avgResolution !== null ? `over ${resolvedDays.length} verified case(s)` : 'no verified cases yet', '/app/servicechannel/reports'],
+  ]
+  const trendGroups = (key: string) => {
+    const g = new Map<string, MetricEntryView[]>()
+    for (const m of byMeasure.get(key) ?? []) if (m.value !== null) { const k = `${m.scorecardView ?? 'view not recorded'} · ${m.filters ?? 'no filters'}`; g.set(k, [...(g.get(k) ?? []), m]) }
+    return [...g].filter(([, v]) => v.length >= 2)
+  }
 
   // Latest official entry per measure, with history for a trend.
   const byMeasure = new Map<string, MetricEntryView[]>()
@@ -82,9 +112,39 @@ export default async function ScOverviewPage() {
         <p className="mt-2 text-[11px] text-slate-400">Scores are typed in from ServiceChannel with their date, view, filters, and period. Nothing on this page estimates a score from work orders.</p>
       </section>
 
+      {/* Daily operations */}
+      <section>
+        <div className="mb-2 flex items-baseline justify-between"><h2 className="text-sm font-bold text-slate-900">Daily operations</h2><Link href="/app/servicechannel/action-center" className="text-xs font-semibold text-indigo-700">Open the Action Center</Link></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {ops.map(([label, value, hint, href]) => (
+            <Link key={label} href={href} className="rounded-xl border border-slate-200 bg-white p-3 hover:border-indigo-300">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${typeof value === 'number' && value > 0 && ['Unassigned actionable', 'Overdue follow-ups', 'Complaints awaiting response', 'Blocked'].includes(label) ? 'text-rose-700' : 'text-slate-900'}`}>{value}</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{hint}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Score trends by comparable view */}
+      {scores.some((m) => trendGroups(m.key).length) && (
+        <section>
+          <h2 className="mb-2 text-sm font-bold text-slate-900">Score trends <span className="font-normal text-slate-500">(only readings with the same view and filters are compared)</span></h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {scores.flatMap((m) => trendGroups(m.key).map(([g, hist]) => (
+              <div key={`${m.key}-${g}`} className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{m.label}</p><p className="truncate text-[11px] text-slate-400" title={g}>{g}</p>
+                <Sparkline values={[...hist].reverse().map((x) => x.value!)} />
+                <p className="text-[11px] text-slate-500">{fmtDate(hist[hist.length - 1].snapshotDate)} {hist[hist.length - 1].value} → {fmtDate(hist[0].snapshotDate)} {hist[0].value}</p>
+              </div>
+            )))}
+          </div>
+        </section>
+      )}
+
       {/* Operational overview */}
       <section>
-        <h2 className="mb-2 text-sm font-bold text-slate-900">Operational overview</h2>
+        <h2 className="mb-2 text-sm font-bold text-slate-900">Operational queues</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {VIEWS.map((v) => (
             <Link key={v.key} href={`/app/servicechannel/work-orders?view=${v.key}`} className="rounded-xl border border-slate-200 bg-white p-3 hover:border-indigo-300" title={v.hint}>

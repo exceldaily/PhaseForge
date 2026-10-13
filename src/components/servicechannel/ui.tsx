@@ -7,7 +7,11 @@ import { INTERNAL_STATUS_LABELS, OBSERVATION_LABELS, type InternalStatus, type O
 
 const NAV = [
   { href: '/app/servicechannel', label: 'Overview', exact: true },
+  { href: '/app/servicechannel/action-center', label: 'Action Center' },
   { href: '/app/servicechannel/work-orders', label: 'Work Orders' },
+  { href: '/app/servicechannel/customers', label: 'Customers' },
+  { href: '/app/servicechannel/departments', label: 'Departments' },
+  { href: '/app/servicechannel/reports', label: 'Weekly Report' },
   { href: '/app/servicechannel/import', label: 'Import Center' },
   { href: '/app/servicechannel/settings', label: 'Settings' },
 ]

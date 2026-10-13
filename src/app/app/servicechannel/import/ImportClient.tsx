@@ -9,7 +9,7 @@ import type { ImportView, MappingView, PreviewSummary } from '@/lib/servicechann
 import { commitImportAction, deleteMappingAction, discardImportAction, saveMappingAction } from '../actions'
 import { cx, fmtWhen } from '@/components/servicechannel/ui'
 
-interface Props { imports: ImportView[]; mappings: MappingView[]; knownSubscribers: string[] }
+interface Props { imports: ImportView[]; mappings: MappingView[]; knownSubscribers: string[]; lastImport: { at: string; source: string | null; coverage: ImportView['coverage'] | null } | null }
 
 const KNOWN_STATUSES = ['OPEN', 'IN PROGRESS', 'COMPLETED', 'COMPLETED/PENDING CONFIRMATION', 'INVOICED', 'CANCELLED']
 const yearAgo = () => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10) }
@@ -23,7 +23,7 @@ async function hashOf(file: File): Promise<string> {
 
 const FLAG_LABEL: Record<string, string> = { reopened: 'Reopened', new_unsat: 'New unsatisfactory', appointment_changed: 'Appointment changed', tech_changed: 'Technician changed', sla_risk: 'ETA passed', overdue: 'Past scheduled date' }
 
-export function ImportClient({ imports, mappings, knownSubscribers }: Props) {
+export function ImportClient({ imports, mappings, knownSubscribers, lastImport }: Props) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [file, setFile] = useState<{ name: string; hash: string; cells: unknown[][] } | null>(null)
@@ -48,6 +48,19 @@ export function ImportClient({ imports, mappings, knownSubscribers }: Props) {
   }, [file, headers, mapping])
   const mappedFields = new Set(Object.values(mapping).filter(Boolean))
   const missingTracking = !!file && !mappedFields.has('trackingNumber')
+  // Fields worth having that are unmapped or mostly blank, so nobody expects data the file does not carry.
+  const fieldWarnings = useMemo(() => {
+    if (!file) return [] as string[]
+    const out: string[] = []
+    const want: [string, string][] = [['status', 'Status'], ['statusExt', 'Extended status'], ['storeFull', 'Store'], ['callDate', 'Call date'], ['scheduledDate', 'Scheduled date'], ['priority', 'Priority'], ['technicians', 'Technician(s)'], ['customerName', 'Customer / subscriber'], ['notesRaw', 'Notes']]
+    for (const [key, label] of want) {
+      const i = headers.findIndex((h) => mapping[h] === key)
+      if (i < 0) { out.push(`${label}: no column mapped${key === 'customerName' ? ' (the export has none; set it below or map stores to customers afterwards)' : ''}`); continue }
+      const blank = file.cells.slice(1).filter((r) => !String(r[i] ?? '').trim()).length
+      if (blank) out.push(`${label}: blank on ${blank} of ${file.cells.length - 1} rows`)
+    }
+    return out
+  }, [file, headers, mapping])
 
   const load = async (f: File) => {
     setMsg(null); setDraft(null); setDone(null)
@@ -110,9 +123,10 @@ export function ImportClient({ imports, mappings, knownSubscribers }: Props) {
         <p className="mt-0.5 text-sm text-slate-500">Upload a report downloaded from ServiceChannel. You will see exactly what would change before anything is written.</p>
       </div>
       {msg && <div className={cx('rounded-lg border p-3 text-sm', msg.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900')}>{msg.text}</div>}
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">{lastImport ? <>Last successful import <strong>{fmtWhen(lastImport.at)}</strong> ({lastImport.source ?? 'file'}){lastImport.coverage?.statuses.length ? `, statuses ${lastImport.coverage.statuses.join('/')}` : ''}{lastImport.coverage?.callDateFrom ? `, call dates ${lastImport.coverage.callDateFrom} to ${lastImport.coverage.callDateTo ?? ''}` : ''}{lastImport.coverage?.note ? ` · ${lastImport.coverage.note}` : ''}.</> : 'No successful import yet.'}</div>
       {done && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          Committed: {done.new ?? 0} new, {done.changed ?? 0} changed, {done.unchanged ?? 0} unchanged, {done.reopened ?? 0} reopened, {done.newUnsat ?? 0} newly unsatisfactory, {done.missing ?? 0} marked missing.{' '}
+          Committed: {done.new ?? 0} new, {done.changed ?? 0} changed, {done.unchanged ?? 0} unchanged, {done.reopened ?? 0} reopened, {done.newUnsat ?? 0} newly unsatisfactory, {done.missing ?? 0} marked missing{done.conflicts ? `, ${done.conflicts} customer conflict(s) to review` : ''}.{' '}
           <Link className="font-semibold underline" href="/app/servicechannel/work-orders">Open work orders</Link>
         </div>
       )}
@@ -142,6 +156,7 @@ export function ImportClient({ imports, mappings, knownSubscribers }: Props) {
               </div>
             </div>
             {missingTracking && <p className="mt-2 text-sm text-rose-700">Pick which column holds the ServiceChannel tracking number.</p>}
+            {fieldWarnings.length > 0 && <ul className="mt-2 list-disc space-y-0.5 rounded-lg bg-slate-50 p-2 pl-6 text-xs text-slate-600">{fieldWarnings.map((w) => <li key={w}>{w}</li>)}</ul>}
             <div className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2 xl:grid-cols-3">
               {headers.map((h, i) => (
                 <label key={h} className="flex items-center gap-2 text-xs">
@@ -243,7 +258,7 @@ export function ImportClient({ imports, mappings, knownSubscribers }: Props) {
         <h2 className="text-sm font-bold text-slate-900">Import history</h2>
         <div className="mt-2 overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="text-left text-[11px] uppercase tracking-wide text-slate-500"><tr>{['When', 'File', 'Status', 'Rows', 'New', 'Changed', 'Missing', 'Coverage'].map((h) => <th key={h} className="px-2 py-1 font-semibold">{h}</th>)}</tr></thead>
+            <thead className="text-left text-[11px] uppercase tracking-wide text-slate-500"><tr>{['When', 'File', 'Status', 'Rows', 'New', 'Changed', 'Missing', 'Conflicts', 'Coverage'].map((h) => <th key={h} className="px-2 py-1 font-semibold">{h}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">
               {imports.map((i) => (
                 <tr key={i.id}>
@@ -254,10 +269,11 @@ export function ImportClient({ imports, mappings, knownSubscribers }: Props) {
                   <td className="px-2 py-1.5 tabular-nums">{i.stats.new ?? '-'}</td>
                   <td className="px-2 py-1.5 tabular-nums">{i.stats.changed ?? '-'}</td>
                   <td className="px-2 py-1.5 tabular-nums">{i.stats.missing ?? '-'}</td>
+                  <td className="px-2 py-1.5 tabular-nums">{i.stats.conflicts ?? '-'}</td>
                   <td className="max-w-[320px] truncate px-2 py-1.5 text-xs text-slate-500">{[i.coverage.statuses.join('/'), i.coverage.subscribers.join(', '), i.coverage.callDateFrom && `${i.coverage.callDateFrom} to ${i.coverage.callDateTo ?? ''}`, i.coverage.note].filter(Boolean).join(' · ') || '-'}</td>
                 </tr>
               ))}
-              {!imports.length && <tr><td colSpan={8} className="px-2 py-6 text-center text-slate-500">No imports yet.</td></tr>}
+              {!imports.length && <tr><td colSpan={9} className="px-2 py-6 text-center text-slate-500">No imports yet.</td></tr>}
             </tbody>
           </table>
         </div>
