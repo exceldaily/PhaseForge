@@ -32,7 +32,7 @@ export function ownerCols(key: string | null | undefined, name: string | null | 
 
 export interface EmployeeView { id: string; name: string; email: string | null; phone: string | null; department: string | null; jobRole: string | null; isActive: boolean; profileId: string | null; profileName: string | null }
 export async function loadEmployees(admin: Admin, companyId: string, includeInactive = false): Promise<EmployeeView[]> {
-  let q = admin.from('employees').select('id, name, email, phone, department, job_role, is_active, profile_id, profiles(full_name)').eq('company_id', companyId).order('name')
+  let q = admin.from('employees').select('id, name, email, phone, department, job_role, is_active, profile_id, profiles!employees_profile_id_fkey(full_name)').eq('company_id', companyId).order('name')
   if (!includeInactive) q = q.eq('is_active', true)
   const { data } = await q
   return (data ?? []).map((r) => ({
