@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import {
-  BadgeDollarSign, BedDouble, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList,
+  Activity, BadgeDollarSign, BedDouble, BarChart2, Bell, BookOpen, Building2, CalendarCheck2, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList,
   Contact, FileDiff, FolderKanban, GanttChartSquare, Layers, LayoutDashboard, LifeBuoy, ListChecks,
   Map, MessageSquare, Radio, ShieldAlert, Upload, UserCircle, UsersRound,
 } from 'lucide-react'
@@ -537,6 +537,22 @@ export const SECTIONS: GuideSection[] = [
       { heading: 'Working a call', text: 'Open any call to edit everything inline: status, priority, dates, multi-tech assignment, links, NTE. Add categorized notes (customer, vendor, parts, scheduling…) and see the full activity timeline, every status change, assignment, ETA change, and note, with who and when. A suggested Next Action is computed from the call\'s state; you can override it.' },
       { heading: 'Stores, techs & customers', text: 'Under Manage: your store/site list (numbers, names, map links) and your tech and vendor roster. Customer accounts and their priority scales (P-codes mapped to internal urgency) live on the Dispatch → Customers & Priorities page, and under Manage → Customers.' },
       { heading: 'Who can do what', text: 'Owners, admins, managers, and dispatchers manage everything; changing a Service Call # is admin-only since it re-keys the call\'s identity. Dispatch is available on Individual, Pro, and Business plans.' },
+    ],
+  },
+  {
+    id: 'servicechannel',
+    icon: Activity,
+    title: 'ServiceChannel Command Center',
+    summary: 'Imported ServiceChannel work orders with PhaseForge follow-up on top: who owns the next step, what is waiting, and the official scores alongside. Owner only for now.',
+    href: '/app/servicechannel',
+    hrefLabel: 'Open ServiceChannel',
+    items: [
+      { heading: 'What it is', text: 'ServiceChannel stays the system of record. PhaseForge reads the reports you download from it (CSV or Excel), keeps every work order it has ever seen, and adds its own follow-up: an internal status, an owner, a next action, a due date, tasks, notes, and a timeline. Nothing here sends anything to ServiceChannel.' },
+      { heading: 'Importing a report', text: 'Import Center takes a downloaded report. The columns are matched to PhaseForge fields (saved mappings are reused when the same layout comes back), then you say what the report covered: which statuses, which subscribers, and the call-date window. That coverage matters: a work order missing from a report is only marked as not in the latest export when the report should have included it. Outside the call-date window it is marked as such instead. Nothing is ever closed or deleted because it is missing. The preview shows new, changed, unchanged, reopened, newly unsatisfactory, and missing work orders before anything is written, and the commit is one all-or-nothing step.' },
+      { heading: 'Official versus internal', text: 'Status and Extended status belong to ServiceChannel, as last observed. Internal status, owner, next action, and due date belong to PhaseForge, and an import never changes them. Every observation keeps the raw row it came from, so any value can be traced to its file.' },
+      { heading: 'Work orders', text: 'The table filters by customer, store, trade, status, extended status, priority, technician, internal status, owner, and observation state, and searches tracking numbers. Select rows to assign an owner in bulk. Click a row to open the case.' },
+      { heading: 'A case', text: 'The case shows the official record, the internal follow-up, tasks, and one timeline of ServiceChannel activity (parsed from the notes column of the report), imports that changed it, and PhaseForge notes and assignments. Completing a task sends it to Pending verification; only a verification with a note moves it to Verified resolved. A case is not resolved because someone marked it green.' },
+      { heading: 'Official scores', text: 'Settings holds the official scores and measures, typed in from ServiceChannel with the date, scorecard view, filters, and period. The dashboard shows the latest entry per measure with that provenance. PhaseForge never estimates a score from work orders. The October 2026 CEO packet baseline can be loaded with one click; its quote and maintenance figures cover 36 months through September and are labeled that way.' },
     ],
   },
   {

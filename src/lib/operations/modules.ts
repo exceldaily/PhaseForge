@@ -72,6 +72,14 @@ export const OPERATIONS_MODULES: ModuleDef[] = [
     // Payroll detail is sensitive: the organization owner only. Admins never see it.
     roles: ['owner'],
   },
+  {
+    key: 'servicechannel',
+    label: 'ServiceChannel',
+    href: '/app/servicechannel',
+    description: 'Imported ServiceChannel work orders, follow-up cases, official scores, and the recovery queues',
+    // Owner only for now; department access comes with the queues.
+    roles: ['owner'],
+  },
 ]
 
 export function moduleAllowsRole(def: ModuleDef, role: OpsRole): boolean {

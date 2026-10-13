@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BedDouble, MessageSquare,
+import { Activity, BedDouble, MessageSquare,
   LayoutDashboard, FolderKanban, GanttChartSquare, CalendarRange,
   Settings, LogOut, ChevronLeft, ChevronRight, ChevronDown, ShieldAlert,
   BarChart2, FileText, UsersRound, Building2, Layers, CreditCard, BookOpen, ListChecks, Radio,
@@ -19,7 +19,7 @@ interface NavItem {
   label: string
   icon: typeof Contact
   // 'reports' | 'dispatch' | 'schedules' gate on plan flags; ops module keys gate on entitlements
-  gate?: 'reports' | 'dispatch' | 'schedules' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices' | 'pm' | 'payroll_audit'
+  gate?: 'reports' | 'dispatch' | 'schedules' | 'customers' | 'staff' | 'vendors' | 'calls' | 'files' | 'invoices' | 'pm' | 'payroll_audit' | 'servicechannel'
 }
 
 interface NavGroup {
@@ -49,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/app/change-orders', label: 'Change Orders', icon: FileDiff },
       { href: '/app/dispatch', label: 'Dispatch', icon: Radio, gate: 'dispatch' },
       { href: '/app/quotes',   label: 'Quotes',   icon: BadgeDollarSign, gate: 'dispatch' },
+      { href: '/app/servicechannel', label: 'ServiceChannel', icon: Activity, gate: 'servicechannel' },
       { href: '/app/boards',   label: 'Boards',   icon: Layers },
       { href: '/app/gantt',    label: 'Gantt',    icon: GanttChartSquare },
       { href: '/app/calendar', label: 'Calendar', icon: CalendarRange },
