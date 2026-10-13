@@ -60,7 +60,5 @@ export function ObservationChip({ state }: { state: string }) {
   return <span className={cn('text-[11px] font-medium', tone)}>{OBSERVATION_LABELS[s] ?? state}</span>
 }
 
-export const fmtDate = (d: string | null | undefined) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '-')
-export const fmtWhen = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '-')
-export const scLink = (tracking: string) => `https://www.servicechannel.com/sc/wo/Workorders/index?id=${encodeURIComponent(tracking)}`
+export { fmtDate, fmtWhen, scLink } from '@/lib/servicechannel/format'
 export const cx = cn

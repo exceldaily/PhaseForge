@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { requireSc, loadWorkOrders, loadMetrics, loadSettings, type MetricEntryView } from '@/lib/servicechannel/server'
 import { MEASURES } from '@/lib/servicechannel/types'
 import { AGE_BUCKETS, VIEWS, ageBucket, countViews } from '@/lib/servicechannel/views'
-import { fmtDate, fmtWhen } from '@/components/servicechannel/ui'
+import { fmtDate, fmtWhen } from '@/lib/servicechannel/format'
 
 export const dynamic = 'force-dynamic'
 
