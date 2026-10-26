@@ -24,6 +24,7 @@ import {
 import { addDays, differenceInDays, format, formatDate, isOverdue } from '@/lib/dates'
 import { getProjectProgressFromPhases } from '@/lib/phaseProgress'
 import { createClient } from '@/lib/supabase/server'
+import { throwIfUnreachable } from '@/lib/supabase/unreachable'
 import { activeTrade } from '@/lib/tradeFilter'
 import { getStoredBoardFilter } from '@/lib/boardFilter.server'
 import { cn } from '@/lib/utils'
@@ -84,10 +85,19 @@ export default async function DashboardPage({
   const supabase = await createClient()
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser()
+  // A hung backend must surface as the "can't reach the database" page, never
+  // as a redirect to /login or /signup (which is what null data would do).
+  throwIfUnreachable(authError)
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+  throwIfUnreachable(profileError)
   if (!profile?.company_id) redirect('/signup')
 
   const { data: boardsData } = await supabase
@@ -134,6 +144,7 @@ export default async function DashboardPage({
       .limit(30),
   ])
 
+  throwIfUnreachable(projectsRes.error)
   const projects = (projectsRes.data ?? []) as ProjectWithPhases[]
   const members = (membersRes.data ?? []) as Profile[]
   const teams = (teamsRes.data ?? []) as TeamRow[]

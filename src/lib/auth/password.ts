@@ -19,6 +19,15 @@ export function validatePassword(password: string, confirmPassword?: string) {
 export function getFriendlyAuthError(message: string) {
   const normalized = message.toLowerCase()
 
+  if (
+    normalized.includes('timed out') ||
+    normalized.includes('failed to fetch') ||
+    normalized.includes('fetch failed') ||
+    normalized.includes('load failed')
+  ) {
+    return 'Could not reach the sign-in service. Check your connection and try again in a moment.'
+  }
+
   if (normalized.includes('user already registered')) {
     return 'An account with this email already exists. Try signing in or resetting your password.'
   }

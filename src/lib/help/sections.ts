@@ -54,6 +54,7 @@ export const SECTIONS: GuideSection[] = [
       { heading: 'The same words as the guide', text: 'The panel shows the relevant slices of this guide, so nothing can drift out of date between the two. When something in the app changes, it changes here and in the panel at the same time.' },
       { heading: 'While a page loads', text: 'Clicking anything shows immediate feedback: a thin progress bar runs across the top of the app and the destination page sketches itself in grey while the data loads, so nobody wonders whether their tap registered.' },
       { heading: 'New people', text: 'Point a new hire at the ? on each page rather than a training doc. The welcome tour on this page covers the big picture; the panel covers the screen in front of them.' },
+      { heading: 'If a page says it cannot reach the database', text: 'PhaseForge gives its database a few seconds to answer. When it does not, you get a \"Can\'t reach the database right now\" page with Try again instead of a tab that spins forever. Your data is untouched. Wait a moment and retry; if every page keeps saying it, the database service behind the app needs a restart, which is an admin job, not something on your device.' },
     ],
   },
   {

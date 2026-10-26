@@ -3,6 +3,8 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
+import { BackendUnavailable } from '@/components/ui/BackendUnavailable'
+import { isUnreachableDigest } from '@/lib/supabase/unreachable'
 
 // Catches runtime errors thrown by any page/layout in the authenticated
 // section. Complements the component-level ErrorBoundary (used around
@@ -19,6 +21,9 @@ export default function AppError({
     // for correlating with server logs if a monitoring service is added later.
     console.error('App route error:', error.message, error.digest)
   }, [error])
+
+  // A Supabase request timed out or the backend refused the connection.
+  if (isUnreachableDigest(error)) return <BackendUnavailable onRetry={reset} />
 
   return (
     <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-4 p-8 text-center">

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { throwIfUnreachable } from '@/lib/supabase/unreachable'
 import { AppShell } from '@/components/layout/AppShell'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { canUsePrintAndReports, canUseDarkMode, canUseTickets, canUseSchedules, canUseTradeFilter, STANDARD_TRADES } from '@/lib/constants'
@@ -10,14 +11,18 @@ import { Profile } from '@/types/app'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  // Auth or REST not answering: show "can't reach the database" (src/app/error.tsx)
+  // instead of an empty shell or a redirect loop to /login.
+  throwIfUnreachable(authError)
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+  throwIfUnreachable(profileError)
 
   let canUseReports = false
   let canUseTheme = false
@@ -27,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let opsModuleKeys: ModuleKey[] = []
   let tradeFilter: { current: string; trades: string[] } | null = null
   if (profile?.company_id) {
-    const [{ data: company }, { data: orgModules }] = await Promise.all([
+    const [{ data: company, error: companyError }, { data: orgModules }] = await Promise.all([
       supabase
         .from('companies')
         .select('plan, dispatch_enabled, schedule_job_url_template')
@@ -38,6 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         .select('module_key, enabled')
         .eq('company_id', profile.company_id),
     ])
+    throwIfUnreachable(companyError)
     canUseReports = canUsePrintAndReports(company?.plan)
     canUseTheme = canUseDarkMode(company?.plan)
     canUseDispatch = canUseTickets(company?.plan) || (company?.dispatch_enabled ?? false)

@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { SERVER_FETCH_TIMEOUT_MS, fetchWithTimeout } from './fetch'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -10,6 +11,8 @@ export async function createClient() {
       // App data lives in the `phaseforge` schema (project shared with
       // ReelFishHelp, whose tables occupy `public`).
       db: { schema: 'phaseforge' },
+      // Fail fast when Supabase hangs; see ./fetch.ts.
+      global: { fetch: fetchWithTimeout(SERVER_FETCH_TIMEOUT_MS) },
       cookies: {
         getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {
